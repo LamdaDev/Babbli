@@ -46,6 +46,8 @@ export interface IntentCard {
   hints: HintSet;
   /** Target-language words that show the learner used the right vocabulary. */
   keywords: string[];
+  /** Moves the scene forward. Every draw of cards includes at least one (see `randomizeCards`). */
+  core?: boolean;
 }
 
 export interface SlotSpec {
@@ -118,6 +120,8 @@ export interface ScenarioState {
   objectiveComplete: boolean;
   finished: boolean;
   turnCount: number;
+  /** Cards (by key) whose question was already dealt with in the current stage — not offered again. */
+  usedCards?: string[];
 }
 
 export type Variant = Record<string, string | boolean | number>;
@@ -141,9 +145,16 @@ export interface StageDef {
   meaning: string;
   /** Learner-facing explanation of what is being asked (Hint 1 before choosing a card). */
   situation: string;
+  /** The stage's card bank (with `randomizeCards`, three are drawn from it each turn). */
   cards: (ctx: { state: ScenarioState; variant: Variant; difficulty: Difficulty }) => IntentCard[];
   /** Other intents that are valid here (not shown as cards). */
   extraIntents?: string[];
+  /**
+   * Other labels the agent may give a reply that means the same thing in this stage
+   * (e.g. "yes" → "gift_wrap" when asked about gift wrapping, "take_it" → "describe_item"
+   * when they're naming a color). Tried only when `resolve` doesn't handle the reported intent.
+   */
+  aliases?: Record<string, string>;
   resolve: (ctx: ResolveContext) => Outcome | null;
   /** Narration shown when the learner must speak first (no NPC line precedes the stage). */
   learnerOpens?: string;
@@ -201,6 +212,12 @@ export interface ScenarioDef {
   ambienceAsset: string;
   sfx: Record<string, string>;
   briefing: { title: string; lines: string[] };
+  /**
+   * Draw three cards per turn from each stage's bank (always keeping one `core` card that moves
+   * the scene forward, and never re-offering a question already answered in the stage).
+   * Without it, a stage shows its first three cards in order.
+   */
+  randomizeCards?: boolean;
   stages: StageDef[];
   initialStage: string;
   /** Intent descriptions (all intents the agent may report). */
@@ -260,9 +277,11 @@ export const GENERIC_INTENTS: Record<string, string> = {
   ask_repeat: "Customer asks you to repeat what you said",
   ask_slower: "Customer asks you to speak more slowly",
   ask_meaning: "Customer asks what a word or phrase means",
-  greet: "Customer greets you (hello / good evening)",
+  greet: "Customer greets you or makes small talk (hello / how are you / how's your day / busy today?)",
   thanks: "Customer thanks you",
   goodbye: "Customer says goodbye",
-  off_topic: "Utterance is understandable but unrelated to the current situation",
-  unintelligible: "You could not understand the customer at all",
+  yes: "Customer just says yes / agrees to what you asked or offered (fill the slots with what they're agreeing to)",
+  no: "Customer just says no / turns down what you asked or offered",
+  off_topic: "Utterance has nothing to do with this scene (unrelated topics, talking to you as an AI)",
+  unintelligible: "You could not make out what the customer said at all",
 };

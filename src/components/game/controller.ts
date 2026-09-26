@@ -1,10 +1,11 @@
 "use client";
 
 import type { ConversationControlsValue, HookOptions } from "@elevenlabs/react";
-import { buildNpcPrompt } from "@/lib/engine/agentConfig";
+import { buildNpcPrompt, buildResyncNote } from "@/lib/engine/agentConfig";
 import {
   createInitialState,
   currentCards,
+  defaultHintCard,
   formatDirective,
   getStage,
   normalizeReport,
@@ -51,6 +52,8 @@ export class GameController {
   private pendingAssist = { hints: [] as number[], repeats: 0, slows: 0, translations: 0 };
   private deferredEvents: SceneEventId[] = [];
   private agentSpeaking = false;
+  /** Learner turn whose words reached the agent and still wait for the report tool call. */
+  private awaitingTool: string | null = null;
   private listeningTimer: ReturnType<typeof setTimeout> | null = null;
   private watchdog: ReturnType<typeof setTimeout> | null = null;
   private activityTimer: ReturnType<typeof setInterval> | null = null;
@@ -102,7 +105,7 @@ export class GameController {
       showTranslation: false,
       translationAllowed: difficulty === "beginner",
       stageId: state.stageId,
-      cards: currentCards(scenario, state, variant, difficulty),
+      cards: currentCards(scenario, state, variant, difficulty, seed),
       selectedCard: null,
       progress: progressGroups(scenario, state),
       narration: null,
@@ -177,7 +180,7 @@ export class GameController {
     const s = this.session.state;
     this.set({
       stageId: s.stageId,
-      cards: currentCards(this.scenario, s, this.session.variant, this.difficulty),
+      cards: currentCards(this.scenario, s, this.session.variant, this.difficulty, this.session.seed),
       progress: progressGroups(this.scenario, s),
       slots: { ...s.slots },
       flags: { ...s.flags },
@@ -362,6 +365,7 @@ export class GameController {
     const turn = this.activeTurn;
     if (!turn || turn.transcriptAgent) return;
     turn.transcriptAgent = text;
+    this.awaitingTool = turn.id;
     this.set({ userCaption: { text: cleanTranscript(text), final: true } });
     if (this.ui.phase === "speak") void this.closeLiveTurn();
   }
@@ -395,6 +399,8 @@ export class GameController {
 
   private async afterNpcLine() {
     if (this.ui.phase !== "npc") return;
+    // The NPC has finished answering, yet the report tool never came: the engine didn't see that turn.
+    if (this.awaitingTool) this.resyncAfterSkippedTool();
     if (this.session.state.finished) {
       await sleep(700);
       await this.finish("completed");
@@ -481,15 +487,18 @@ export class GameController {
     }
     const report: TurnReport = normalizeReport(this.scenario, params);
     const before = this.session.state;
-    const { outcome, state } = resolveTurn(this.scenario, before, report, this.session.variant, this.difficulty);
+    const expected = turn.expected;
+    // The picked card helps the engine read the agent's intent label (several labels fit the same words).
+    const chosen = expected ? { id: expected.intent, expect: expected.expect, keywords: expected.keywords } : null;
+    const { outcome, state, intent } = resolveTurn(this.scenario, before, report, this.session.variant, this.difficulty, chosen);
 
     let intentMatched: boolean | null = null;
-    if (turn.expected) {
-      const slotsOk = Object.entries(turn.expected.expect ?? {}).every(([k, v]) => {
+    if (expected) {
+      const slotsOk = Object.entries(expected.expect ?? {}).every(([k, v]) => {
         const got = typeof report[k] === "string" ? (report[k] as string) : "";
         return !got || got === v;
       });
-      intentMatched = report.intent === turn.expected.intent && slotsOk;
+      intentMatched = intent === expected.intent && slotsOk;
     }
     turn.report = report;
     turn.transcriptAgent ||= report.heard;
@@ -503,8 +512,9 @@ export class GameController {
       nextStageId: outcome.nextStageId,
     };
     this.session.state = state;
-    this.log("turn_resolved", { turnId: turn.id, intent: report.intent, kind: outcome.kind, next: outcome.nextStageId });
+    this.log("turn_resolved", { turnId: turn.id, intent: report.intent, resolvedAs: intent, kind: outcome.kind, next: outcome.nextStageId });
     this.activeTurn = null;
+    this.awaitingTool = null;
     this.pendingMeaning = outcome.meaning;
     this.narrationPending = outcome.nextStageId !== before.stageId && !!getStage(this.scenario, outcome.nextStageId).learnerOpens;
 
@@ -536,8 +546,29 @@ export class GameController {
     return formatDirective(this.scenario, outcome, state, this.difficulty);
   }
 
+  /**
+   * The agent answered the learner without calling the report tool, so nothing the NPC just said
+   * happened in the scene. Quietly re-sync the agent (otherwise it keeps building on its own
+   * improvisation, as if the scene had moved on) and give the learner the same turn back — the
+   * cards stay as they were, since the scene didn't change.
+   */
+  private resyncAfterSkippedTool() {
+    const turnId = this.awaitingTool;
+    this.awaitingTool = null;
+    this.log("tool_skipped", { turnId });
+    this.clearWatchdog();
+    try {
+      this.controls?.sendContextualUpdate(buildResyncNote(this.scenario, this.session.state));
+    } catch {
+      /* not connected */
+    }
+    // The unjudged attempt stays in the record (no outcome); the learner's next reply is a new turn.
+    if (this.activeTurn?.id === turnId) this.activeTurn = null;
+  }
+
   private recoverFromSilence() {
     if (this.ui.phase !== "processing") return;
+    this.awaitingTool = null;
     this.toast(`${this.scenario.npc.name} didn't respond — try saying it again.`, "warn");
     this.set({ userCaption: null });
     if (this.activeTurn && !this.activeTurn.outcome) this.cancelTurn(false);
@@ -592,6 +623,7 @@ export class GameController {
     }
     this.session.turns = this.session.turns.filter((t) => t.id !== turn.id);
     this.activeTurn = null;
+    if (this.awaitingTool === turn.id) this.awaitingTool = null;
   }
 
   chooseCard(card: IntentCard) {
@@ -709,6 +741,7 @@ export class GameController {
       // The final (batch) transcript replaces the live caption — it's exactly what the NPC receives.
       this.set({ busyLabel: null, userCaption: { text: stt.transcript, final: true } });
       this.controls?.sendUserMessage(stt.transcript);
+      this.awaitingTool = turn.id;
       this.log("ptt_sent", { turnId: turn.id, transcript: stt.transcript });
       this.startWatchdog(15000, () => this.recoverFromSilence());
     } catch (e) {
@@ -775,6 +808,7 @@ export class GameController {
     this.setPhase("processing");
     this.audio.duck(false);
     this.controls.sendUserMessage(clean);
+    this.awaitingTool = turn.id;
     this.log("text_sent", { turnId: turn.id });
     this.startWatchdog(15000, () => this.recoverFromSilence());
   }
@@ -798,7 +832,7 @@ export class GameController {
   }
 
   hintCard(): IntentCard | null {
-    return this.ui.selectedCard ?? this.ui.cards[0] ?? null;
+    return this.ui.selectedCard ?? defaultHintCard(this.ui.cards);
   }
 
   toggleHelp() {

@@ -55,7 +55,11 @@ export function ChoicePanel() {
               </motion.p>
             )}
             <p className="mx-auto mb-2 w-fit rounded-full bg-night/55 px-3 py-1 text-center text-xs font-extrabold uppercase tracking-[0.25em] text-cream/90 backdrop-blur-sm">What do you want to say?</p>
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3 sm:gap-4">
+            <div
+              className={`grid grid-cols-1 gap-2.5 sm:gap-4 ${
+                cards.length >= 3 ? "sm:grid-cols-3" : cards.length === 2 ? "mx-auto max-w-2xl sm:grid-cols-2" : "mx-auto max-w-sm"
+              }`}
+            >
               {cards.map((card, i) => (
                 <IntentionCard key={`${stageId}-${card.key ?? card.id}`} card={card} index={i} onPick={() => controller.chooseCard(card)} />
               ))}

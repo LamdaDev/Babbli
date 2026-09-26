@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { getStage } from "@/lib/engine/engine";
+import { defaultHintCard, getStage } from "@/lib/engine/engine";
 import { useController, useGame } from "./GameContext";
 
 const LEVELS = [
@@ -22,7 +22,7 @@ export function HintPanel() {
   const stageId = useGame((s) => s.stageId);
   const selected = useGame((s) => s.selectedCard);
   const cards = useGame((s) => s.cards);
-  const card = selected ?? cards[0] ?? null;
+  const card = selected ?? defaultHintCard(cards);
   const stage = getStage(controller.scenario, stageId);
   const next = LEVELS[level];
 

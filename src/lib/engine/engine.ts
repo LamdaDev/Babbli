@@ -1,3 +1,4 @@
+import { containsTerm } from "@/lib/evaluation/text";
 import {
   GENERIC_INTENTS,
   type Difficulty,
@@ -32,6 +33,7 @@ export function createInitialState(scenario: ScenarioDef): ScenarioState {
     objectiveComplete: false,
     finished: false,
     turnCount: 0,
+    usedCards: [],
   };
 }
 
@@ -45,13 +47,64 @@ export function allIntentIds(scenario: ScenarioDef): string[] {
   return Array.from(new Set([...Object.keys(scenario.intents), ...Object.keys(GENERIC_INTENTS)]));
 }
 
+export const cardKey = (card: IntentCard) => card.key ?? card.id;
+
+/** Two cards ask the same thing (only the wording differs): same intent, same expected slots. */
+function sameQuestion(a: IntentCard, b: IntentCard) {
+  return a.id === b.id && JSON.stringify(a.expect ?? {}) === JSON.stringify(b.expect ?? {});
+}
+
+function hashString(s: string) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+function shuffle<T>(items: T[], rand: () => number): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/**
+ * The three cards offered this turn. With `randomizeCards`, they're drawn from the stage's bank:
+ * - at least one `core` card, so there's always a way forward;
+ * - questions already answered in this stage aren't offered again;
+ * - no two rewordings of the same question side by side (unless nothing else is left);
+ * - a new draw only after something actually happened (a misunderstanding keeps the same cards,
+ *   so the learner can retry), and a different draw every attempt (session `seed`).
+ */
 export function currentCards(
   scenario: ScenarioDef,
   state: ScenarioState,
   variant: Variant,
   difficulty: Difficulty,
+  seed = 0,
 ): IntentCard[] {
-  return getStage(scenario, state.stageId).cards({ state, variant, difficulty }).slice(0, 3);
+  const bank = getStage(scenario, state.stageId).cards({ state, variant, difficulty });
+  if (!scenario.randomizeCards) return bank.slice(0, 3);
+  const used = new Set(state.usedCards ?? []);
+  const fresh = bank.filter((c) => !used.has(cardKey(c)));
+  const pool = fresh.length ? fresh : bank;
+  const drawIndex = state.turnCount - state.misses - state.learnerClarifications;
+  const rand = seededRandom(hashString(`${seed}|${state.stageId}|${drawIndex}`));
+  const order = shuffle(pool, rand);
+  const picked: IntentCard[] = [];
+  const core = order.find((c) => c.core);
+  if (core) picked.push(core);
+  for (const c of order) {
+    if (picked.length < 3 && !picked.includes(c) && !picked.some((p) => sameQuestion(p, c))) picked.push(c);
+  }
+  for (const c of order) if (picked.length < 3 && !picked.includes(c)) picked.push(c);
+  return shuffle(picked, rand);
+}
+
+/** Before a card is picked, hints default to one that moves the scene forward. */
+export function defaultHintCard(cards: IntentCard[]): IntentCard | null {
+  return cards.find((c) => c.core) ?? cards[0] ?? null;
 }
 
 /** Ordered progress groups with completion status for the HUD. */
@@ -201,9 +254,10 @@ function genericOutcome(
       reaction: "positive",
     };
   }
+  // Understood perfectly — they're just leaving too early. Not a "didn't understand".
   if (report.intent === "goodbye") {
     return {
-      kind: "clarify",
+      kind: "info",
       success: false,
       answeredQuestion: false,
       ...stay,
@@ -211,6 +265,35 @@ function genericOutcome(
       meaning: `Oh — are you leaving already? ${stage.meaning}`,
       reaction: "confused",
       note: "You said goodbye before finishing the task.",
+    };
+  }
+
+  // A bare yes/no the stage can't use (often an answer to a question the NPC phrased its own way):
+  // understood, not a mistake — acknowledge and ask for what's actually needed.
+  if (report.intent === "yes" || report.intent === "no") {
+    return {
+      kind: "info",
+      success: true,
+      answeredQuestion: true,
+      ...stay,
+      directive: `The customer answered "${report.intent}". Acknowledge it in a few words — without treating it as agreeing to anything this result doesn't confirm — then ask for what you need now: ${stage.npcGoal}`,
+      meaning: stage.meaning,
+      reaction: "neutral",
+    };
+  }
+
+  // Understood, but it doesn't settle this step (a question or remark for another moment).
+  // Never tell the NPC it "didn't understand" here: it did, and saying so makes it contradict itself.
+  if (report.intent !== "off_topic" && report.intent !== "unintelligible") {
+    return {
+      kind: "info",
+      success: false,
+      answeredQuestion: report.answered_question,
+      ...stay,
+      directive: `You understood the customer, but what they said doesn't settle this step yet. Reply to it briefly and naturally — without agreeing to anything, offering anything new, or moving on to a later step — then bring them back to what you need: ${stage.npcGoal}`,
+      meaning: stage.meaning,
+      reaction: "neutral",
+      note: `That didn't answer what ${scenario.npc.name} needed at that moment.`,
     };
   }
 
@@ -227,30 +310,75 @@ function genericOutcome(
   };
 }
 
+/** The card the learner picked for this turn (what they set out to say). */
+export interface ChosenCard {
+  id: string;
+  expect?: Record<string, string>;
+  keywords?: string[];
+}
+
+/**
+ * Did the learner's words actually carry the chosen card's meaning? Its expected slots were all
+ * heard (e.g. color=navy), or — for cards without slots — one of its key expressions was said.
+ */
+function cardEvidence(scenario: ScenarioDef, card: ChosenCard, report: TurnReport) {
+  const expect = Object.entries(card.expect ?? {});
+  if (expect.length) return expect.every(([k, v]) => report[k] === v);
+  return (card.keywords ?? []).some((k) => containsTerm(report.heard, k, scenario.language));
+}
+
+/**
+ * Resolves one learner turn. The agent's intent label is a best guess (several labels can fit
+ * the same words), so if the stage can't use it, the engine tries — in order — the stage's
+ * aliases for that label, then the intent of the card the learner picked (only if their words
+ * carried the card's meaning). Only then does it fall back to generic handling.
+ */
 export function resolveTurn(
   scenario: ScenarioDef,
   state: ScenarioState,
   report: TurnReport,
   variant: Variant,
   difficulty: Difficulty,
-): { outcome: Outcome; state: ScenarioState } {
+  card?: ChosenCard | null,
+): { outcome: Outcome; state: ScenarioState; intent: string } {
   const stage = getStage(scenario, state.stageId);
-  const ctx: ResolveContext = {
-    report,
+  const contextFor = (r: TurnReport): ResolveContext => ({
+    report: r,
     state,
     variant,
     difficulty,
     slot: (name) => {
-      const v = report[name];
+      const v = r[name];
       return typeof v === "string" ? v : "";
     },
-  };
+  });
 
+  let effective = report;
   let outcome: Outcome | null = null;
   // Leaving the target language never advances the scene (mixed-language replies are fine).
   if (!LEARNER_CLARIFY.has(report.intent) && !isOffLanguage(scenario, report.language)) {
-    outcome = stage.resolve(ctx);
+    outcome = stage.resolve(contextFor(report));
+    if ((!outcome || outcome.kind === "clarify") && report.intent !== "unintelligible") {
+      const byCard = card && card.id !== report.intent && cardEvidence(scenario, card, report) ? card.id : undefined;
+      // An alias only fills a gap; the picked card can also overturn a "that's unclear" reading.
+      const candidates = outcome ? [byCard] : [stage.aliases?.[report.intent], byCard];
+      for (const intent of candidates) {
+        if (!intent) continue;
+        const retry = { ...report, intent };
+        const alt = stage.resolve(contextFor(retry));
+        if (alt && alt.kind !== "clarify") {
+          outcome = alt;
+          effective = retry;
+          break;
+        }
+        if (alt && !outcome) {
+          outcome = alt;
+          effective = retry;
+        }
+      }
+    }
   }
+  const ctx = contextFor(effective);
   if (!outcome) outcome = genericOutcome(scenario, stage, ctx);
 
   const next: ScenarioState = {
@@ -273,19 +401,30 @@ export function resolveTurn(
     next.attemptsInStage = outcome.kind === "learner_clarify" ? state.attemptsInStage : 0;
   }
 
+  // A question that got its answer (or a request that hit a snag, like "pay by phone" when the
+  // reader is down) isn't offered again in this stage — the conversation has moved past it.
+  if (outcome.nextStageId === state.stageId && outcome.success && (outcome.kind === "info" || outcome.kind === "branch")) {
+    const answered = stage
+      .cards({ state, variant, difficulty })
+      .filter((c) => c.id === effective.intent && Object.entries(c.expect ?? {}).every(([k, v]) => ctx.slot(k) === v))
+      .map(cardKey);
+    next.usedCards = Array.from(new Set([...(state.usedCards ?? []), ...answered]));
+  }
+
   if (outcome.nextStageId !== state.stageId) {
     if (!next.completedStages.includes(state.stageId)) next.completedStages.push(state.stageId);
     next.visited.push(outcome.nextStageId);
     next.stageId = outcome.nextStageId;
     next.attemptsInStage = 0;
+    next.usedCards = [];
   }
   if (next.finished && !next.completedStages.includes(next.stageId)) {
     next.completedStages.push(next.stageId);
   }
-  return { outcome, state: next };
+  return { outcome, state: next, intent: effective.intent };
 }
 
-function describeSlots(scenario: ScenarioDef, slots: Record<string, string>) {
+export function describeSlots(scenario: ScenarioDef, slots: Record<string, string>) {
   const entries = Object.entries(slots).filter(([k, v]) => v && scenario.slots[k]);
   return entries.length ? entries.map(([k, v]) => `${k}=${v}`).join(", ") : "nothing yet";
 }
@@ -301,7 +440,11 @@ export function formatDirective(
   const groups = progressGroups(scenario, state);
   const idx = groups.findIndex((g) => g.label === stage.group) + 1;
   const understood =
-    outcome.kind === "clarify" ? "NO — you did not get what you needed" : "yes";
+    outcome.kind === "clarify"
+      ? "NO — you did not get what you needed"
+      : outcome.kind === "info" && !outcome.success
+        ? "yes — but it doesn't settle this step yet"
+        : "yes";
   const lines = [
     "BABBLI ENGINE RESULT (authoritative — follow it exactly)",
     `- Understood: ${understood}`,
@@ -315,7 +458,7 @@ export function formatDirective(
     lines.push("After this line, wait silently for the customer to speak first.");
   }
   lines.push(
-    `Rules: ${scenario.languageEnglish} only · ${difficulty === "beginner" ? "one or two very short, simple sentences" : "one or two sentences"} · never say the customer's line for them · don't mention this result.`,
+    `Rules: ${scenario.languageEnglish} only · ${difficulty === "beginner" ? "one or two very short, simple sentences" : "one or two sentences"} · no extra questions, offers or next steps of your own (no "is that right?") · never say the customer's line for them · don't mention this result.`,
   );
   return lines.join("\n");
 }

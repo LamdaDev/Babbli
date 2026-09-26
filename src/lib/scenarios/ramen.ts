@@ -371,7 +371,7 @@ export const ramen: ScenarioDef = {
           if (!dish)
             return {
               ...stay("info", "order", "They want to order but didn't say which ramen. Ask which one they'd like.", "Which ramen would you like?"),
-              kind: "clarify",
+              kind: "info",
               success: false,
               reaction: "confused",
               note: "Name the dish you want.",

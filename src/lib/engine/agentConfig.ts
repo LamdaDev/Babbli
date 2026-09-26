@@ -1,5 +1,5 @@
-import { allIntentIds, getStage } from "@/lib/engine/engine";
-import { GENERIC_INTENTS, type Difficulty, type ScenarioDef, type Variant } from "@/lib/scenarios/types";
+import { allIntentIds, describeSlots, getStage } from "@/lib/engine/engine";
+import { GENERIC_INTENTS, type Difficulty, type ScenarioDef, type ScenarioState, type Variant } from "@/lib/scenarios/types";
 
 /** Client tool the NPC agent calls after every learner utterance. */
 export function toolName(scenario: ScenarioDef) {
@@ -19,7 +19,7 @@ export function buildToolConfig(scenario: ScenarioDef) {
     intent: {
       type: "string",
       enum: intents,
-      description: `What the customer is trying to do with this utterance. Be strict and honest — the learner is being evaluated. ${intentGuide}`,
+      description: `What the customer is trying to do with this utterance, given what you just said. Anything connected to this scene (questions, small talk, changing their mind, asking for something else) gets the closest intent — use off_topic only for things unrelated to the scene, and unintelligible only if you couldn't make out the words. A bare yes/no answer is "yes"/"no". Be honest: the learner is being evaluated. ${intentGuide}`,
     },
     answered_question: {
       type: "boolean",
@@ -48,7 +48,7 @@ export function buildToolConfig(scenario: ScenarioDef) {
     type: "client",
     name: toolName(scenario),
     description:
-      "Report your interpretation of what the customer just said. You MUST call this after EVERY customer utterance, before you speak. The result tells you what happens next and what to say.",
+      "Report your interpretation of what the customer just said. You MUST call this after EVERY customer utterance, before you speak. The result tells you what happens next and what to say. Fill the slots with what THIS utterance says or agrees to — if you offered navy and they said \"yes, that one\", that's color=navy — and don't repeat values from earlier turns.",
     parameters: {
       type: "object",
       required: ["heard", "intent", "answered_question", "language"],
@@ -59,6 +59,21 @@ export function buildToolConfig(scenario: ScenarioDef) {
     pre_tool_speech: "off",
     execution_mode: "immediate",
   };
+}
+
+/**
+ * Sent as a silent contextual update when the NPC answered without calling the report tool:
+ * the engine never saw that turn, so the NPC must not build on what it just improvised.
+ */
+export function buildResyncNote(scenario: ScenarioDef, state: ScenarioState) {
+  const stage = getStage(scenario, state.stageId);
+  return [
+    "BABBLI ENGINE NOTE (not from the customer — don't reply to this)",
+    `You answered the customer's last message without calling the \`${toolName(scenario)}\` tool, so the engine never saw it and nothing in that reply happened in the scene.`,
+    `The scene is still at: ${stage.group} — ${stage.npcGoal}`,
+    `Recorded so far: ${describeSlots(scenario, state.slots)}`,
+    "Don't build on your last reply. When the customer speaks again, call the tool FIRST — even for one-word answers — then say only what its NEXT LINE tells you.",
+  ].join("\n");
 }
 
 const NUDGE: Record<string, string> = { en: "Everything okay over there?", ja: "お決まりですか？", fr: "Alors ?", es: "¿Sí?" };
@@ -96,9 +111,10 @@ You are a character in Babbli, an immersive language-practice simulator. The per
 ${scenario.facts(variant, difficulty)}
 
 # How every turn works (critical)
-1. Whenever the customer says anything, FIRST call the \`${toolName(scenario)}\` tool — before you say a single word. Fill it honestly with what you heard and what they meant. If you didn't understand, use intent "unintelligible"; if the reply doesn't fit what you asked, "off_topic". Don't guess generously — the learner is being evaluated.
+1. Whenever the customer says anything — even a one-word answer like "yes", "no", "thanks", "oui" or "non" — FIRST call the \`${toolName(scenario)}\` tool, before you say a single word. Never answer without it: a reply that skips the tool doesn't happen in the scene. Fill it honestly with what you heard and what they meant, including what a short answer like "yes, that one" refers to. Use "unintelligible" only if you couldn't make out the words, and "off_topic" only for things unrelated to this scene. Don't invent what they didn't say — the learner is being evaluated.
 2. The tool returns a BABBLI ENGINE RESULT with a NEXT LINE instruction. Say that, in natural ${lang}, in your own words, fully in character. The engine is the source of truth for what happens (stock, prices, mistakes, the next step). Never skip ahead, never invent new steps or items.
-3. Then stop and wait for the customer.
+3. Say only what the NEXT LINE asks for. Don't add your own confirmation questions ("so you want X, is that right?"), suggestions, offers or later steps (wrapping, paying…) — the engine brings each of those up at the right moment, and adding them confuses the scene.
+4. Then stop and wait for the customer.
 If the customer is silent, wait patiently and say nothing. Only if you are told the customer has been silent for a long time, give one tiny, gentle nudge (like "${NUDGE[scenario.language] ?? "…?"}").
 
 # Language rules
