@@ -7,9 +7,9 @@ const nunito = Nunito({ variable: "--font-nunito", subsets: ["latin", "latin-ext
 const notoJp = Noto_Sans_JP({ variable: "--font-noto-jp", subsets: ["latin"], weight: ["400", "500", "700", "900"], preload: false });
 
 export const metadata: Metadata = {
-  title: "Babbli — walk in, figure out what to say",
+  title: "Babbli · Walk in. Figure out what to say.",
   description:
-    "Babbli is a first-person language-practice simulator: order ramen in Tokyo, coffee in Paris, check in to a hotel in Sevilla — by voice, with real characters powered by ElevenLabs.",
+    "Babbli is a first-person language-practice simulator: shop in New York, order ramen in Tokyo, coffee in Paris, or check in to a hotel in Sevilla, by voice, with real characters powered by ElevenLabs.",
 };
 
 export const viewport: Viewport = {

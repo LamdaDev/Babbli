@@ -188,6 +188,8 @@ export interface ScenarioDef {
   title: string;
   venueName: string;
   objective: string;
+  /** Short objective for the in-scene HUD (fits on one line). */
+  goal: string;
   demoRole: "hero" | "generalization";
   blurb: string;
   npc: NpcDef;

@@ -200,6 +200,7 @@ export interface SttWord {
   end: number;
   type: "word" | "spacing" | "audio_event";
   logprob?: number;
+  speaker_id?: string;
 }
 
 export interface SttResult {
@@ -219,6 +220,8 @@ export async function transcribe(file: Blob, language: string, keyterms: string[
     form.set("language_code", language);
     form.set("timestamps_granularity", "word");
     form.set("tag_audio_events", "true");
+    // Separate speakers so background chatter can be dropped from the learner's transcript.
+    form.set("diarize", "true");
     if (withKeyterms) for (const k of keyterms.slice(0, 50)) form.append("keyterms", k);
     const res = await xi("/v1/speech-to-text", { method: "POST", body: form });
     const json = (await res.json()) as Omit<SttResult, "model">;

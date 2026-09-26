@@ -1,5 +1,7 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
+import { useState } from "react";
 import { useController, useGame } from "./GameContext";
 
 function Ctl({
@@ -10,6 +12,7 @@ function Ctl({
   disabled,
   kbd,
   children,
+  alwaysLabel,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -18,6 +21,7 @@ function Ctl({
   disabled?: boolean;
   kbd: string;
   children?: React.ReactNode;
+  alwaysLabel?: boolean;
 }) {
   return (
     <button
@@ -31,13 +35,13 @@ function Ctl({
       } disabled:cursor-not-allowed disabled:opacity-40`}
     >
       <span className="text-base leading-none">{icon}</span>
-      <span className="hidden md:inline">{label}</span>
+      <span className={alwaysLabel ? "whitespace-nowrap" : "hidden md:inline"}>{label}</span>
       {children}
     </button>
   );
 }
 
-/** Compact assistance controls — kept small so the scene stays the focus. */
+/** "Need help?" reveals the assistance controls; subtitles stay one tap away. */
 export function UtilityControls() {
   const controller = useController();
   const phase = useGame((s) => s.phase);
@@ -48,31 +52,52 @@ export function UtilityControls() {
   const showTranslation = useGame((s) => s.showTranslation);
   const translationAllowed = useGame((s) => s.translationAllowed);
   const hasLine = useGame((s) => !!s.subtitle);
+  const [helpOpen, setHelpOpen] = useState(false);
   const interactive = phase === "choose" || phase === "speak";
   if (["briefing", "done", "error"].includes(phase)) return null;
 
   return (
-    <div className="absolute bottom-4 right-3 z-30 flex flex-wrap items-center justify-end gap-2 sm:bottom-5 sm:right-5">
-      <Ctl label="Hint" icon="💡" kbd="H" onClick={() => controller.toggleHints()} active={hintOpen} disabled={!interactive}>
-        <span className="flex gap-0.5">
-          {[1, 2, 3, 4, 5].map((l) => (
-            <span key={l} className={`h-1.5 w-1.5 rounded-full ${l <= hintLevel ? "bg-coral" : "bg-current opacity-30"}`} />
-          ))}
-        </span>
-      </Ctl>
-      <Ctl label="Repeat" icon="🔁" kbd="R" onClick={() => void controller.replay(false)} disabled={!interactive || npcSpeaking || !hasLine} />
-      <Ctl label="Slow" icon="🐢" kbd="S" onClick={() => void controller.replay(true)} disabled={!interactive || npcSpeaking || !hasLine} />
+    <div className="absolute bottom-4 right-3 z-30 flex items-end justify-end gap-2 sm:bottom-5 sm:right-5">
+      <AnimatePresence>
+        {helpOpen && (
+          <motion.div
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 16 }}
+            transition={{ duration: 0.18 }}
+            className="flex flex-wrap items-center justify-end gap-2"
+          >
+            <Ctl label="Hint" icon="💡" kbd="H" onClick={() => controller.toggleHints()} active={hintOpen} disabled={!interactive}>
+              <span className="flex gap-0.5">
+                {[1, 2, 3, 4, 5].map((l) => (
+                  <span key={l} className={`h-1.5 w-1.5 rounded-full ${l <= hintLevel ? "bg-coral" : "bg-current opacity-30"}`} />
+                ))}
+              </span>
+            </Ctl>
+            <Ctl label="Repeat" icon="🔁" kbd="R" onClick={() => void controller.replay(false)} disabled={!interactive || npcSpeaking || !hasLine} />
+            <Ctl label="Slow" icon="🐢" kbd="S" onClick={() => void controller.replay(true)} disabled={!interactive || npcSpeaking || !hasLine} />
+            {translationAllowed && (
+              // In the English scene the "translation" is a plain-English paraphrase instead.
+              <Ctl
+                label={controller.scenario.language === "en" ? "Simpler" : "English"}
+                icon={controller.scenario.language === "en" ? "≈" : "EN"}
+                kbd="T"
+                onClick={() => controller.toggleTranslation()}
+                active={showTranslation}
+              />
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <Ctl
+        label={helpOpen ? "Close" : "Need help?"}
+        icon={helpOpen ? "✕" : "🙋"}
+        kbd="H / R / S"
+        onClick={() => setHelpOpen((o) => !o)}
+        active={helpOpen}
+        alwaysLabel
+      />
       <Ctl label="Subtitles" icon="CC" kbd="C" onClick={() => controller.toggleSubtitles()} active={showSubtitles} />
-      {translationAllowed && (
-        // In the English scene the "translation" is a plain-English paraphrase instead.
-        <Ctl
-          label={controller.scenario.language === "en" ? "Simpler" : "English"}
-          icon={controller.scenario.language === "en" ? "≈" : "EN"}
-          kbd="T"
-          onClick={() => controller.toggleTranslation()}
-          active={showTranslation}
-        />
-      )}
     </div>
   );
 }

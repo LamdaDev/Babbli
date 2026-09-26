@@ -113,12 +113,12 @@ export function HomeClient() {
         <motion.h1
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-3xl font-display text-5xl leading-[1.05] sm:text-6xl"
+          className="font-display text-5xl leading-[1.05] lg:whitespace-nowrap lg:text-[56px]"
         >
           Walk in. <span className="text-tangerine">Figure out what to say.</span>
         </motion.h1>
         <p className="mt-4 max-w-2xl text-lg text-cream/75">
-          We simulate the situations you&apos;re actually going to encounter — before you encounter them. Real characters, real voices, a real goal, and no script to memorise.
+          We simulate the situations you&apos;re actually going to encounter, before you encounter them. Real characters, real voices, a real goal, and no script to memorise.
         </p>
 
         <AnimatePresence mode="wait">
@@ -145,16 +145,16 @@ export function HomeClient() {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center justify-between p-4">
-                        <div>
-                          <div className="font-display text-2xl">
+                      <div className="p-4">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <div className="whitespace-nowrap font-display text-2xl">
                             <Flag code={l.code} /> {l.name}
                           </div>
-                          <div className="text-sm text-ink-soft">
-                            {s.title} · {l.city}
-                          </div>
+                          <div className="whitespace-nowrap font-jp text-lg font-bold text-ink/40">{l.native}</div>
                         </div>
-                        <div className="font-jp text-lg font-bold text-ink/40">{l.native}</div>
+                        <div className="truncate whitespace-nowrap text-sm text-ink-soft">
+                          {s.title} · {l.city}
+                        </div>
                       </div>
                     </motion.button>
                   );
@@ -198,7 +198,7 @@ export function HomeClient() {
                     </div>
                   </div>
                   <div className="text-sm text-ink-soft">
-                    You&apos;ll meet <b className="text-ink">{scenario.npc.name}</b>, the {scenario.npc.role.toLowerCase()}. Every visit is different — stock, mistakes and follow-up questions change each run.
+                    You&apos;ll meet <b className="text-ink">{scenario.npc.name}</b>, the {scenario.npc.role.toLowerCase()}. Every visit is different: stock, mistakes and follow-up questions change each run.
                   </div>
                 </div>
               </div>
@@ -229,8 +229,8 @@ export function HomeClient() {
                 <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="How you'll talk">
                   {(
                     [
-                      ["live", "🎙 Live conversation", `${scenario.npc.name} listens in real time — just talk and pause when you're done.`],
                       ["ptt", "✋ Push-to-talk", "Take your time. Tap the mic when you've finished your sentence."],
+                      ["live", "🎙 Live conversation", `${scenario.npc.name} listens in real time. Just talk, and pause when you're done.`],
                     ] as const
                   ).map(([m, title, desc]) => (
                     <button
@@ -275,7 +275,7 @@ export function HomeClient() {
                       {s && <Flag code={s.language} />} {s?.title}
                     </div>
                     <div className="text-xs text-cream/60">
-                      <span className="capitalize">{r.difficulty}</span> · {new Date(r.startedAt).toLocaleDateString()} · {r.turns} replies
+                      <span className="capitalize">{r.difficulty}</span> · {new Date(r.startedAt).toLocaleDateString()} · {r.turns} {r.turns === 1 ? "reply" : "replies"}
                     </div>
                     <div className={`mt-2 text-xs font-bold ${r.objectiveComplete ? "text-teal" : "text-gold"}`}>
                       {r.objectiveComplete ? "✓ Objective complete" : "○ Incomplete"}

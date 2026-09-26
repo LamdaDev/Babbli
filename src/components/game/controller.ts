@@ -13,9 +13,10 @@ import {
   resolveTurn,
   seededRandom,
 } from "@/lib/engine/engine";
-import { stripAudioTags } from "@/lib/evaluation/text";
+import { cleanTranscript, stripAudioTags } from "@/lib/evaluation/text";
 import { api, assetUrl } from "@/lib/client/api";
 import { audioEngine } from "@/lib/client/audioEngine";
+import { LiveCaptions } from "@/lib/client/liveCaptions";
 import { MicRecorder, type Recording } from "@/lib/client/recorder";
 import type { Difficulty, InputMode, IntentCard, ScenarioDef, SceneEventId, TurnReport } from "@/lib/scenarios/types";
 import type { LearnerTurn, NpcLine, SessionRecord } from "@/lib/session/types";
@@ -35,6 +36,10 @@ export class GameController {
   readonly session: SessionRecord;
   private controls: ConversationControlsValue | null = null;
   private recorder = new MicRecorder();
+  /** Push-to-talk live captions (realtime Scribe); live mode uses the agent's tentative transcripts. */
+  private captions = new LiveCaptions((text) => {
+    if (this.ui.phase === "speak") this.set({ userCaption: { text, final: false } });
+  });
   private audio = audioEngine();
   private lastNpcLine: NpcLine | null = null;
   private pendingMeaning: string | null = null;
@@ -85,6 +90,7 @@ export class GameController {
       voiceOwner: null,
       expression: "neutral",
       subtitle: null,
+      userCaption: null,
       showSubtitles: difficulty !== "immersion",
       showTranslation: false,
       translationAllowed: difficulty === "beginner",
@@ -280,6 +286,12 @@ export class GameController {
         this.log("agent_error", { message });
       },
       onMessage: ({ message, role }) => (role === "agent" ? this.handleAgentLine(message) : this.handleUserTranscript(message)),
+      // Live mode: what the agent is hearing so far, for the learner's own captions.
+      onIncomingEvent: (event: { type?: string; tentative_user_transcription_event?: { user_transcript?: string } }) => {
+        if (event?.type !== "tentative_user_transcript" || this.session.inputMode !== "live" || this.ui.phase !== "speak") return;
+        const text = cleanTranscript(event.tentative_user_transcription_event?.user_transcript ?? "");
+        if (text) this.set({ userCaption: { text, final: false } });
+      },
       onModeChange: ({ mode }) => this.handleMode(mode),
     };
     this.controls.startSession(options);
@@ -326,6 +338,8 @@ export class GameController {
     this.lastNpcLine = line;
     if (this.ui.showTranslation && this.ui.translationAllowed) this.recordAssist("translations");
     this.set({ subtitle: { id: line.id, text: line.text, meaning: line.meaning, speaker: line.speaker }, busyLabel: null });
+    // The NPC's reply replaces the learner's caption (unless it's a nudge while they're still talking).
+    if (this.ui.phase !== "speak") this.set({ userCaption: null });
     if (this.ui.phase === "connecting" || this.ui.phase === "processing") {
       this.clearWatchdog();
       this.setPhase("npc");
@@ -338,6 +352,7 @@ export class GameController {
     const turn = this.activeTurn;
     if (!turn || turn.transcriptAgent) return;
     turn.transcriptAgent = text;
+    this.set({ userCaption: { text: cleanTranscript(text), final: true } });
     if (this.ui.phase === "speak") void this.closeLiveTurn();
   }
 
@@ -514,6 +529,7 @@ export class GameController {
   private recoverFromSilence() {
     if (this.ui.phase !== "processing") return;
     this.toast(`${this.scenario.npc.name} didn't respond — try saying it again.`, "warn");
+    this.set({ userCaption: null });
     if (this.activeTurn && !this.activeTurn.outcome) this.cancelTurn(false);
     this.refreshStageUI();
     this.setPhase("choose");
@@ -583,12 +599,15 @@ export class GameController {
   }
 
   private beginSpeaking(card: IntentCard | null) {
-    this.createTurn(card);
-    this.set({ expression: "neutral" });
+    const turn = this.createTurn(card);
+    this.set({ expression: "neutral", userCaption: { text: "", final: false } });
     this.setPhase("speak");
     if (this.recorder.ready) {
       this.recorder.start();
       this.set({ recording: true, micMuted: this.session.inputMode !== "live" });
+      if (this.session.inputMode === "ptt") {
+        this.captions.start(this.scenario.language, this.keyterms(turn)).catch((e) => console.warn("[babbli] live captions unavailable", e));
+      }
     }
     this.audio.duck(true);
   }
@@ -596,8 +615,9 @@ export class GameController {
   backToChoices() {
     if (this.ui.phase !== "speak") return;
     void this.recorder.stop();
+    this.captions.stop();
     this.cancelTurn();
-    this.set({ recording: false, micMuted: true, selectedCard: null });
+    this.set({ recording: false, micMuted: true, selectedCard: null, userCaption: null });
     this.audio.duck(false);
     this.setPhase("choose");
   }
@@ -612,13 +632,14 @@ export class GameController {
     }
     // Push-to-talk: Scribe transcribes, then the text goes to the ElevenAgents NPC.
     const turn = this.activeTurn;
+    this.captions.stop();
     this.setPhase("processing");
     this.set({ recording: false, busyLabel: "Listening…" });
     this.audio.duck(false);
     const rec = await this.recorder.stop();
     if (!turn || !rec) {
       this.cancelTurn();
-      this.set({ busyLabel: null });
+      this.set({ busyLabel: null, userCaption: null });
       this.setPhase("choose");
       return;
     }
@@ -629,19 +650,20 @@ export class GameController {
       turn.stt = stt;
       if (!stt.transcript.trim() || stt.words.length === 0) {
         this.cancelTurn();
-        this.set({ busyLabel: null });
+        this.set({ busyLabel: null, userCaption: null });
         this.toast("I didn't catch anything — try again, a little closer to the mic.", "warn");
         this.setPhase("choose");
         return;
       }
       turn.transcriptAgent = stt.transcript;
-      this.set({ busyLabel: null });
+      // The final (batch) transcript replaces the live caption — it's exactly what the NPC receives.
+      this.set({ busyLabel: null, userCaption: { text: stt.transcript, final: true } });
       this.controls?.sendUserMessage(stt.transcript);
       this.log("ptt_sent", { turnId: turn.id, transcript: stt.transcript });
       this.startWatchdog(15000, () => this.recoverFromSilence());
     } catch (e) {
       this.cancelTurn();
-      this.set({ busyLabel: null });
+      this.set({ busyLabel: null, userCaption: null });
       this.toast(`Speech recognition failed: ${e instanceof Error ? e.message : e}`, "warn");
       this.setPhase("choose");
     }
@@ -694,11 +716,12 @@ export class GameController {
     let turn = this.activeTurn;
     if (!turn) turn = this.createTurn(this.ui.selectedCard);
     if (this.recorder.recording) void this.recorder.stop();
+    this.captions.stop();
     turn.inputMethod = "text";
     turn.transcriptAgent = clean;
     turn.endedAt = Date.now();
     this.session.assistance.typedTurns += 1;
-    this.set({ recording: false, micMuted: true });
+    this.set({ recording: false, micMuted: true, userCaption: { text: clean, final: true } });
     this.setPhase("processing");
     this.audio.duck(false);
     this.controls.sendUserMessage(clean);
@@ -839,6 +862,7 @@ export class GameController {
     if (phase === "ending" || phase === "done") return;
     this.setPhase("ending");
     this.clearWatchdog();
+    this.captions.stop();
     if (this.listeningTimer) clearTimeout(this.listeningTimer);
     if (this.recorder.recording) {
       const rec = await this.recorder.stop();
@@ -870,6 +894,7 @@ export class GameController {
   dispose() {
     this.disposed = true;
     this.clearWatchdog();
+    this.captions.stop();
     if (this.activityTimer) clearInterval(this.activityTimer);
     if (this.listeningTimer) clearTimeout(this.listeningTimer);
     if (this.saveTimer) clearTimeout(this.saveTimer);

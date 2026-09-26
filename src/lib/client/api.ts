@@ -50,6 +50,8 @@ export const api = {
     return fetch("/api/stt", { method: "POST", body: form }).then((r) => json<SpeechCapture>(r));
   },
 
+  scribeToken: () => fetch("/api/scribe-token", { method: "POST" }).then((r) => json<{ token: string }>(r)),
+
   saveSession: (record: SessionRecord) =>
     fetch(`/api/sessions/${record.id}`, {
       method: "PUT",

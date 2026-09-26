@@ -64,10 +64,11 @@ export const cafe: ScenarioDef = {
   languageEnglish: "French",
   flag: "🇫🇷",
   city: "Paris",
-  locationLabel: "PARIS — LE MARAIS",
+  locationLabel: "PARIS · LE MARAIS",
   title: "Parisian Café",
   venueName: "Café des Lilas",
   objective: "Order, respond to the server's clarification, and ask for the bill.",
+  goal: "Order, clarify, and ask for the bill",
   demoRole: "generalization",
   blurb: "A corner café in the Marais with a zinc bar and a view of the street. Camille is serving this morning.",
   npc: {

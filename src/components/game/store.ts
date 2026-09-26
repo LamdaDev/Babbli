@@ -34,6 +34,8 @@ export interface GameUI {
   voiceOwner: "npc" | "coach" | null;
   expression: NpcExpression;
   subtitle: Subtitle | null;
+  /** What the mic is registering while the learner speaks (live), then the final transcript. */
+  userCaption: { text: string; final: boolean } | null;
   showSubtitles: boolean;
   showTranslation: boolean;
   translationAllowed: boolean;

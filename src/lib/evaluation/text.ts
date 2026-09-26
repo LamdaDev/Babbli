@@ -84,6 +84,19 @@ export function languageMatches(code: string | undefined, lang: LanguageCode | s
   return (map[lang] ?? [lang]).some((x) => c === x || c.startsWith(x));
 }
 
+/**
+ * Keep only spoken words: drop sound/event tags speech recognition may emit —
+ * "(coughs)", "[music]", "（笑）", "*sighs*", "♪" — and tidy the spacing.
+ */
+export function cleanTranscript(text: string) {
+  return text
+    .replace(/\([^)]*\)|\[[^\]]*\]|（[^）]*）|【[^】]*】|\*[^*]*\*|♪+/g, " ")
+    .replace(/\s+([,.!?、。！？])/g, "$1")
+    .replace(/^[\s,.、。]+/, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 export function stripAudioTags(text: string) {
   return text.replace(/\[[^\]]{1,30}\]\s*/g, "").trim();
 }

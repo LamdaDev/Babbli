@@ -108,10 +108,11 @@ export const ramen: ScenarioDef = {
   languageEnglish: "Japanese",
   flag: "🇯🇵",
   city: "Tokyo",
-  locationLabel: "TOKYO — SHINJUKU",
+  locationLabel: "TOKYO · SHINJUKU",
   title: "Tokyo Ramen Shop",
   venueName: "麺屋ほし · Menya Hoshi",
   objective: "Order a meal, answer the follow-up questions, and pay.",
+  goal: "Order a meal and pay",
   demoRole: "generalization",
   blurb: "A tiny ten-seat ramen counter near Shinjuku Station. It's a busy evening and Hiroshi is working the floor.",
   npc: {

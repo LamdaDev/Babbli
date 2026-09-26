@@ -119,10 +119,11 @@ export const hotel: ScenarioDef = {
   languageEnglish: "Spanish",
   flag: "🇪🇸",
   city: "Sevilla",
-  locationLabel: "SEVILLA — SANTA CRUZ",
+  locationLabel: "SEVILLA · SANTA CRUZ",
   title: "Hotel Check-in",
   venueName: "Hotel Azahar",
   objective: "Check in and resolve a problem with your reservation.",
+  goal: "Check in and fix your reservation",
   demoRole: "generalization",
   blurb: "A small boutique hotel in the old quarter, all tiles and orange-blossom scent. Lucía is at the front desk.",
   npc: {

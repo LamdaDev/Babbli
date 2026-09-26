@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useController, useGame } from "./GameContext";
 import type { Subtitle } from "./store";
 
@@ -30,42 +30,132 @@ function Karaoke({ subtitle }: { subtitle: Subtitle }) {
   );
 }
 
-/** Captions near the NPC — styled as film subtitles, never chat bubbles. */
+/** Solid background per wrapped line — no blur, so multi-line captions stay crisp. */
+const CAPTION = "rounded-md bg-black/65 box-decoration-clone px-3 py-0.5 font-jp font-bold text-white";
+
+function CaptionLabel({ children, color }: { children: React.ReactNode; color: string }) {
+  return (
+    <div className="mb-1.5">
+      <span className={`inline-block rounded-full bg-black/60 px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-[0.2em] ${color}`}>
+        {children}
+      </span>
+    </div>
+  );
+}
+
+const MAX_FONT = 32;
+const MIN_FONT = 16;
+
+/**
+ * The learner's own words, anchored just above the mic panel and growing upward.
+ * The font shrinks to fit as they say more; past the minimum size the oldest
+ * words fade out at the top so the newest stay readable.
+ */
+function UserCaption({ text, final, lang }: { text: string; final: boolean; lang: string }) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLParagraphElement>(null);
+
+  useLayoutEffect(() => {
+    const box = boxRef.current;
+    const inner = innerRef.current;
+    const p = textRef.current;
+    if (!box || !inner || !p) return;
+    let size = MAX_FONT;
+    p.style.fontSize = `${size}px`;
+    while (size > MIN_FONT && inner.offsetHeight > box.clientHeight) {
+      size -= 2;
+      p.style.fontSize = `${size}px`;
+    }
+    const overflow = inner.offsetHeight > box.clientHeight;
+    const mask = overflow ? "linear-gradient(to bottom, transparent, black 56px)" : "";
+    box.style.maskImage = mask;
+    box.style.webkitMaskImage = mask;
+  }, [text]);
+
+  return (
+    <motion.div
+      ref={boxRef}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 6 }}
+      transition={{ duration: 0.2 }}
+      className="pointer-events-none absolute inset-x-0 z-10 flex flex-col items-center justify-end overflow-hidden px-4"
+      style={{ top: "max(290px, 34%)", bottom: 270 }}
+      aria-live="polite"
+    >
+      <div ref={innerRef} className="max-w-4xl shrink-0 text-center">
+        <CaptionLabel color="text-[#5fe0c6]">You</CaptionLabel>
+        <p ref={textRef} lang={lang} className="leading-[1.55]" style={{ fontSize: MAX_FONT }}>
+          <span className={`${CAPTION} ${final ? "" : "text-white/90"}`}>
+            {text ? (
+              <>
+                {text}
+                {!final && <span className="ml-0.5 inline-block h-[0.9em] w-[3px] animate-pulse bg-[#5fe0c6] align-[-0.1em]" />}
+              </>
+            ) : (
+              <span className="inline-flex gap-1.5 px-1 align-middle">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="h-2 w-2 animate-bounce rounded-full bg-white/70" style={{ animationDelay: `${i * 0.15}s` }} />
+                ))}
+              </span>
+            )}
+          </span>
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
+/** Captions — styled as film subtitles, never chat bubbles. */
 export function NPCSubtitle() {
   const subtitle = useGame((s) => s.subtitle);
+  const userCaption = useGame((s) => s.userCaption);
   const show = useGame((s) => s.showSubtitles);
   const showTranslation = useGame((s) => s.showTranslation);
   const phase = useGame((s) => s.phase);
+  const npcSpeaking = useGame((s) => s.npcSpeaking);
   const { scenario } = useController();
-  const visible = show && subtitle && !["briefing", "transition", "done", "error"].includes(phase);
+  const inScene = !["briefing", "transition", "done", "error"].includes(phase);
+  const visible = show && subtitle && inScene;
+  // The learner's own words are feedback on the mic, so they show even with CC off.
+  const showUser = !!userCaption && (phase === "speak" || phase === "processing");
+  // Once the NPC has finished and the answer cards are up, lift its line so a long reply never covers them.
+  const lifted = showUser || (phase === "choose" && !npcSpeaking);
+  // Very long monologues: keep the DOM light; the fit/fade logic handles the rest.
+  const userText = userCaption ? (userCaption.text.length > 600 ? `…${userCaption.text.slice(-600)}` : userCaption.text) : "";
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 z-10 flex justify-center px-4" style={{ top: "min(51%, calc(100% - 440px))" }}>
-      <AnimatePresence mode="wait">
-        {visible && (
-          <motion.div
-            key={subtitle.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.25 }}
-            className="max-w-3xl text-center"
-          >
-            <div className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.2em] text-gold/90 drop-shadow">{subtitle.speaker}</div>
-            <div
-              lang={scenario.language}
-              className="inline rounded-xl bg-black/55 box-decoration-clone px-3 py-1 font-jp text-2xl font-bold leading-[1.6] text-white shadow-lg backdrop-blur-sm sm:text-[32px]"
+    <>
+      {/* NPC line: its usual spot while speaking; lifted toward the top (and a little smaller) once the learner has to respond. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 z-10 flex justify-center px-4 transition-[top] duration-300"
+        style={{ top: lifted ? "max(88px, 10%)" : "min(51%, calc(100% - 440px))" }}
+      >
+        <AnimatePresence mode="wait">
+          {visible && (
+            <motion.div
+              key={subtitle.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.25 }}
+              className="max-w-3xl text-center"
             >
-              {subtitle.karaoke ? <Karaoke subtitle={subtitle} /> : subtitle.text}
-            </div>
-            {showTranslation && subtitle.meaning && (
-              <div className="mx-auto mt-2 w-fit rounded-lg bg-black/40 px-3 py-1 text-sm italic text-cream/90 backdrop-blur-sm sm:text-base">
-                {subtitle.meaning}
-              </div>
-            )}
-          </motion.div>
-        )}
+              <CaptionLabel color="text-gold">{subtitle.speaker}</CaptionLabel>
+              <p lang={scenario.language} className={`leading-[1.55] transition-[font-size] duration-300 ${lifted ? "text-lg sm:text-[22px]" : "text-2xl sm:text-[32px]"}`}>
+                <span className={CAPTION}>{subtitle.karaoke ? <Karaoke subtitle={subtitle} /> : subtitle.text}</span>
+              </p>
+              {showTranslation && subtitle.meaning && (
+                <div className="mx-auto mt-2 w-fit rounded-lg bg-black/50 px-3 py-1 text-sm italic text-cream/90 sm:text-base">{subtitle.meaning}</div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      <AnimatePresence>
+        {showUser && <UserCaption key="you" text={userText} final={!!userCaption?.final} lang={scenario.language} />}
       </AnimatePresence>
-    </div>
+    </>
   );
 }

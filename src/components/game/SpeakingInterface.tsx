@@ -56,19 +56,23 @@ function SpeakPanel() {
 
   return (
     <>
-      <div className="font-display text-sm font-bold uppercase tracking-[0.35em] text-gold drop-shadow">Your turn</div>
-      {card && (
-        <div className="rounded-full bg-paper/95 px-4 py-1.5 text-sm font-bold text-ink shadow-lg">
-          <span className="mr-1.5">{card.icon}</span>
-          You want to: {card.label}
-        </div>
-      )}
+      <div className="flex items-center gap-2 rounded-full bg-paper/95 py-1.5 pl-1.5 pr-4 text-sm font-bold text-ink shadow-lg">
+        <span className="rounded-full bg-gold px-2.5 py-0.5 font-display text-[11px] uppercase tracking-[0.2em] text-ink">Your turn</span>
+        {card ? (
+          <span>
+            <span className="mr-1.5">{card.icon}</span>
+            You want to: {card.label}
+          </span>
+        ) : (
+          <span>Say it your way</span>
+        )}
+      </div>
       {micAvailable && recording ? (
         <MicButton onClick={() => void controller.finishSpeaking()} label="Finish speaking" />
       ) : (
         <div className="rounded-2xl bg-night/70 px-4 py-2 text-sm text-cream">Microphone unavailable — type your reply below.</div>
       )}
-      {recording && (
+      {recording && !typing && (
         <div className="flex items-center gap-2 rounded-full bg-night/70 px-4 py-1.5 text-sm font-bold text-cream backdrop-blur">
           <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-coral" />
           {status}
