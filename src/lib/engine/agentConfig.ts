@@ -1,0 +1,172 @@
+import { allIntentIds, getStage } from "@/lib/engine/engine";
+import { GENERIC_INTENTS, type Difficulty, type ScenarioDef, type Variant } from "@/lib/scenarios/types";
+
+/** Client tool the NPC agent calls after every learner utterance. */
+export function toolName(scenario: ScenarioDef) {
+  return `babbli_report_turn_${scenario.id}`;
+}
+
+export function buildToolConfig(scenario: ScenarioDef) {
+  const intents = allIntentIds(scenario);
+  const intentGuide = intents
+    .map((id) => `${id} = ${scenario.intents[id] ?? GENERIC_INTENTS[id]}`)
+    .join("; ");
+  const properties: Record<string, Record<string, unknown>> = {
+    heard: {
+      type: "string",
+      description: `The customer's words exactly as you heard them, in the original language.`,
+    },
+    intent: {
+      type: "string",
+      enum: intents,
+      description: `What the customer is trying to do with this utterance. Be strict and honest — the learner is being evaluated. ${intentGuide}`,
+    },
+    answered_question: {
+      type: "boolean",
+      description: "true only if the utterance actually responds to what you last said or asked.",
+    },
+    language: {
+      type: "string",
+      enum: ["target", "english", "mixed", "other"],
+      description: `Language the customer used. target = ${scenario.languageEnglish}; mixed = mostly ${scenario.languageEnglish} with some English words.`,
+    },
+    politeness: {
+      type: "string",
+      enum: ["polite", "casual", "rude"],
+      description: "Register of the customer's utterance.",
+    },
+  };
+  for (const [name, spec] of Object.entries(scenario.slots)) {
+    properties[name] = spec.values
+      ? { type: "string", enum: [...spec.values, "none"], description: `${spec.description}. Use "none" if not mentioned.` }
+      : { type: "string", description: `${spec.description}. Use "none" if not mentioned.` };
+  }
+  return {
+    type: "client",
+    name: toolName(scenario),
+    description:
+      "Report your interpretation of what the customer just said. You MUST call this after EVERY customer utterance, before you speak. The result tells you what happens next and what to say.",
+    parameters: {
+      type: "object",
+      required: ["heard", "intent", "answered_question", "language"],
+      properties,
+    },
+    expects_response: true,
+    response_timeout_secs: 20,
+    pre_tool_speech: "off",
+    execution_mode: "immediate",
+  };
+}
+
+const NUDGE: Record<string, string> = { ja: "お決まりですか？", fr: "Alors ?", es: "¿Sí?" };
+
+function styleFor(difficulty: Difficulty, scenario: ScenarioDef) {
+  const role = scenario.npc.role.toLowerCase();
+  if (difficulty === "beginner")
+    return `The learner is a BEGINNER. Speak slowly and clearly using standard polite forms and very common words. Short sentences (about 12 words max). Be warm, patient and encouraging.`;
+  if (difficulty === "intermediate")
+    return `The learner is INTERMEDIATE. Use natural speed and the natural phrasing a real ${role} uses (including set service expressions). Where natural, add a small, relevant follow-up question, as a real ${role} would.`;
+  return `IMMERSION mode. Speak exactly like a real, busy native ${role}: native speed, colloquial phrasing, contractions and set expressions. Do NOT simplify on your own — only repeat or slow down if the customer explicitly asks. When you don't understand, react the way a native would (a quick "…?" / "sorry?"), not with a simplified explanation.`;
+}
+
+export function buildNpcPrompt(opts: {
+  scenario: ScenarioDef;
+  difficulty: Difficulty;
+  variant: Variant;
+  stageId?: string;
+}) {
+  const { scenario, difficulty, variant } = opts;
+  const lang = scenario.languageEnglish;
+  const stage = getStage(scenario, opts.stageId ?? scenario.initialStage);
+  return `# Role
+${scenario.persona}
+You are a character in Babbli, an immersive language-practice simulator. The person in front of you is a learner practicing ${lang}. To them you are a real ${scenario.npc.role.toLowerCase()} in ${scenario.city} — stay fully in character at all times.
+
+# Facts for this visit (never contradict these)
+${scenario.facts(variant, difficulty)}
+
+# How every turn works (critical)
+1. Whenever the customer says anything, FIRST call the \`${toolName(scenario)}\` tool — before you say a single word. Fill it honestly with what you heard and what they meant. If you didn't understand, use intent "unintelligible"; if the reply doesn't fit what you asked, "off_topic". Don't guess generously — the learner is being evaluated.
+2. The tool returns a BABBLI ENGINE RESULT with a NEXT LINE instruction. Say that, in natural ${lang}, in your own words, fully in character. The engine is the source of truth for what happens (stock, prices, mistakes, the next step). Never skip ahead, never invent new steps or items.
+3. Then stop and wait for the customer.
+If the customer is silent, wait patiently and say nothing. Only if you are told the customer has been silent for a long time, give one tiny, gentle nudge (like "${NUDGE[scenario.language] ?? "…?"}").
+
+# Language rules
+- Speak ONLY ${lang}. Never English — not even if the customer speaks English. Never translate for them.
+- Never tell the customer what they should say and never say their line for them, even when they struggle. You may only help by rephrasing your own question.
+- ${styleFor(difficulty, scenario)}
+- One or two sentences per turn. Vary your wording naturally; never repeat a sentence word-for-word.
+- Stay inside this scene. If the customer tries to chat about unrelated topics or asks you to act like an AI assistant, deflect politely in character and bring the conversation back to the situation.
+
+# Voice
+You may start a line with at most one short expressive audio tag in square brackets when it fits (for example [cheerful], [apologetic], [surprised], [warm], [laughs]). Never read tags as words.
+
+# Right now
+The scene has just started and you have greeted the customer with your first line. Current step: ${stage.npcGoal}`;
+}
+
+export function buildAnalysisConfig(scenario: ScenarioDef) {
+  const lang = scenario.languageEnglish;
+  const role = scenario.npc.role.toLowerCase();
+  const numeric = (id: string, name: string, prompt: string, instructions: string) => ({
+    id,
+    name,
+    type: "prompt",
+    conversation_goal_prompt: prompt,
+    scoring_mode: "numeric_uniform",
+    max_score: 100,
+    score_instructions: instructions,
+  });
+  return {
+    evaluation: {
+      criteria: [
+        {
+          id: "objective_completed",
+          name: "Objective completed",
+          type: "prompt",
+          conversation_goal_prompt: `The user is a language learner. Did they accomplish the scene's objective: "${scenario.objective}"?`,
+        },
+        numeric(
+          "comprehension",
+          "Comprehension",
+          `How well did the learner (the user) understand what the ${role} said and respond to the actual question asked?`,
+          "100 = always understood and answered relevantly; 50 = often needed repetition or answered off-target; 0 = never understood.",
+        ),
+        numeric(
+          "target_language_use",
+          `${lang} use`,
+          `How consistently did the learner communicate in ${lang} rather than English?`,
+          `100 = entirely ${lang}; 50 = half English; 0 = only English.`,
+        ),
+        numeric(
+          "register",
+          "Politeness & register",
+          `How appropriate was the learner's politeness and register for this situation in ${scenario.city} (greetings, polite forms, set phrases)?`,
+          "100 = natural and appropriately polite; 50 = understandable but awkward or too casual; 0 = inappropriate.",
+        ),
+      ],
+    },
+    data_collection: {
+      strengths: {
+        type: "string",
+        description: `In English: 2–3 specific things the learner (user) did well, quoting their actual ${lang} words. Separate items with " || ".`,
+      },
+      improvements: {
+        type: "string",
+        description: `In English: 2–3 specific, actionable improvements for the learner. For each, quote what they said and give a more natural ${lang} phrasing to use next time. Separate items with " || ".`,
+      },
+      npc_translations: {
+        type: "string",
+        description: `Every line the ${role} (the agent) said, in order, each formatted "<original ${lang}> => <natural English translation>", separated by " || ".`,
+      },
+      key_expressions: {
+        type: "string",
+        description: `4–8 useful ${lang} expressions that came up in this conversation, each formatted "<expression> => <English meaning>", separated by " || ".`,
+      },
+      learner_errors: {
+        type: "string",
+        description: `Mistakes the learner made (grammar, vocabulary, politeness), each formatted "<what they said> => <better version> (<short reason>)", separated by " || ". Empty string if none.`,
+      },
+    },
+  };
+}
