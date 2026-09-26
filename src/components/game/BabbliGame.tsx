@@ -2,12 +2,13 @@
 
 import { ConversationProvider, useConversationControls } from "@elevenlabs/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { getScenario } from "@/lib/scenarios";
 import type { Difficulty, InputMode } from "@/lib/scenarios/types";
 import { ChoicePanel } from "./ChoicePanel";
 import { GameController } from "./controller";
+import { ExitConfirmation } from "./ExitConfirmation";
 import { GameContext, useController, useGame } from "./GameContext";
 import { HintPanel } from "./HintPanel";
 import { NPCSubtitle } from "./NPCSubtitle";
@@ -25,9 +26,10 @@ function ConversationBridge() {
   return null;
 }
 
-function useKeyboard() {
+function useKeyboard(disabled: boolean) {
   const c = useController();
   useEffect(() => {
+    if (disabled) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
@@ -53,14 +55,17 @@ function useKeyboard() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [c]);
+  }, [c, disabled]);
 }
 
 function GameScreen() {
   const controller = useController();
   const router = useRouter();
   const phase = useGame((s) => s.phase);
-  useKeyboard();
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const exitOpen = confirmingLeave && phase !== "ending" && phase !== "done";
+  // Game shortcuts are off while the exit dialog is open.
+  useKeyboard(exitOpen);
   // Enter the scene right away (deferred a tick so a StrictMode remount doesn't start it twice).
   useEffect(() => {
     const t = setTimeout(() => controller.autoEnter(), 0);
@@ -71,9 +76,17 @@ function GameScreen() {
       router.push("/");
       return;
     }
-    if (window.confirm("Leave the scene? Your progress so far will be saved and scored.")) {
-      void controller.finish("abandoned");
-    }
+    if (phase === "ending" || phase === "done" || exitOpen) return;
+    controller.holdTurnTimer();
+    setConfirmingLeave(true);
+  };
+  const cancelLeave = useCallback(() => {
+    setConfirmingLeave(false);
+    controller.resumeTurnTimer();
+  }, [controller]);
+  const confirmLeave = () => {
+    setConfirmingLeave(false);
+    void controller.finish("abandoned");
   };
   return (
     <main className="relative h-dvh w-full select-none overflow-hidden bg-night">
@@ -90,6 +103,7 @@ function GameScreen() {
       <CompletionOverlay />
       <ErrorOverlay />
       <Toast />
+      <ExitConfirmation open={exitOpen} onCancel={cancelLeave} onConfirm={confirmLeave} />
       {phase === "briefing" && (
         <button onClick={leave} className="absolute left-4 top-4 z-50 rounded-full bg-night/70 px-3 py-1.5 text-xs font-bold text-cream backdrop-blur">
           ← Back

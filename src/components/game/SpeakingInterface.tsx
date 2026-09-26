@@ -25,7 +25,34 @@ function MicButton({ onClick, label }: { onClick: () => void; label: string }) {
       <svg viewBox="0 0 24 24" className="relative h-10 w-10 fill-white">
         <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z" />
       </svg>
+      <CountdownRing />
     </button>
+  );
+}
+
+/**
+ * Speaking time limit, shown as a red border that draws itself clockwise around
+ * the mic from the top (no numbers). When it closes, the turn is sent.
+ */
+function CountdownRing() {
+  const timer = useGame((s) => s.turnTimer);
+  if (!timer) return null;
+  return (
+    <svg viewBox="0 0 120 120" className="pointer-events-none absolute -inset-3 h-[120px] w-[120px] -rotate-90" aria-hidden>
+      <motion.circle
+        key={timer.startedAt}
+        cx={60}
+        cy={60}
+        r={56}
+        fill="none"
+        stroke="#e0342b"
+        strokeWidth={4}
+        strokeLinecap="round"
+        initial={{ pathLength: 1 - timer.ms / timer.total }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: timer.ms / 1000, ease: "linear" }}
+      />
+    </svg>
   );
 }
 
@@ -51,7 +78,7 @@ function SpeakPanel() {
   const status = npcSpeaking
     ? `${scenario.npc.name} is talking…`
     : inputMode === "live"
-      ? `${scenario.npc.name} is listening… speak in ${scenario.languageEnglish}, then tap the mic`
+      ? `${scenario.npc.name} is listening… speak in ${scenario.languageEnglish} and just pause when you're done`
       : `Recording… speak in ${scenario.languageEnglish}, then tap the mic`;
 
   return (
@@ -82,7 +109,13 @@ function SpeakPanel() {
         <button onClick={() => controller.backToChoices()} className="hover:text-cream">
           ← choose again
         </button>
-        <button onClick={() => setTyping((t) => !t)} className="hover:text-cream">
+        <button
+          onClick={() => {
+            if (!typing) controller.pauseTurnTimer();
+            setTyping((t) => !t);
+          }}
+          className="hover:text-cream"
+        >
           ⌨ type instead
         </button>
       </div>
@@ -115,7 +148,8 @@ export function SpeakingInterface() {
   const { scenario } = useController();
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex justify-center px-4 sm:bottom-8">
+    // Below lg the corner controls would reach the typing box, so the panel sits above their row.
+    <div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex justify-center px-4 lg:bottom-8">
       <AnimatePresence mode="wait">
         {phase === "speak" && (
           <motion.div

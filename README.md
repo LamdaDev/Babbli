@@ -101,7 +101,7 @@ Scenes are data. Copy `src/lib/scenarios/cafe.ts`, then define stages (each with
 
 ## Configuration
 
-See `.env.example`. The defaults are `claude-haiku-4-5` for the NPC LLM inside ElevenAgents (low latency matters in voice), ElevenLabs' default model for post-call analysis (only some LLMs are allowed there), `eleven_v3_conversational` for agent voices, `eleven_multilingual_v2` for replays and references, and `scribe_v2` for STT. If ElevenLabs rejects part of the agent config for your account, provisioning adjusts only the rejected field (for example switching to `eleven_flash_v2_5`), and the Studio page shows what was adjusted.
+See `.env.example`. The defaults are `claude-haiku-4-5` for the NPC LLM inside ElevenAgents (low latency matters in voice), ElevenLabs' default model for post-call analysis (only some LLMs are allowed there), `eleven_v3_conversational` for agent voices, `eleven_v3` (with the language pinned) for replays, hint audio and native references, and `scribe_v2` for STT. If ElevenLabs rejects part of the agent config for your account, provisioning adjusts only the rejected field (for example switching to `eleven_flash_v2_5`), and the Studio page shows what was adjusted.
 
 ## Notes and limitations
 

@@ -48,10 +48,14 @@ export interface GameUI {
 
   hintLevel: number;
   hintOpen: boolean;
+  /** The "Need help?" stack in the bottom-right corner is expanded. */
+  helpOpen: boolean;
   hintBusy: boolean;
 
   micMuted: boolean;
   recording: boolean;
+  /** Per-turn speaking time limit (drives the countdown ring on the mic). */
+  turnTimer: { startedAt: number; ms: number; total: number } | null;
   micAvailable: boolean;
   inputMode: "live" | "ptt";
 

@@ -3,7 +3,9 @@ import path from "node:path";
 import { env } from "./env";
 import { ElevenLabsError, xi, xiBytes, xiJson } from "./elevenlabs";
 import { hashOf, once } from "./registry";
-import { ensureVoice } from "./voices";
+import { VOICE_DEFS, ensureVoice } from "./voices";
+
+const FALLBACK_TTS_MODEL = "eleven_multilingual_v2";
 
 /* ---------------- ElevenCreative assets: Sound Effects + Music ---------------- */
 
@@ -151,16 +153,20 @@ export interface TtsResult {
 const ttsDir = () => path.join(env.dataDir, "cache", "tts");
 export const ttsAudioPath = (key: string) => path.join(ttsDir(), `${key}.mp3`);
 
+type TtsResponse = { audio_base64: string; alignment?: Alignment; normalized_alignment?: Alignment };
+
 export async function synthesize(opts: {
   text: string;
   voiceKey: string;
   speed?: number;
-  language?: string;
   style?: number;
 }): Promise<TtsResult> {
   const voiceId = await ensureVoice(opts.voiceKey);
+  // Always pin the language: on short phrases ("Bonjour madame !") the model otherwise
+  // guesses, and can read French with an English accent.
+  const language = VOICE_DEFS[opts.voiceKey]?.language;
   const speed = Math.min(1.2, Math.max(0.7, opts.speed ?? 1));
-  const params = { text: opts.text, voiceId, speed, model: env.ttsModel, style: opts.style ?? 0.2 };
+  const params = { text: opts.text, voiceId, speed, model: env.ttsModel, language, style: opts.style ?? 0.2 };
   const key = hashOf(params);
   const metaPath = path.join(ttsDir(), `${key}.json`);
   try {
@@ -170,18 +176,25 @@ export async function synthesize(opts: {
     /* not cached */
   }
   return once(`tts:${key}`, async () => {
-    const res = await xiJson<{ audio_base64: string; alignment?: Alignment; normalized_alignment?: Alignment }>(
-      `/v1/text-to-speech/${voiceId}/with-timestamps`,
-      {
+    const request = (model: string) =>
+      xiJson<TtsResponse>(`/v1/text-to-speech/${voiceId}/with-timestamps`, {
         method: "POST",
         query: { output_format: "mp3_44100_128" },
         json: {
           text: opts.text,
-          model_id: env.ttsModel,
+          model_id: model,
+          ...(language ? { language_code: language } : {}),
           voice_settings: { stability: 0.5, similarity_boost: 0.8, style: params.style, use_speaker_boost: true, speed },
         },
-      },
-    );
+      });
+    let res: TtsResponse;
+    try {
+      res = await request(env.ttsModel);
+    } catch (e) {
+      // Accounts without v3 access: same voice + language on the multilingual model.
+      if (!(e instanceof ElevenLabsError) || e.status >= 500 || env.ttsModel === FALLBACK_TTS_MODEL) throw e;
+      res = await request(FALLBACK_TTS_MODEL);
+    }
     const alignment = res.alignment ?? res.normalized_alignment ?? null;
     const duration = alignment?.character_end_times_seconds.at(-1) ?? 0;
     const result: TtsResult = { key, url: `/api/audio/tts/${key}`, alignment, duration };

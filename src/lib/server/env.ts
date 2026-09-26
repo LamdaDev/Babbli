@@ -8,8 +8,9 @@ export const env = {
   analysisLlm: process.env.BABBLI_ANALYSIS_LLM ?? "",
   /** Agent voice model — v3 conversational is the most expressive. */
   agentTtsModel: process.env.BABBLI_AGENT_TTS_MODEL ?? "eleven_v3_conversational",
-  /** Model for ElevenCreative TTS (repeat/slow replays, hints, native references). */
-  ttsModel: process.env.BABBLI_TTS_MODEL ?? "eleven_multilingual_v2",
+  /** Model for ElevenCreative TTS (repeat/slow replays, hints, native references). The character
+   *  voices are designed with Voice Design v3, so the v3 model keeps their native accent. */
+  ttsModel: process.env.BABBLI_TTS_MODEL ?? "eleven_v3",
   sttModel: process.env.BABBLI_STT_MODEL ?? "scribe_v2",
   dataDir: process.env.BABBLI_DATA_DIR ?? path.join(process.cwd(), ".babbli"),
 };

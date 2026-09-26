@@ -31,7 +31,14 @@ function Karaoke({ subtitle }: { subtitle: Subtitle }) {
 }
 
 /** Solid background per wrapped line — no blur, so multi-line captions stay crisp. */
-const CAPTION = "rounded-md bg-black/65 box-decoration-clone px-3 py-0.5 font-jp font-bold text-white";
+const CAPTION_BASE = "rounded-md box-decoration-clone px-3 py-0.5 font-jp font-bold text-white";
+const CAPTION = `${CAPTION_BASE} bg-black/65`;
+
+/** Past this much speech in one turn, gently nudge the learner to keep it short. */
+function isLong(text: string, lang: string) {
+  if (lang === "ja") return [...text.replace(/[\s、。！？]/g, "")].length > 70;
+  return text.split(/\s+/).filter(Boolean).length > 35;
+}
 
 function CaptionLabel({ children, color }: { children: React.ReactNode; color: string }) {
   return (
@@ -51,7 +58,9 @@ const MIN_FONT = 16;
  * The font shrinks to fit as they say more; past the minimum size the oldest
  * words fade out at the top so the newest stay readable.
  */
-function UserCaption({ text, final, lang }: { text: string; final: boolean; lang: string }) {
+function UserCaption({ text, final, lang, speaking }: { text: string; final: boolean; lang: string; speaking: boolean }) {
+  // The nudge only shows while they're still talking; it disappears once they've answered.
+  const long = speaking && isLong(text, lang);
   const boxRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
@@ -71,7 +80,7 @@ function UserCaption({ text, final, lang }: { text: string; final: boolean; lang
     const mask = overflow ? "linear-gradient(to bottom, transparent, black 56px)" : "";
     box.style.maskImage = mask;
     box.style.webkitMaskImage = mask;
-  }, [text]);
+  }, [text, long]);
 
   return (
     <motion.div
@@ -85,9 +94,16 @@ function UserCaption({ text, final, lang }: { text: string; final: boolean; lang
       aria-live="polite"
     >
       <div ref={innerRef} className="max-w-4xl shrink-0 text-center">
+        <AnimatePresence>
+          {long && (
+            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mb-2">
+              <span className="inline-block rounded-full bg-gold px-3 py-1 text-xs font-extrabold text-ink shadow-lg">✂️ Keep it short: one thing at a time.</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <CaptionLabel color="text-[#5fe0c6]">You</CaptionLabel>
         <p ref={textRef} lang={lang} className="leading-[1.55]" style={{ fontSize: MAX_FONT }}>
-          <span className={`${CAPTION} ${final ? "" : "text-white/90"}`}>
+          <span className={`${CAPTION_BASE} transition-colors duration-500 ${long ? "bg-[#7a4512]/80" : "bg-black/65"} ${final ? "" : "text-white/90"}`}>
             {text ? (
               <>
                 {text}
@@ -154,7 +170,7 @@ export function NPCSubtitle() {
         </AnimatePresence>
       </div>
       <AnimatePresence>
-        {showUser && <UserCaption key="you" text={userText} final={!!userCaption?.final} lang={scenario.language} />}
+        {showUser && <UserCaption key="you" text={userText} final={!!userCaption?.final} lang={scenario.language} speaking={phase === "speak"} />}
       </AnimatePresence>
     </>
   );

@@ -23,7 +23,11 @@ import type { LearnerTurn, NpcLine, SessionRecord } from "@/lib/session/types";
 import { createGameStore, type GameStore, type GameUI, type Phase } from "./store";
 
 const AGENT_SPEED: Record<Difficulty, number> = { beginner: 0.85, intermediate: 1, immersion: 1.08 };
+/** Playback rates for Repeat and Slow (applied in the browser, pitch kept). */
 const REPLAY_SPEED: Record<Difficulty, number> = { beginner: 0.9, intermediate: 1, immersion: 1.05 };
+const SLOW_SPEED = 0.72;
+/** Max speaking time per turn — nobody talks at a shop assistant for two minutes. */
+const TURN_LIMIT_MS: Record<Difficulty, number> = { beginner: 20000, intermediate: 30000, immersion: 30000 };
 const AMBIENT_BASE: Record<Difficulty, number> = { beginner: 0.18, intermediate: 0.22, immersion: 0.32 };
 /** Scene events that play out after the NPC finishes the line that caused them. */
 const DEFERRED: SceneEventId[] = ["order_placed", "time_skip", "served"];
@@ -51,6 +55,9 @@ export class GameController {
   private watchdog: ReturnType<typeof setTimeout> | null = null;
   private activityTimer: ReturnType<typeof setInterval> | null = null;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private turnTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Time left on the turn while it's on hold (exit dialog open). */
+  private heldTurnMs: number | null = null;
   private background: Promise<unknown>[] = [];
   private replayHandle: { stop: () => void } | null = null;
   private narrationPending = false;
@@ -101,9 +108,11 @@ export class GameController {
       narration: null,
       hintLevel: 0,
       hintOpen: false,
+      helpOpen: false,
       hintBusy: false,
       micMuted: true,
       recording: false,
+      turnTimer: null,
       micAvailable: true,
       inputMode,
       world: [],
@@ -133,6 +142,7 @@ export class GameController {
     if (!this.disposed) this.store.setState(patch);
   }
   private setPhase(phase: Phase) {
+    if (phase !== "speak") this.clearTurnTimer();
     this.set({ phase });
     this.updateActivityPings(phase);
   }
@@ -608,8 +618,48 @@ export class GameController {
       if (this.session.inputMode === "ptt") {
         this.captions.start(this.scenario.language, this.keyterms(turn)).catch((e) => console.warn("[babbli] live captions unavailable", e));
       }
+      this.startTurnTimer();
     }
     this.audio.duck(true);
+  }
+
+  /** Time limit per turn: when the ring around the mic closes, the turn is sent automatically. */
+  private startTurnTimer(ms = TURN_LIMIT_MS[this.difficulty]) {
+    this.clearTurnTimer();
+    this.heldTurnMs = null;
+    this.set({ turnTimer: { startedAt: Date.now(), ms, total: TURN_LIMIT_MS[this.difficulty] } });
+    this.turnTimer = setTimeout(() => {
+      this.turnTimer = null;
+      if (this.ui.phase !== "speak") return;
+      this.log("turn_time_limit", { ms });
+      this.toast("Time's up! Sending what you said.", "info");
+      void this.finishSpeaking();
+    }, ms);
+  }
+
+  private clearTurnTimer() {
+    if (this.turnTimer) clearTimeout(this.turnTimer);
+    this.turnTimer = null;
+    if (this.ui.turnTimer) this.set({ turnTimer: null });
+  }
+
+  /** Typing a reply shouldn't be cut off by the speaking time limit. */
+  pauseTurnTimer() {
+    this.clearTurnTimer();
+  }
+
+  /** Freeze the time limit (e.g. while the exit dialog is open), keeping the time left. */
+  holdTurnTimer() {
+    const t = this.ui.turnTimer;
+    if (!t) return;
+    this.clearTurnTimer();
+    this.heldTurnMs = Math.max(1500, t.ms - (Date.now() - t.startedAt));
+  }
+
+  resumeTurnTimer() {
+    const ms = this.heldTurnMs;
+    this.heldTurnMs = null;
+    if (ms !== null && this.ui.phase === "speak" && this.ui.recording) this.startTurnTimer(ms);
   }
 
   backToChoices() {
@@ -751,6 +801,10 @@ export class GameController {
     return this.ui.selectedCard ?? this.ui.cards[0] ?? null;
   }
 
+  toggleHelp() {
+    this.set({ helpOpen: !this.ui.helpOpen });
+  }
+
   toggleHints() {
     if (this.ui.hintOpen) {
       this.set({ hintOpen: false });
@@ -801,12 +855,14 @@ export class GameController {
     this.recordAssist(slow ? "slows" : "repeats");
     this.set({ busyLabel: slow ? "Slowing down…" : null });
     try {
-      const tts = await api.tts(line.text, this.scenario.npc.voiceKey, slow ? 0.72 : REPLAY_SPEED[this.difficulty]);
+      // Same audio for Repeat and Slow (v3 ignores the TTS speed setting); the rate is applied on playback.
+      const tts = await api.tts(line.text, this.scenario.npc.voiceKey, 1);
+      const rate = slow ? SLOW_SPEED : REPLAY_SPEED[this.difficulty];
       if (this.ui.npcSpeaking) return;
       const wasMuted = this.ui.micMuted;
       this.set({ micMuted: true, npcSpeaking: true, voiceOwner: "npc", busyLabel: null });
       this.audio.duck(true);
-      const handle = await this.audio.playVoice(tts.url);
+      const handle = await this.audio.playVoice(tts.url, rate);
       this.replayHandle = handle;
       this.set({
         subtitle: {
@@ -815,7 +871,7 @@ export class GameController {
           meaning: line.meaning,
           speaker: line.speaker,
           karaoke: tts.alignment
-            ? { chars: tts.alignment.characters, starts: tts.alignment.character_start_times_seconds, t0: handle.startedAt }
+            ? { chars: tts.alignment.characters, starts: tts.alignment.character_start_times_seconds.map((s) => s / rate), t0: handle.startedAt }
             : undefined,
         },
       });
@@ -894,6 +950,7 @@ export class GameController {
   dispose() {
     this.disposed = true;
     this.clearWatchdog();
+    if (this.turnTimer) clearTimeout(this.turnTimer);
     this.captions.stop();
     if (this.activityTimer) clearInterval(this.activityTimer);
     if (this.listeningTimer) clearTimeout(this.listeningTimer);

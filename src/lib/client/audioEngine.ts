@@ -23,7 +23,7 @@ class AudioEngine {
   private ambientSource: AudioBufferSourceNode | null = null;
   private musicSource: AudioBufferSourceNode | null = null;
   private buffers = new Map<string, Promise<AudioBuffer>>();
-  private currentVoice: AudioBufferSourceNode | null = null;
+  private currentVoice: (() => void) | null = null;
   private ambientBase = 0.22;
   private ducked = false;
 
@@ -194,9 +194,13 @@ class AudioEngine {
     return new Promise((resolve) => (src.onended = () => resolve()));
   }
 
-  /** Foreground voice (NPC replay / coach audio) routed through the analyser. */
-  async playVoice(url: string): Promise<VoiceHandle> {
+  /**
+   * Foreground voice (NPC replay / coach audio) routed through the analyser.
+   * `rate` below/above 1 slows/speeds it up with the pitch kept.
+   */
+  async playVoice(url: string, rate = 1): Promise<VoiceHandle> {
     const ctx = this.ensure();
+    if (rate !== 1) return this.playStretched(ctx, url, rate);
     const buffer = await this.load(url);
     this.stopVoice();
     const src = ctx.createBufferSource();
@@ -204,23 +208,51 @@ class AudioEngine {
     src.connect(this.voiceGain);
     const done = new Promise<void>((resolve) => (src.onended = () => resolve()));
     src.start();
-    this.currentVoice = src;
-    return {
-      stop: () => {
-        try {
-          src.stop();
-        } catch {
-          /* noop */
-        }
-      },
-      done,
-      startedAt: ctx.currentTime,
+    const stop = () => {
+      try {
+        src.stop();
+      } catch {
+        /* noop */
+      }
     };
+    this.currentVoice = stop;
+    return { stop, done, startedAt: ctx.currentTime };
+  }
+
+  /**
+   * ElevenLabs v3 ignores the TTS `speed` setting, so slow replays are time-stretched here:
+   * a media element with preservesPitch (the browser's own 0.75x-style playback), fed into
+   * the same voice bus so ducking and lip-sync still follow it.
+   */
+  private async playStretched(ctx: AudioContext, url: string, rate: number): Promise<VoiceHandle> {
+    this.stopVoice();
+    const el = new Audio(url);
+    el.preservesPitch = true;
+    el.playbackRate = rate;
+    const node = ctx.createMediaElementSource(el);
+    node.connect(this.voiceGain);
+    let resolveDone!: () => void;
+    const done = new Promise<void>((resolve) => (resolveDone = resolve));
+    const stop = () => {
+      el.pause();
+      node.disconnect();
+      resolveDone();
+    };
+    el.onended = stop;
+    el.onerror = stop;
+    this.currentVoice = stop;
+    try {
+      await el.play();
+    } catch (e) {
+      stop();
+      throw e;
+    }
+    return { stop, done, startedAt: ctx.currentTime };
   }
 
   stopVoice() {
     try {
-      this.currentVoice?.stop();
+      this.currentVoice?.();
     } catch {
       /* noop */
     }

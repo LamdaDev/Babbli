@@ -16,6 +16,7 @@ const LEVELS = [
 export function HintPanel() {
   const controller = useController();
   const open = useGame((s) => s.hintOpen);
+  const helpOpen = useGame((s) => s.helpOpen);
   const level = useGame((s) => s.hintLevel);
   const busy = useGame((s) => s.hintBusy);
   const stageId = useGame((s) => s.stageId);
@@ -32,7 +33,11 @@ export function HintPanel() {
           initial={{ opacity: 0, y: 24, rotate: 0 }}
           animate={{ opacity: 1, y: 0, rotate: -0.8 }}
           exit={{ opacity: 0, y: 24 }}
-          className="paper-grain absolute right-3 top-16 z-40 max-h-[calc(100dvh-150px)] w-[min(92vw,360px)] overflow-y-auto rounded-2xl bg-paper p-4 text-ink shadow-2xl sm:right-5"
+          // With the "Need help?" column open (md+), keep its buttons reachable: stop above it, or on wide
+          // screens (where there's room without covering the mic) sit beside it.
+          className={`paper-grain absolute right-3 top-16 z-40 max-h-[calc(100dvh-150px)] w-[min(92vw,360px)] overflow-y-auto rounded-2xl bg-paper p-4 text-ink shadow-2xl transition-[right] duration-200 sm:right-5 ${
+            helpOpen ? "md:max-xl:max-h-[calc(100dvh-350px)] xl:right-[164px]" : ""
+          }`}
           aria-label="Hints"
         >
           <div className="mb-2 flex items-center justify-between">
