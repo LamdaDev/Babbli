@@ -4,105 +4,31 @@ import { Flag } from "@/components/ui/Flag";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { DIFFICULTIES } from "@/lib/scenarios/types";
 import { useController, useGame } from "./GameContext";
 
-export function BriefingOverlay() {
+/**
+ * Scenes start by themselves. Only when the page was opened without any prior
+ * click (e.g. a refresh) do browsers require one gesture before audio + mic.
+ */
+export function TapToEnter() {
   const controller = useController();
+  const needsTap = useGame((s) => s.needsTap);
   const phase = useGame((s) => s.phase);
-  const inputMode = useGame((s) => s.inputMode);
-  const { scenario, difficulty } = controller;
-  const diff = DIFFICULTIES.find((d) => d.id === difficulty)!;
-
+  const { scenario } = controller;
   return (
     <AnimatePresence>
-      {phase === "briefing" && (
-        <motion.div
+      {needsTap && phase === "briefing" && (
+        <motion.button
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0, transition: { duration: 0.4 } }}
-          className="absolute inset-0 z-50 flex items-center justify-center overflow-y-auto bg-night/40 p-4"
+          exit={{ opacity: 0 }}
+          onClick={() => void controller.enter()}
+          className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-night/45 text-cream"
         >
-          <motion.div
-            initial={{ y: 30, rotate: -1.5, opacity: 0 }}
-            animate={{ y: 0, rotate: -0.6, opacity: 1 }}
-            exit={{ y: -40, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 120, damping: 16 }}
-            className="paper-grain relative my-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-paper text-ink shadow-[0_30px_80px_rgba(0,0,0,0.5)] md:flex-row"
-          >
-            <div className="flex flex-col justify-between gap-4 bg-tangerine p-6 text-white md:w-56">
-              <div>
-                <Flag code={scenario.language} className="h-10 w-16" />
-                <div className="mt-3 text-[11px] font-black tracking-[0.2em] text-white/85">{scenario.locationLabel}</div>
-                <div className="mt-1 font-display text-2xl leading-tight">{scenario.title}</div>
-                <div className="mt-1 text-sm text-white/85">{scenario.venueName}</div>
-              </div>
-              <div className="rounded-xl bg-white/15 p-3 text-sm">
-                <div className="font-bold">{diff.label}</div>
-                <ul className="mt-1 space-y-0.5 text-xs text-white/90">
-                  {diff.details.map((d) => (
-                    <li key={d}>· {d}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-            <div className="flex-1 space-y-4 p-6 md:p-7">
-              <p className="text-sm leading-relaxed text-ink-soft">{scenario.blurb}</p>
-              <div>
-                <div className="text-[11px] font-black uppercase tracking-widest text-tangerine">Your objective</div>
-                <div className="font-display text-xl leading-snug">{scenario.objective}</div>
-              </div>
-              <div>
-                <div className="text-[11px] font-black uppercase tracking-widest text-tangerine">{scenario.briefing.title}</div>
-                <ul className="mt-1 space-y-0.5 text-sm">
-                  {scenario.briefing.lines.map((l) => (
-                    <li key={l}>• {l}</li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <div className="mb-1.5 text-[11px] font-black uppercase tracking-widest text-tangerine">How you&apos;ll talk</div>
-                <div className="grid grid-cols-2 gap-2" role="radiogroup">
-                  {(
-                    [
-                      ["live", "🎙 Live conversation", `${scenario.npc.name} listens in real time — just talk, pause when you're done.`],
-                      ["ptt", "✋ Push-to-talk", "Take your time. Tap the mic when you've finished your sentence."],
-                    ] as const
-                  ).map(([mode, title, desc]) => (
-                    <button
-                      key={mode}
-                      role="radio"
-                      aria-checked={inputMode === mode}
-                      onClick={() => controller.setInputMode(mode)}
-                      className={`rounded-xl border-2 p-3 text-left transition ${
-                        inputMode === mode ? "border-tangerine bg-white shadow-md" : "border-ink/10 bg-white/40 hover:bg-white/70"
-                      }`}
-                    >
-                      <div className="text-sm font-extrabold">{title}</div>
-                      <div className="mt-0.5 text-xs leading-snug text-ink-soft">{desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                <p className="text-[11px] leading-snug text-ink-soft">
-                  Uses your microphone · <b>1–3</b> choose · <b>Space</b> talk/done · <b>H</b> hint · <b>R</b> repeat · <b>S</b> slow · <b>C</b> subtitles
-                </p>
-                <motion.button
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => void controller.enter()}
-                  className="rounded-2xl bg-ink px-6 py-3 font-display text-lg text-cream shadow-xl"
-                >
-                  Step inside →
-                </motion.button>
-              </div>
-              <p className="text-[11px] text-ink-soft/80">
-                {scenario.npc.name} is an ElevenLabs agent with a designed native voice; ambience &amp; sound effects are generated with ElevenLabs.
-              </p>
-            </div>
-          </motion.div>
-        </motion.div>
+          <Flag code={scenario.language} className="h-8 w-12" />
+          <span className="font-display text-3xl">{scenario.title}</span>
+          <span className="rounded-full bg-tangerine px-6 py-3 font-display text-xl text-white shadow-xl">Tap to step inside →</span>
+        </motion.button>
       )}
     </AnimatePresence>
   );

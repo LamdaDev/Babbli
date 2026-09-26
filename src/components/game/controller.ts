@@ -107,6 +107,7 @@ export class GameController {
       transitionText: null,
       completion: null,
       sessionId: this.session.id,
+      needsTap: false,
     };
     this.store = createGameStore(initial);
   }
@@ -134,12 +135,6 @@ export class GameController {
   }
   toast(text: string, tone: "info" | "warn" | "good" = "info") {
     this.set({ toast: { id: Date.now(), text, tone } });
-  }
-
-  setInputMode(mode: InputMode) {
-    if (this.ui.phase !== "briefing") return;
-    this.session.inputMode = mode;
-    this.set({ inputMode: mode });
   }
 
   /** Mouth amplitude for the NPC (ElevenAgents output or a local ElevenLabs TTS replay). */
@@ -222,10 +217,20 @@ export class GameController {
   /* session start                                                       */
   /* ------------------------------------------------------------------ */
 
+  /** Start the scene immediately; if the browser has seen no click on this page yet, wait for one tap. */
+  autoEnter() {
+    const activation = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
+    if (activation && !activation.hasBeenActive) {
+      this.set({ needsTap: true });
+      return;
+    }
+    void this.enter();
+  }
+
   async enter() {
     if (this.ui.phase !== "briefing" || !this.controls) return;
     this.setPhase("connecting");
-    this.set({ busyLabel: "Stepping inside…" });
+    this.set({ busyLabel: "Stepping inside…", needsTap: false });
     await this.audio.unlock();
     void this.audio.playSfx(assetUrl(this.scenario.sfx.enter), 0.8);
     this.audio.startAmbient(assetUrl(this.scenario.ambienceAsset), AMBIENT_BASE[this.difficulty]).catch((e) =>
@@ -412,7 +417,19 @@ export class GameController {
       await sleep(900);
       if (events.includes("served")) this.addWorld("served");
       if (sfx) void this.audio.playSfx(assetUrl(sfx), 0.7);
-      await sleep(3200);
+      // Optional voice heard during the skip (e.g. a store PA announcement).
+      const lineFor = this.scenario.eventLines.time_skip;
+      let voiceDone: Promise<unknown> = Promise.resolve();
+      if (lineFor) {
+        const line = lineFor(state);
+        const voice = this.scenario.backgroundVoices[line.voice];
+        voiceDone = (async () => {
+          await sleep(1400); // let the chime finish first
+          const tts = await api.tts(line.text, voice.voiceKey, 1);
+          await this.audio.playBackgroundVoice(tts.url, 0, 0.5);
+        })().catch((e) => console.warn("[babbli] time-skip voice failed", e));
+      }
+      await Promise.all([sleep(3200), voiceDone]);
       this.set({ transitionText: null, timeSkipped: true });
       this.setPhase("npc");
     } else if (events.includes("served")) {

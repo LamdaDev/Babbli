@@ -204,7 +204,8 @@ export function RamenBack({ variant }: SceneArtProps) {
           <rect x={-20} y={-58} width={40} height={8} rx={4} fill="#c8231d" />
           <circle cx={0} cy={-48} r={6} fill="#f2c14b" />
           <ellipse cx={0} cy={-20} rx={16} ry={20} fill="#f2c14b" />
-          <g className="wave" style={{ transformOrigin: "1446px 364px" }}>
+          {/* raised paw: pivots at its own base so it beckons in place */}
+          <g className="wave" style={{ transformBox: "fill-box", transformOrigin: "50% 100%" }}>
             <ellipse cx={30} cy={-96} rx={11} ry={18} fill="#fbf7f0" />
           </g>
         </g>
@@ -212,21 +213,6 @@ export function RamenBack({ variant }: SceneArtProps) {
 
       <Lantern x={190} y={52} label="ら" len={30} />
       <Lantern x={1440} y={52} label="麺" len={40} />
-
-      {/* other diners, side-on along the counter */}
-      <g className="slurp">
-        <g transform="translate(1320 560)">
-          <circle cx={0} cy={-62} r={34} fill="#1b140f" />
-          <path d="M-46 0 Q-50 -40 0 -36 Q54 -36 56 0 Z" fill="#3c4a63" />
-          <path d="M-20 -60 Q-44 -40 -40 -18" stroke="#1b140f" strokeWidth={8} fill="none" />
-        </g>
-      </g>
-      <g className="slurp" style={{ animationDelay: "2.5s" }}>
-        <g transform="translate(240 588)">
-          <circle cx={0} cy={-58} r={30} fill="#231811" />
-          <path d="M-44 0 Q-44 -34 0 -32 Q46 -32 46 0 Z" fill="#6b3f3f" />
-        </g>
-      </g>
 
       <rect width={1600} height={620} fill="url(#r-warm)" />
     </g>
@@ -282,21 +268,8 @@ export function RamenFront({ world, stageId, timeSkipped, slots }: SceneArtProps
           <stop offset="1" stopColor="#a86a36" />
         </linearGradient>
       </defs>
-      {/* back counter edge & register */}
+      {/* back counter edge */}
       <rect x={0} y={600} width={1600} height={22} fill="#7a4a28" />
-      <g transform="translate(1330 520)">
-        <rect x={0} y={20} width={170} height={70} rx={8} fill="#3a3f47" />
-        <rect x={10} y={0} width={110} height={40} rx={4} fill="#262a30" />
-        <rect x={18} y={8} width={94} height={22} rx={2} fill="#9fe8b5" opacity={billShown ? 1 : 0.35} />
-        {billShown && (
-          <text x={65} y={25} textAnchor="middle" fontSize={16} fontWeight={700} fill="#0f3b21">
-            ¥ ----
-          </text>
-        )}
-        {[0, 1, 2, 3].map((i) => (
-          <rect key={i} x={14 + i * 38} y={52} width={30} height={12} rx={3} fill="#5a616b" />
-        ))}
-      </g>
 
       {/* counter surface */}
       <path d="M0 620 L1600 620 L1600 900 L0 900 Z" fill="url(#r-counter)" />

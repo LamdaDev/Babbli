@@ -1,4 +1,4 @@
-import { getStage } from "@/lib/engine/engine";
+import { getStage, isOffLanguage } from "@/lib/engine/engine";
 import type { ScenarioDef, VocabItem } from "@/lib/scenarios/types";
 import type { SessionRecord } from "@/lib/session/types";
 import { analyzeTurn, type ReferenceTiming, type TurnSpeechMetrics } from "./speech";
@@ -106,7 +106,7 @@ export function buildReport(
       ? [
           `Average ${avgLatency.toFixed(1)}s before you started speaking`,
           `${totalPauses} mid-sentence ${totalPauses === 1 ? "pause" : "pauses"} longer than 0.45s`,
-          `${totalFillers} filler ${totalFillers === 1 ? "word" : "words"} (${lang === "ja" ? "えーと, あの" : lang === "fr" ? "euh, ben" : "eh, este"}…)`,
+          `${totalFillers} filler ${totalFillers === 1 ? "word" : "words"} (${lang === "ja" ? "えーと, あの" : lang === "fr" ? "euh, ben" : lang === "en" ? "um, uh" : "eh, este"}…)`,
         ]
       : [],
   };
@@ -145,7 +145,8 @@ export function buildReport(
   const slows = session.assistance.slows;
   const translations = session.assistance.translations;
   const typed = session.turns.filter((t) => t.inputMethod === "text").length;
-  const english = turns.filter((t) => t.report?.language === "english").length;
+  // Replies outside the target language (for the English scene: any other language).
+  const english = turns.filter((t) => t.report && isOffLanguage(scenario, t.report.language)).length;
   const fullReveals = (hints[4] ?? 0) + (hints[5] ?? 0);
   const penalty =
     Object.entries(hints).reduce((s, [lvl, n]) => s + HINT_COST[+lvl] * n, 0) +
@@ -162,7 +163,7 @@ export function buildReport(
       `Hints: ${Object.values(hints).reduce((a, b) => a + b, 0)} (${fullReveals} full-answer ${fullReveals === 1 ? "reveal" : "reveals"})`,
       `Translations: ${translations} · Repeats: ${repeats} · Slow replays: ${slows}`,
       typed ? `Typed instead of speaking: ${typed}` : "",
-      english ? `Replies in English: ${english}` : "",
+      english ? `Replies outside ${scenario.languageEnglish}: ${english}` : "",
     ].filter(Boolean),
   };
 
@@ -190,7 +191,7 @@ export function buildReport(
   if (unclear.length) struggledWith.push(`Hard to recognise: ${unclear.join(" · ")} — practise these with the native reference.`);
   if (avgLatency > 3.5) struggledWith.push(`Long pauses before speaking (≈${avgLatency.toFixed(1)}s on average).`);
   if (fullReveals) struggledWith.push(`Needed the full answer ${fullReveals}× — try stopping at the sentence-starter hint next time.`);
-  if (english) struggledWith.push(`Switched to English ${english}×.`);
+  if (english) struggledWith.push(`Switched out of ${scenario.languageEnglish} ${english}×.`);
 
   const missedStages = Array.from(new Set(judged.filter((t) => t.outcome!.kind === "clarify").map((t) => t.stageId)));
   for (const stageId of missedStages.slice(0, 3)) {

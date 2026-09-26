@@ -1,6 +1,17 @@
 /** SVG flags — emoji flags don't render on Windows. */
 export function Flag({ code, className = "h-[0.9em] w-[1.35em]" }: { code: string; className?: string }) {
   const common = { viewBox: "0 0 30 20", className: `inline-block shrink-0 rounded-[3px] align-[-0.1em] shadow-sm ${className}`, "aria-hidden": true } as const;
+  if (code === "en")
+    return (
+      <svg {...common}>
+        <rect width="30" height="20" fill="#fff" />
+        {[0, 2, 4, 6, 8, 10, 12].map((i) => (
+          <rect key={i} y={(i * 20) / 13} width="30" height={20 / 13} fill="#b22234" />
+        ))}
+        <rect width="13" height={(20 / 13) * 7} fill="#3c3b6e" />
+        {[0, 1, 2].map((r) => [0, 1, 2, 3].map((c) => <circle key={`${r}${c}`} cx={2 + c * 3} cy={2 + r * 3.4} r={0.6} fill="#fff" />))}
+      </svg>
+    );
   if (code === "ja")
     return (
       <svg {...common}>

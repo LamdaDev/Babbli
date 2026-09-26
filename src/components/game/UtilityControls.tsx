@@ -64,7 +64,14 @@ export function UtilityControls() {
       <Ctl label="Slow" icon="🐢" kbd="S" onClick={() => void controller.replay(true)} disabled={!interactive || npcSpeaking || !hasLine} />
       <Ctl label="Subtitles" icon="CC" kbd="C" onClick={() => controller.toggleSubtitles()} active={showSubtitles} />
       {translationAllowed && (
-        <Ctl label="English" icon="EN" kbd="T" onClick={() => controller.toggleTranslation()} active={showTranslation} />
+        // In the English scene the "translation" is a plain-English paraphrase instead.
+        <Ctl
+          label={controller.scenario.language === "en" ? "Simpler" : "English"}
+          icon={controller.scenario.language === "en" ? "≈" : "EN"}
+          kbd="T"
+          onClick={() => controller.toggleTranslation()}
+          active={showTranslation}
+        />
       )}
     </div>
   );

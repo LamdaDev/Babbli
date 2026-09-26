@@ -60,6 +60,8 @@ export interface GameUI {
   transitionText: string | null;
   completion: { objectiveComplete: boolean } | null;
   sessionId: string;
+  /** The page was opened without a prior click, so one tap is needed before audio + mic. */
+  needsTap: boolean;
 }
 
 export type GameStore = ReturnType<typeof createGameStore>;

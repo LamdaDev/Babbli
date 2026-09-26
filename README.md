@@ -2,19 +2,20 @@
 
 **Walk in. Figure out what to say.** — HackTheHill III submission
 
-Babbli is a first-person language-practice simulator. You don't chat with an AI: you walk into a Tokyo ramen shop, a Paris café or a Sevilla hotel, and you have to *get something done* — order, answer the follow-up, pay, fix a broken reservation — by speaking to a character who only speaks the local language.
+Babbli is a first-person language-practice simulator. You don't chat with an AI: you walk into a New York department store, a Tokyo ramen shop, a Paris café or a Sevilla hotel, and you have to *get something done* — find the right item, order, answer the follow-up, pay, fix a broken reservation — by speaking to a character who only speaks the local language.
 
 > We simulate the situations you're actually going to encounter — before you encounter them.
 
 | Scene | Language | Objective | Role |
 |---|---|---|---|
-| 麺屋ほし · Tokyo ramen shop | Japanese | Order food, answer a follow-up, pay | Hero scenario |
+| Whitmore's · New York department store | English | Find a specific gift, handle a sold-out item, buy it | Hero scenario |
+| 麺屋ほし · Tokyo ramen shop | Japanese | Order food, answer a follow-up, pay | Generalization |
 | Café des Lilas · Paris | French | Order, respond to clarification, ask for the bill | Generalization |
 | Hotel Azahar · Sevilla | Spanish | Check in and resolve a reservation problem | Generalization |
 
 ## How it uses ElevenLabs
 
-**ElevenAgents is the core.** Every NPC (Hiroshi, Camille, Lucía) is an ElevenLabs Agent:
+**ElevenAgents is the core.** Every NPC (Jordan, Hiroshi, Camille, Lucía) is an ElevenLabs Agent:
 
 - **Real-time voice conversation** over a signed-URL WebSocket session (`@elevenlabs/react` `ConversationProvider`), with per-session overrides for the system prompt, first line, TTS speed (slower for beginners) and ASR keywords (menu items, names).
 - **A client tool per scene** (`babbli_report_turn_<scene>`). After every learner utterance the agent reports its interpretation (intent, whether the question was answered, language used, extracted slots like dish or payment method). Babbli's deterministic state machine decides what's true and returns the NPC's next instruction. The LLM writes the words; the application controls progression and completion.
@@ -24,7 +25,7 @@ Babbli is a first-person language-practice simulator. You don't chat with an AI:
 
 **ElevenCreative is the immersion layer:**
 
-- **Voice Design** creates every character voice from a text description in its native language: NPCs, background characters (the chef shouting orders, the barista, the bellhop) and a native "coach" voice per language.
+- **Voice Design** creates every character voice from a text description in its native language: NPCs, background characters (the store PA announcer, the chef shouting orders, the barista, the bellhop) and a native "coach" voice per language.
 - **Sound Effects** generate the seamless looping ambience for each venue plus one-shots (sliding door and bell, bowl on the counter, espresso machine, elevator ding, cash register, UI chimes).
 - **Eleven Music** composes the main-menu theme.
 - **Text to Speech with timestamps** powers Repeat/Slow (the NPC's own voice with karaoke subtitles), the level-5 audio hint, and the native reference audio compared against your recording.
@@ -48,11 +49,11 @@ Other scripts: `npm run simulate` (plays all scenarios × difficulties × 60 see
 
 ## The experience
 
-1. **Choose a destination, scene and difficulty.** Beginner (slower speech, subtitles + optional English, full hints, push-to-talk), Intermediate (natural speed, unexpected follow-ups, live conversation), Immersion (native speed, colloquial, no subtitles, louder ambience, you ask for clarification yourself).
-2. **Step inside.** A full-screen illustrated scene with ambient sound. The NPC has idle, speaking (mouth driven by the live audio amplitude), listening, thinking, confused and happy states.
+1. **Choose a destination, scene, difficulty and how you'll talk.** Beginner (slower speech, subtitles + optional English, full hints), Intermediate (natural speed, unexpected follow-ups), Immersion (native speed, colloquial, no subtitles, louder ambience, you ask for clarification yourself). Then pick Live conversation or Push-to-talk.
+2. **You're in the scene straight away.** A full-screen illustrated scene with ambient sound. The NPC has idle, speaking (mouth driven by the live audio amplitude), listening, thinking, confused and happy states.
 3. **Pick what you want to say.** Three intention cards describe *what* to communicate ("Ask what he recommends"), never the sentence itself.
 4. **Say it yourself.** The mic opens, the NPC listens, and the conversation branches: sold-out dishes, cash-only shops, a waiter who mishears your order, a missing reservation.
-5. **Get help if you need it:** 💡 a five-step hint ladder (intent → key words → sentence starter → full sentence → native audio), 🔁 repeat, 🐢 slow, CC subtitles, EN translation (beginner). Every use is recorded.
+5. **Get help if you need it:** 💡 a five-step hint ladder (intent → key words → sentence starter → full sentence → native audio), 🔁 repeat, 🐢 slow, CC subtitles, EN translation (beginner; in the English scene it is a simpler-English paraphrase instead). Every use is recorded.
 6. **See how you did:** completion status; separate comprehension, speaking clarity, fluency, vocabulary and independence scores; what you handled well and struggled with; the NPC's review; a turn-by-turn replay with your recording against the native reference on a shared timeline; and the scene's vocabulary with audio.
 
 Keyboard: `1–3` choose · `Space` talk/done · `H` hint · `R` repeat · `S` slow · `C` subtitles · `T` English.
@@ -76,7 +77,7 @@ Server (Next.js route handlers)
 Storage: .babbli/ (registry of ElevenLabs resources, generated audio, sessions + recordings)
 ```
 
-Two input modes are available per session. **Live** means the agent hears the mic directly and handles turn-taking. **Push-to-talk** records the turn, transcribes it with Scribe, and sends the text to the agent; learners who pause mid-sentence aren't cut off. Beginner defaults to push-to-talk and the others to live. You can switch on the briefing screen.
+Two input modes are available per session. **Live** means the agent hears the mic directly and handles turn-taking. **Push-to-talk** records the turn, transcribes it with Scribe, and sends the text to the agent; learners who pause mid-sentence aren't cut off. Beginner recommends push-to-talk and the others live; you choose on the home screen next to the difficulty.
 
 ## Requirements coverage
 

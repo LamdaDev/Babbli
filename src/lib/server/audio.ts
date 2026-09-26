@@ -18,6 +18,20 @@ export interface AssetDef {
 }
 
 export const AUDIO_ASSETS: Record<string, AssetDef> = {
+  "store-ambience": {
+    kind: "sfx",
+    label: "Department store ambience (loop)",
+    loop: true,
+    duration: 30,
+    influence: 0.4,
+    prompt:
+      "Ambience inside a large, bright department store on a Saturday afternoon: soft murmur of American shoppers, a distant escalator hum, hangers sliding on racks, an occasional far-off register beep, spacious reverberant room tone. No music.",
+  },
+  "store-doors": { kind: "sfx", label: "Automatic doors", duration: 3, prompt: "Automatic sliding glass doors opening with a soft whoosh into a spacious, bustling store" },
+  "store-pa-chime": { kind: "sfx", label: "PA chime", duration: 2.5, prompt: "Classic department store PA announcement chime, three soft ascending bell tones" },
+  "store-paper": { kind: "sfx", label: "Tissue paper", duration: 2, prompt: "Tissue paper rustling as a folded scarf is lifted out of a box onto a glass counter" },
+  "store-wrap": { kind: "sfx", label: "Gift wrapping", duration: 4, prompt: "Gift wrapping: crisp paper folding, tape pulled from a dispenser, a ribbon tied" },
+  "store-beep": { kind: "sfx", label: "Card terminal", duration: 2, prompt: "Card payment terminal beep with an approved tone, then a receipt printing" },
   "ramen-ambience": {
     kind: "sfx",
     label: "Ramen shop ambience (loop)",

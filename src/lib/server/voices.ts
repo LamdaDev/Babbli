@@ -11,7 +11,7 @@ import { once, readRegistry, updateRegistry } from "./registry";
  */
 export interface VoiceDef {
   name: string;
-  language: "ja" | "fr" | "es";
+  language: "en" | "ja" | "fr" | "es";
   role: string;
   description: string;
   sample: string;
@@ -19,6 +19,26 @@ export interface VoiceDef {
 }
 
 export const VOICE_DEFS: Record<string, VoiceDef> = {
+  jordan: {
+    name: "Babbli · Jordan (store associate)",
+    language: "en",
+    role: "NPC · New York department store",
+    description:
+      "A friendly, upbeat American man in his late 20s, a sales associate at a New York department store. Warm, natural and conversational with a clear General American accent and lively, helpful retail energy.",
+    sample:
+      "Hi there! Welcome to Whitmore's. Can I help you find anything today? Oh, a scarf for your sister — how nice! We've got some really soft merino wool ones right over here. Let me grab a few colors for you.",
+    fallback: "TX3LPaxmHKxFdv7VOQHJ",
+  },
+  announcer: {
+    name: "Babbli · Store PA announcer",
+    language: "en",
+    role: "Background · store announcements",
+    description:
+      "A smooth, polished American woman making a department store PA announcement: warm, calm and professional, clear enunciation, slightly formal.",
+    sample:
+      "Attention Whitmore's shoppers: our fall sale continues on the third floor, with up to forty percent off outerwear. Gift wrapping is complimentary at every register. Thank you for shopping with us!",
+    fallback: "EXAVITQu4vr4xnSDxMaL",
+  },
   hiroshi: {
     name: "Babbli · Hiroshi (ramen waiter)",
     language: "ja",
@@ -77,6 +97,16 @@ export const VOICE_DEFS: Record<string, VoiceDef> = {
     sample:
       "¡Buenas! Yo le subo las maletas, no se preocupe. El ascensor está a la derecha. Si necesita cualquier cosa, estoy aquí en la entrada. ¡Bienvenido a Sevilla, que lo pase genial!",
     fallback: "TX3LPaxmHKxFdv7VOQHJ",
+  },
+  coach_en: {
+    name: "Babbli · Coach (English)",
+    language: "en",
+    role: "Hints & native reference audio",
+    description:
+      "A calm, clear native American English woman in her 30s with a neutral General American accent, speaking slowly and precisely like a language teacher recording reference audio.",
+    sample:
+      "Hello. I'm going to read some useful phrases slowly and clearly. Listen carefully, then repeat after me. I'm looking for a scarf. Could you check if you have any in the back? I'll take it, thanks.",
+    fallback: "21m00Tcm4TlvDq8ikWAM",
   },
   coach_ja: {
     name: "Babbli · Coach (Japanese)",

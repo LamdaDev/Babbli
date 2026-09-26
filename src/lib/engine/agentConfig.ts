@@ -28,7 +28,10 @@ export function buildToolConfig(scenario: ScenarioDef) {
     language: {
       type: "string",
       enum: ["target", "english", "mixed", "other"],
-      description: `Language the customer used. target = ${scenario.languageEnglish}; mixed = mostly ${scenario.languageEnglish} with some English words.`,
+      description:
+        scenario.language === "en"
+          ? "Language the customer used. target = English; mixed = mostly English with a few words from another language; other = a different language."
+          : `Language the customer used. target = ${scenario.languageEnglish}; mixed = mostly ${scenario.languageEnglish} with some English words.`,
     },
     politeness: {
       type: "string",
@@ -58,7 +61,14 @@ export function buildToolConfig(scenario: ScenarioDef) {
   };
 }
 
-const NUDGE: Record<string, string> = { ja: "お決まりですか？", fr: "Alors ?", es: "¿Sí?" };
+const NUDGE: Record<string, string> = { en: "Everything okay over there?", ja: "お決まりですか？", fr: "Alors ?", es: "¿Sí?" };
+
+function languageRule(scenario: ScenarioDef) {
+  if (scenario.language === "en")
+    return "Speak ONLY natural American English. If the customer uses another language, stay in English and kindly ask them to try in English. Never translate for them.";
+  const lang = scenario.languageEnglish;
+  return `Speak ONLY ${lang}. Never English — not even if the customer speaks English. Never translate for them.`;
+}
 
 function styleFor(difficulty: Difficulty, scenario: ScenarioDef) {
   const role = scenario.npc.role.toLowerCase();
@@ -92,7 +102,7 @@ ${scenario.facts(variant, difficulty)}
 If the customer is silent, wait patiently and say nothing. Only if you are told the customer has been silent for a long time, give one tiny, gentle nudge (like "${NUDGE[scenario.language] ?? "…?"}").
 
 # Language rules
-- Speak ONLY ${lang}. Never English — not even if the customer speaks English. Never translate for them.
+- ${languageRule(scenario)}
 - Never tell the customer what they should say and never say their line for them, even when they struggle. You may only help by rephrasing your own question.
 - ${styleFor(difficulty, scenario)}
 - One or two sentences per turn. Vary your wording naturally; never repeat a sentence word-for-word.
@@ -107,6 +117,7 @@ The scene has just started and you have greeted the customer with your first lin
 
 export function buildAnalysisConfig(scenario: ScenarioDef) {
   const lang = scenario.languageEnglish;
+  const en = scenario.language === "en";
   const role = scenario.npc.role.toLowerCase();
   const numeric = (id: string, name: string, prompt: string, instructions: string) => ({
     id,
@@ -135,8 +146,10 @@ export function buildAnalysisConfig(scenario: ScenarioDef) {
         numeric(
           "target_language_use",
           `${lang} use`,
-          `How consistently did the learner communicate in ${lang} rather than English?`,
-          `100 = entirely ${lang}; 50 = half English; 0 = only English.`,
+          en
+            ? "How consistently did the learner communicate in English rather than switching to another language?"
+            : `How consistently did the learner communicate in ${lang} rather than English?`,
+          en ? "100 = entirely English; 50 = half another language; 0 = no English." : `100 = entirely ${lang}; 50 = half English; 0 = only English.`,
         ),
         numeric(
           "register",
@@ -157,11 +170,15 @@ export function buildAnalysisConfig(scenario: ScenarioDef) {
       },
       npc_translations: {
         type: "string",
-        description: `Every line the ${role} (the agent) said, in order, each formatted "<original ${lang}> => <natural English translation>", separated by " || ".`,
+        description: en
+          ? `Every line the ${role} (the agent) said, in order, each formatted "<original> => <the same meaning in very simple English>", separated by " || ".`
+          : `Every line the ${role} (the agent) said, in order, each formatted "<original ${lang}> => <natural English translation>", separated by " || ".`,
       },
       key_expressions: {
         type: "string",
-        description: `4–8 useful ${lang} expressions that came up in this conversation, each formatted "<expression> => <English meaning>", separated by " || ".`,
+        description: en
+          ? `4–8 useful English expressions or idioms that came up in this conversation, each formatted "<expression> => <what it means, in simple English>", separated by " || ".`
+          : `4–8 useful ${lang} expressions that came up in this conversation, each formatted "<expression> => <English meaning>", separated by " || ".`,
       },
       learner_errors: {
         type: "string",

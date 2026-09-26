@@ -56,6 +56,7 @@ export function containsTerm(text: string, term: string, lang: LanguageCode | st
 }
 
 export const FILLERS: Record<string, string[]> = {
+  en: ["um", "uh", "er", "erm", "hmm", "uhh", "umm"],
   ja: ["えーと", "えっと", "えー", "あのー", "あの", "うーん", "んー", "まあ"],
   fr: ["euh", "heu", "euhm", "hum", "ben", "bah", "hein"],
   es: ["eh", "em", "este", "mmm", "pues", "ehh", "o sea"],
@@ -74,12 +75,12 @@ export function speechUnits(text: string, lang: LanguageCode | string) {
 }
 
 /** Typical native speaking rate in units/second — used when no reference audio is available. */
-export const NATIVE_RATE: Record<string, number> = { ja: 7.2, fr: 3.3, es: 3.4 };
+export const NATIVE_RATE: Record<string, number> = { en: 2.8, ja: 7.2, fr: 3.3, es: 3.4 };
 
 export function languageMatches(code: string | undefined, lang: LanguageCode | string) {
   if (!code) return null;
   const c = code.toLowerCase();
-  const map: Record<string, string[]> = { ja: ["ja", "jpn"], fr: ["fr", "fra", "fre"], es: ["es", "spa"] };
+  const map: Record<string, string[]> = { en: ["en", "eng"], ja: ["ja", "jpn"], fr: ["fr", "fra", "fre"], es: ["es", "spa"] };
   return (map[lang] ?? [lang]).some((x) => c === x || c.startsWith(x));
 }
 

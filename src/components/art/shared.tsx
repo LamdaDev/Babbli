@@ -1,5 +1,8 @@
 /** Small reusable SVG pieces for the illustrated scenes. */
 
+/** Round computed coordinates so server- and client-rendered SVG match exactly (trig results differ in the last digits). */
+export const r2 = (n: number) => Math.round(n * 100) / 100;
+
 export function Steam({ x, y, scale = 1, count = 3, opacity = 0.5 }: { x: number; y: number; scale?: number; count?: number; opacity?: number }) {
   return (
     <g transform={`translate(${x} ${y}) scale(${scale})`} opacity={opacity} style={{ pointerEvents: "none" }}>

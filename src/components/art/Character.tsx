@@ -119,6 +119,21 @@ export function Character({ look, pose, expression, name, getLevel, listeningLev
           </text>
         </g>
       )}
+      {look.accessory === "lanyard" && (
+        <g>
+          {/* collared shirt under a store cardigan, with a staff lanyard + ID card */}
+          <path d="M176 296 L210 352 L244 296 Z" fill="#eef2f1" />
+          <path d="M176 296 L196 334 L206 316 Z M244 296 L224 334 L214 316 Z" fill="#dfe6e4" />
+          <path d="M160 300 L204 440 M260 300 L216 440" stroke={look.outfitShade} strokeWidth={8} />
+          <path d="M184 302 L204 418 M236 302 L216 418" stroke={look.accent} strokeWidth={6} strokeLinecap="round" />
+          <rect x={184} y={412} width={52} height={66} rx={7} fill="#fbf8f2" stroke="#d9d2c4" strokeWidth={2} />
+          <rect x={184} y={412} width={52} height={14} rx={6} fill={look.accent} />
+          <circle cx={210} cy={444} r={10} fill={look.skinShade} />
+          <text x={210} y={471} textAnchor="middle" fontSize={11} fontWeight={800} fill="#2a1d14">
+            {name}
+          </text>
+        </g>
+      )}
 
       {/* gesture hand while speaking / thinking */}
       <motion.g
@@ -154,6 +169,24 @@ export function Character({ look, pose, expression, name, getLevel, listeningLev
           )}
           {look.hairStyle === "bun" && (
             <path d="M128 176 Q122 92 210 84 Q298 92 292 176 Q280 124 248 116 Q210 108 172 116 Q140 124 128 176 Z" fill={look.hair} />
+          )}
+          {look.hairStyle === "curly" && (
+            <g fill={look.hair}>
+              <path d="M132 160 Q128 100 210 90 Q292 100 288 160 Q276 124 210 118 Q144 124 132 160 Z" />
+              {[
+                [140, 128, 22],
+                [158, 104, 26],
+                [188, 88, 28],
+                [222, 86, 28],
+                [254, 98, 26],
+                [278, 122, 22],
+                [288, 150, 14],
+                [132, 152, 14],
+                [206, 110, 22],
+              ].map(([cx, cy, r]) => (
+                <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={r} />
+              ))}
+            </g>
           )}
           {look.accessory === "headband" && (
             <g>

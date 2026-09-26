@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Walker } from "../shared";
+import { r2 } from "../shared";
 import type { SceneArtProps } from "../types";
 
 function Tile({ x, y }: { x: number; y: number }) {
@@ -87,7 +87,7 @@ export function HotelBack() {
           <circle cx={-50} cy={20} r={50} fill="#4c8c43" />
           <circle cx={46} cy={24} r={54} fill="#35702f" />
           {[...Array(14)].map((_, i) => (
-            <circle key={i} cx={Math.cos(i * 2.3) * 60} cy={Math.sin(i * 1.7) * 50} r={8} fill="#f29a2e" />
+            <circle key={i} cx={r2(Math.cos(i * 2.3) * 60)} cy={r2(Math.sin(i * 1.7) * 50)} r={8} fill="#f29a2e" />
           ))}
         </g>
         <g transform="translate(170 560)">
@@ -106,10 +106,10 @@ export function HotelBack() {
       />
       {[...Array(13)].map((_, i) => {
         const a = Math.PI + (i / 12) * Math.PI;
-        const x1 = 250 + Math.cos(a) * 170;
-        const y1 = 330 + Math.sin(a) * 175;
-        const x2 = 250 + Math.cos(a) * 200;
-        const y2 = 330 + Math.sin(a) * 205;
+        const x1 = r2(250 + Math.cos(a) * 170);
+        const y1 = r2(330 + Math.sin(a) * 175);
+        const x2 = r2(250 + Math.cos(a) * 200);
+        const y2 = r2(330 + Math.sin(a) * 205);
         return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={i % 2 ? "#b8423a" : "#f3e6cc"} strokeWidth={24} />;
       })}
 
@@ -174,15 +174,11 @@ export function HotelBack() {
         </text>
       </g>
 
-      {/* guests crossing */}
-      <Walker y={520} delay={3} duration={18} color="#3b3445" scale={1.4} />
-      <Walker y={526} delay={12} duration={20} color="#4a3a2e" scale={1.35} flip />
-
       {/* palm */}
       <g transform="translate(1530 630)">
         <rect x={-44} y={-70} width={88} height={80} rx={8} fill="#2d5aa6" />
         {[...Array(8)].map((_, i) => (
-          <path key={i} d={`M0 -70 Q${Math.cos(i) * 90} ${-200 - (i % 3) * 20} ${Math.cos(i * 0.9) * 140} ${-150 - (i % 2) * 40}`} stroke="#3d7a3c" strokeWidth={14} fill="none" strokeLinecap="round" />
+          <path key={i} d={`M0 -70 Q${r2(Math.cos(i) * 90)} ${-200 - (i % 3) * 20} ${r2(Math.cos(i * 0.9) * 140)} ${-150 - (i % 2) * 40}`} stroke="#3d7a3c" strokeWidth={14} fill="none" strokeLinecap="round" />
         ))}
       </g>
     </g>

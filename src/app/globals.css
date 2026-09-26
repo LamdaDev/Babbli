@@ -128,6 +128,8 @@ body {
   76%, 90% { transform: translateX(86px); }
 }
 .lift-left { animation: lift-left 22s ease-in-out infinite; }
+@keyframes escalator { to { stroke-dashoffset: -40; } }
+.escalator { animation: escalator 1.6s linear infinite; }
 .lift-right { animation: lift-right 22s ease-in-out infinite; }
 
 /* ---------- NPC ---------- */
@@ -177,7 +179,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .steam, .sway, .noren, .flicker, .flicker-slow, .walk, .walk-rev, .drive, .drive-rev, .chef, .stir, .wave,
-  .slurp, .drip, .lift-left, .lift-right, .npc-blink, .think-dot, .float-q, .sparkle path, .mic-ring, .float-card, .leg-a, .leg-b {
+  .slurp, .drip, .escalator, .lift-left, .lift-right, .npc-blink, .think-dot, .float-q, .sparkle path, .mic-ring, .float-card, .leg-a, .leg-b {
     animation: none !important;
   }
 }

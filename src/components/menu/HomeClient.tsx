@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, assetUrl } from "@/lib/client/api";
 import { audioEngine } from "@/lib/client/audioEngine";
 import { LANGUAGES, SCENARIOS, getScenario, scenariosForLanguage } from "@/lib/scenarios";
-import { DIFFICULTIES, type Difficulty, type LanguageCode } from "@/lib/scenarios/types";
+import { DIFFICULTIES, type Difficulty, type InputMode, type LanguageCode } from "@/lib/scenarios/types";
 import type { SessionSummary } from "@/lib/session/types";
 import { Logo } from "./Logo";
 import { ScenePreview } from "./ScenePreview";
@@ -70,6 +70,10 @@ export function HomeClient() {
   const [language, setLanguage] = useState<LanguageCode | null>(null);
   const [scenarioId, setScenarioId] = useState<string | null>(null);
   const [difficulty, setDifficulty] = useState<Difficulty>("beginner");
+  // null = follow the difficulty's recommendation until the learner picks explicitly
+  const [modeChoice, setModeChoice] = useState<InputMode | null>(null);
+  const defaultMode: InputMode = difficulty === "beginner" ? "ptt" : "live";
+  const mode = modeChoice ?? defaultMode;
   const [recent, setRecent] = useState<SessionSummary[]>([]);
   const music = useMenuMusic();
 
@@ -121,15 +125,15 @@ export function HomeClient() {
           {!language || !scenario ? (
             <motion.div key="lang" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mt-10">
               <div className="mb-4 text-xs font-black uppercase tracking-[0.3em] text-gold">Where are you going?</div>
-              <div className="grid gap-6 md:grid-cols-3">
+              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
                 {LANGUAGES.map((l, i) => {
                   const s = scenariosForLanguage(l.code)[0];
                   return (
                     <motion.button
                       key={l.code}
                       onClick={() => pickLanguage(l.code)}
-                      initial={{ opacity: 0, y: 30, rotate: (i - 1) * 2 }}
-                      animate={{ opacity: 1, y: 0, rotate: (i - 1) * 1.5, transition: { delay: 0.1 + i * 0.08 } }}
+                      initial={{ opacity: 0, y: 30, rotate: (i - 1.5) * 2 }}
+                      animate={{ opacity: 1, y: 0, rotate: (i - 1.5) * 1.5, transition: { delay: 0.1 + i * 0.08 } }}
                       whileHover={{ y: -8, rotate: 0, scale: 1.02 }}
                       className="group overflow-hidden rounded-3xl bg-paper text-left text-ink shadow-[0_20px_50px_rgba(0,0,0,0.45)] outline-none focus-visible:ring-4 focus-visible:ring-gold"
                     >
@@ -221,10 +225,35 @@ export function HomeClient() {
                     </ul>
                   </button>
                 ))}
+                <div className="mt-3 text-xs font-black uppercase tracking-[0.3em] text-gold">How you&apos;ll talk</div>
+                <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="How you'll talk">
+                  {(
+                    [
+                      ["live", "🎙 Live conversation", `${scenario.npc.name} listens in real time — just talk and pause when you're done.`],
+                      ["ptt", "✋ Push-to-talk", "Take your time. Tap the mic when you've finished your sentence."],
+                    ] as const
+                  ).map(([m, title, desc]) => (
+                    <button
+                      key={m}
+                      role="radio"
+                      aria-checked={mode === m}
+                      onClick={() => setModeChoice(m)}
+                      className={`rounded-2xl border-2 p-3 text-left transition ${
+                        mode === m ? "border-tangerine bg-tangerine/15" : "border-white/10 bg-white/5 hover:bg-white/10"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                        <span className="whitespace-nowrap font-bold">{title}</span>
+                        {defaultMode === m && <span className="text-[10px] font-bold uppercase tracking-wider text-cream/50">Recommended</span>}
+                      </div>
+                      <div className="mt-0.5 text-sm leading-snug text-cream/70">{desc}</div>
+                    </button>
+                  ))}
+                </div>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => router.push(`/play/${scenario.id}?difficulty=${difficulty}`)}
+                  onClick={() => router.push(`/play/${scenario.id}?difficulty=${difficulty}&mode=${mode}`)}
                   className="mt-2 rounded-2xl bg-tangerine px-6 py-4 font-display text-2xl text-white shadow-[0_12px_40px_rgba(255,138,61,0.45)]"
                 >
                   Enter the scene →

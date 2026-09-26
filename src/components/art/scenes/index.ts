@@ -4,6 +4,7 @@ import type { SceneArtProps } from "../types";
 import { CAFE_NPC, CafeBack, CafeFront } from "./CafeScene";
 import { HOTEL_NPC, HotelBack, HotelFront } from "./HotelScene";
 import { RAMEN_NPC, RamenBack, RamenFront } from "./RamenScene";
+import { STORE_NPC, StoreBack, StoreFront } from "./StoreScene";
 
 export interface SceneArt {
   Back: ComponentType<SceneArtProps>;
@@ -12,6 +13,7 @@ export interface SceneArt {
 }
 
 export const SCENE_ART: Record<ScenarioDef["art"], SceneArt> = {
+  store: { Back: StoreBack, Front: StoreFront, npc: STORE_NPC },
   ramen: { Back: RamenBack, Front: RamenFront, npc: RAMEN_NPC },
   cafe: { Back: CafeBack, Front: CafeFront, npc: CAFE_NPC },
   hotel: { Back: HotelBack, Front: HotelFront, npc: HOTEL_NPC },

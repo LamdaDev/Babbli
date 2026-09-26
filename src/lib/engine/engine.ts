@@ -76,7 +76,9 @@ export function normalizeReport(scenario: ScenarioDef, params: Record<string, un
   const intents = new Set(allIntentIds(scenario));
   let intent = String(params.intent ?? "").trim().toLowerCase();
   if (!intents.has(intent)) intent = intent ? "off_topic" : "unintelligible";
-  const language = String(params.language ?? "target").toLowerCase();
+  let language = String(params.language ?? "target").toLowerCase();
+  // In an English scene, "english" *is* the target language.
+  if (scenario.language === "en" && language === "english") language = "target";
   const answered = params.answered_question;
   const report: TurnReport = {
     ...params,
@@ -101,17 +103,24 @@ export function normalizeReport(scenario: ScenarioDef, params: Record<string, un
 
 const LEARNER_CLARIFY = new Set(["ask_repeat", "ask_slower", "ask_meaning"]);
 
+/** The learner left the target language (English counts only when English isn't the target). */
+export function isOffLanguage(scenario: ScenarioDef, language: TurnReport["language"]) {
+  return language === "other" || (scenario.language !== "en" && language === "english");
+}
+
 function clarifyDirective(
   scenario: ScenarioDef,
   stage: StageDef,
   attempt: number,
   difficulty: Difficulty,
-  reason: "unclear" | "english" | "off_topic",
+  reason: "unclear" | "off_language" | "off_topic",
 ): string {
   const lang = scenario.languageEnglish;
   const opener =
-    reason === "english"
-      ? `The customer spoke English. Stay in character: say (in ${lang}) that you don't really speak English, and encourage them to try in ${lang}.`
+    reason === "off_language"
+      ? scenario.language === "en"
+        ? "The customer spoke a language other than English. Stay in character: say kindly that you only speak English, and encourage them to try in English."
+        : `The customer spoke English. Stay in character: say (in ${lang}) that you don't really speak English, and encourage them to try in ${lang}.`
       : reason === "off_topic"
         ? `The customer's reply does not fit what you asked. React with brief, natural confusion.`
         : `You did not understand the customer. React naturally, like a real ${scenario.npc.role.toLowerCase()} who didn't catch it.`;
@@ -139,7 +148,9 @@ function genericOutcome(
   if (LEARNER_CLARIFY.has(report.intent)) {
     const what =
       report.intent === "ask_meaning"
-        ? `The customer asked what a word means. Explain it very simply in ${lang} (no English — use an easier synonym or a gesture-like description), then repeat your question.`
+        ? scenario.language === "en"
+          ? "The customer asked what a word means. Explain it very simply with easier words or a quick example, then repeat your question."
+          : `The customer asked what a word means. Explain it very simply in ${lang} (no English — use an easier synonym or a gesture-like description), then repeat your question.`
         : report.intent === "ask_slower"
           ? `The customer asked you to speak more slowly. Say your last question again, clearly and slowly, in simpler words.`
           : `The customer asked you to repeat. Say your last question again${difficulty === "immersion" ? " (same natural speed)" : " a little more slowly"}.`;
@@ -155,16 +166,16 @@ function genericOutcome(
     };
   }
 
-  if (report.language === "english") {
+  if (isOffLanguage(scenario, report.language)) {
     return {
       kind: "clarify",
       success: false,
       answeredQuestion: false,
       ...stay,
-      directive: clarifyDirective(scenario, stage, state.attemptsInStage + 1, difficulty, "english"),
-      meaning: `Sorry, I don't speak much English… ${stage.meaning}`,
+      directive: clarifyDirective(scenario, stage, state.attemptsInStage + 1, difficulty, "off_language"),
+      meaning: `${scenario.language === "en" ? "Sorry, I only speak English…" : "Sorry, I don't speak much English…"} ${stage.meaning}`,
       reaction: "confused",
-      note: `You switched to English — try to stay in ${lang}.`,
+      note: `You switched out of ${lang} — try to stay in ${lang}.`,
     };
   }
 
@@ -236,8 +247,8 @@ export function resolveTurn(
   };
 
   let outcome: Outcome | null = null;
-  // Pure English never advances the scene (mixed-language replies are fine).
-  if (!LEARNER_CLARIFY.has(report.intent) && report.language !== "english") {
+  // Leaving the target language never advances the scene (mixed-language replies are fine).
+  if (!LEARNER_CLARIFY.has(report.intent) && !isOffLanguage(scenario, report.language)) {
     outcome = stage.resolve(ctx);
   }
   if (!outcome) outcome = genericOutcome(scenario, stage, ctx);

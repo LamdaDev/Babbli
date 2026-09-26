@@ -11,7 +11,7 @@ import { GameController } from "./controller";
 import { GameContext, useController, useGame } from "./GameContext";
 import { HintPanel } from "./HintPanel";
 import { NPCSubtitle } from "./NPCSubtitle";
-import { BriefingOverlay, CompletionOverlay, EntryCurtain, ErrorOverlay, Toast, TransitionOverlay } from "./Overlays";
+import { CompletionOverlay, EntryCurtain, ErrorOverlay, TapToEnter, Toast, TransitionOverlay } from "./Overlays";
 import { ScenarioHUD } from "./ScenarioHUD";
 import { SceneRenderer } from "./SceneRenderer";
 import { SpeakingInterface } from "./SpeakingInterface";
@@ -61,6 +61,11 @@ function GameScreen() {
   const router = useRouter();
   const phase = useGame((s) => s.phase);
   useKeyboard();
+  // Enter the scene right away (deferred a tick so a StrictMode remount doesn't start it twice).
+  useEffect(() => {
+    const t = setTimeout(() => controller.autoEnter(), 0);
+    return () => clearTimeout(t);
+  }, [controller]);
   const leave = () => {
     if (phase === "briefing") {
       router.push("/");
@@ -81,7 +86,7 @@ function GameScreen() {
       <UtilityControls />
       <EntryCurtain />
       <TransitionOverlay />
-      <BriefingOverlay />
+      <TapToEnter />
       <CompletionOverlay />
       <ErrorOverlay />
       <Toast />

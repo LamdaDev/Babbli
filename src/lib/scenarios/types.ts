@@ -4,7 +4,7 @@
  * decide what is true in the world and when the scenario advances.
  */
 
-export type LanguageCode = "ja" | "fr" | "es";
+export type LanguageCode = "en" | "ja" | "fr" | "es";
 export type Difficulty = "beginner" | "intermediate" | "immersion";
 /** live = ElevenAgents listens to the mic directly; ptt = record → Scribe → text to agent. */
 export type InputMode = "live" | "ptt";
@@ -80,7 +80,9 @@ export type SceneEventId =
   | "key_handed"
   | "passport_given"
   | "issue_found"
-  | "issue_resolved";
+  | "issue_resolved"
+  | "item_shown"
+  | "gift_wrapped";
 
 export interface Outcome {
   kind: OutcomeKind;
@@ -151,12 +153,12 @@ export interface CharacterLook {
   skin: string;
   skinShade: string;
   hair: string;
-  hairStyle: "short" | "bob" | "bun";
+  hairStyle: "short" | "bob" | "bun" | "curly";
   outfit: string;
   outfitShade: string;
   apron?: string;
   accent: string;
-  accessory: "headband" | "scarf" | "badge";
+  accessory: "headband" | "scarf" | "badge" | "lanyard";
   eyes: string;
 }
 
@@ -191,7 +193,7 @@ export interface ScenarioDef {
   npc: NpcDef;
   /** Secondary voices heard in the scene (chef, barista, bellhop). */
   backgroundVoices: Record<string, { voiceKey: string; name: string }>;
-  art: "ramen" | "cafe" | "hotel";
+  art: "store" | "ramen" | "cafe" | "hotel";
   /** Optional illustrated background image — overrides the vector scene. */
   backgroundImage?: string;
   ambienceAsset: string;
@@ -227,7 +229,6 @@ export const DIFFICULTIES: { id: Difficulty; label: string; tagline: string; det
       "Slower NPC speech & simple vocabulary",
       "Target-language subtitles + optional English",
       "Full five-step hint ladder",
-      "Push-to-talk — take your time",
     ],
   },
   {
@@ -238,7 +239,6 @@ export const DIFFICULTIES: { id: Difficulty; label: string; tagline: string; det
       "Natural speed & phrasing",
       "Target-language subtitles",
       "Unexpected follow-up questions",
-      "Live conversation — the NPC listens",
     ],
   },
   {

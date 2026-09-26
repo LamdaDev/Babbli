@@ -1,4 +1,4 @@
-import { Steam, Walker } from "../shared";
+import { r2, Steam, Walker } from "../shared";
 import type { SceneArtProps } from "../types";
 
 function Croissant({ x, y, s = 1 }: { x: number; y: number; s?: number }) {
@@ -216,14 +216,14 @@ export function CafeBack({ variant }: SceneArtProps) {
       <g transform="translate(1520 640)">
         <rect x={-40} y={-80} width={80} height={90} rx={10} fill="#b86a3f" />
         {[...Array(7)].map((_, i) => (
-          <ellipse key={i} cx={Math.cos(i) * 50} cy={-140 - (i % 3) * 30} rx={34} ry={16} fill="#3f7d4a" transform={`rotate(${i * 50 - 90} ${Math.cos(i) * 50} ${-140 - (i % 3) * 30})`} />
+          <ellipse key={i} cx={r2(Math.cos(i) * 50)} cy={-140 - (i % 3) * 30} rx={34} ry={16} fill="#3f7d4a" transform={`rotate(${i * 50 - 90} ${r2(Math.cos(i) * 50)} ${-140 - (i % 3) * 30})`} />
         ))}
       </g>
     </g>
   );
 }
 
-export function CafeFront({ world, slots, flags, stageId, timeSkipped }: SceneArtProps) {
+export function CafeFront({ world, slots, flags, timeSkipped }: SceneArtProps) {
   const served = world.includes("served");
   const bill = world.includes("bill_shown");
   const paid = world.includes("payment_done");
@@ -252,14 +252,6 @@ export function CafeFront({ world, slots, flags, stageId, timeSkipped }: SceneAr
         ))}
       </g>
 
-      {!served && (stageId === "greeting" || stageId === "order") && (
-        <g transform="translate(1300 690)">
-          <path d="M0 80 L60 0 L120 80 Z" fill="#fbf6ea" stroke="#c9bda6" strokeWidth={2} />
-          <text x={60} y={60} textAnchor="middle" fontSize={16} fontWeight={700} fill="#1f3b2d" style={{ fontFamily: "Georgia, serif" }}>
-            Menu
-          </text>
-        </g>
-      )}
 
       {served && (
         <g transform="translate(820 838)">
