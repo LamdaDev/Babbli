@@ -45,8 +45,8 @@ export function RhythmChart({
       <svg viewBox={`0 0 ${W} 96`} className="w-full" role="img" aria-label="Rhythm comparison between the native reference and your recording">
         {ticks.map((t) => (
           <g key={t}>
-            <line x1={x(t)} x2={x(t)} y1={4} y2={76} stroke="#2a1d14" strokeOpacity={0.08} strokeWidth={1} />
-            <text x={x(t)} y={90} textAnchor="middle" fontSize={10} fill="#5b4636" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <line x1={x(t)} x2={x(t)} y1={4} y2={76} stroke="#13233f" strokeOpacity={0.08} strokeWidth={1} />
+            <text x={x(t)} y={90} textAnchor="middle" fontSize={10} fill="#4b5b77" style={{ fontVariantNumeric: "tabular-nums" }}>
               {t}s
             </text>
           </g>
@@ -54,11 +54,11 @@ export function RhythmChart({
         {lanes.map((lane) => (
           <g key={lane.key}>
             <line x1={4} x2={18} y1={lane.y + 13} y2={lane.y + 13} stroke={lane.color} strokeWidth={3} strokeLinecap="round" />
-            <text x={22} y={lane.y + 17} fontSize={11} fontWeight={700} fill="#2a1d14">
+            <text x={22} y={lane.y + 17} fontSize={11} fontWeight={700} fill="#13233f">
               {lane.key}
             </text>
             {lane.segs.length === 0 && (
-              <text x={LEFT} y={lane.y + 17} fontSize={11} fill="#5b4636">
+              <text x={LEFT} y={lane.y + 17} fontSize={11} fill="#4b5b77">
                 {lane.key === "You" ? "No speech detected" : nativeState === "loading" ? "Loading reference…" : nativeState === "none" ? "No model phrase for this reply" : "Reference audio unavailable"}
               </text>
             )}

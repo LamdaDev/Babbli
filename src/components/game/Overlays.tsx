@@ -27,7 +27,7 @@ export function TapToEnter() {
         >
           <Flag code={scenario.language} className="h-8 w-12" />
           <span className="font-display text-3xl">{scenario.title}</span>
-          <span className="rounded-full bg-tangerine px-6 py-3 font-display text-xl text-white shadow-xl">Tap to step inside →</span>
+          <span className="rounded-full bg-brand px-6 py-3 font-display text-xl text-white shadow-xl">Tap to step inside →</span>
         </motion.button>
       )}
     </AnimatePresence>
@@ -139,7 +139,7 @@ export function CompletionOverlay() {
               )}
               <p className="mt-2 text-sm text-ink-soft">Your recordings, transcripts and hints are saved. See how you did — comprehension, speaking, fluency, vocabulary and independence.</p>
               <div className="mt-5 flex flex-col gap-2">
-                <Link href={`/session/${sessionId}`} className="rounded-2xl bg-ink px-5 py-3 font-display text-lg text-cream">
+                <Link href={`/session/${sessionId}`} className="rounded-2xl bg-brand px-5 py-3 font-display text-lg text-white transition-colors hover:bg-brand-dark">
                   See your feedback →
                 </Link>
                 <div className="flex gap-2">
@@ -162,6 +162,7 @@ export function CompletionOverlay() {
 export function ErrorOverlay() {
   const phase = useGame((s) => s.phase);
   const error = useGame((s) => s.error);
+  const action = useGame((s) => s.errorAction);
   const missingKey = error?.includes("ELEVENLABS_API_KEY");
   if (phase !== "error") return null;
   return (
@@ -176,12 +177,23 @@ export function ErrorOverlay() {
           </p>
         )}
         <div className="mt-5 flex gap-2">
-          <button onClick={() => window.location.reload()} className="flex-1 rounded-2xl bg-ink py-2.5 font-bold text-cream">
+          {action && (
+            // A full page load: the new mode needs a fresh session.
+            <a href={action.href} className="flex-1 rounded-2xl bg-brand py-2.5 text-center font-bold text-white transition-colors hover:bg-brand-dark">
+              {action.label}
+            </a>
+          )}
+          <button
+            onClick={() => window.location.reload()}
+            className={`flex-1 rounded-2xl py-2.5 font-bold ${action ? "border-2 border-ink/15" : "bg-brand text-white transition-colors hover:bg-brand-dark"}`}
+          >
             Try again
           </button>
-          <Link href="/studio" className="flex-1 rounded-2xl border-2 border-ink/15 py-2.5 text-center font-bold">
-            Open Studio
-          </Link>
+          {!action && (
+            <Link href="/studio" className="flex-1 rounded-2xl border-2 border-ink/15 py-2.5 text-center font-bold">
+              Open Studio
+            </Link>
+          )}
         </div>
       </div>
     </div>

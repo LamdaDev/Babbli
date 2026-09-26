@@ -76,7 +76,7 @@ export function ExitConfirmation({ open, onCancel, onConfirm }: { open: boolean;
               <button
                 ref={keepRef}
                 onClick={onCancel}
-                className="rounded-2xl bg-ink py-3 font-display text-lg text-cream outline-none ring-gold focus-visible:ring-4"
+                className="rounded-2xl bg-brand py-3 font-display text-lg text-white outline-none ring-brand/40 transition-colors hover:bg-brand-dark focus-visible:ring-4"
               >
                 Keep playing
               </button>

@@ -77,7 +77,12 @@ Server (Next.js route handlers)
 Storage: .babbli/ (registry of ElevenLabs resources, generated audio, sessions + recordings)
 ```
 
-Two input modes are available per session. **Live** means the agent hears the mic directly and handles turn-taking. **Push-to-talk** records the turn, transcribes it with Scribe, and sends the text to the agent; learners who pause mid-sentence aren't cut off. Beginner recommends push-to-talk and the others live; you choose on the home screen next to the difficulty.
+Before a scene, the learner chooses **how to respond**, and it's fixed for the session (saved as `responseMode`):
+
+- **Voice Mode** — the microphone and nothing else (no typing). **Live** means the agent hears the mic directly and handles turn-taking; **Push-to-talk** records the turn, transcribes it with Scribe, and sends the text to the agent, so learners who pause mid-sentence aren't cut off. Beginner recommends push-to-talk, the others live.
+- **Text Mode** — a text composer instead of the mic, for practising somewhere quiet. The same agent runs as an ElevenAgents text-only conversation (the microphone is never requested), and each NPC line is voiced with ElevenLabs TTS in the character's designed voice.
+
+The mode only changes how the learner responds and which measurements are valid — the scenario engine, cards, branching, hints and progression are identical. Evaluation is mode-aware (`src/lib/evaluation/scoring.ts`): Voice sessions report Comprehension, Speaking clarity, Fluency, Vocabulary and Independence plus per-reply speech analytics; Text sessions report Comprehension, Language accuracy, Vocabulary, Independence and Task performance, with the speech metrics marked "not measured" and excluded from everything rather than scored as zero.
 
 ## Requirements coverage
 

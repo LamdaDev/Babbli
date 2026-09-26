@@ -30,7 +30,7 @@ function Ctl({
       aria-label={label}
       aria-pressed={active}
       className={`relative flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-extrabold shadow-lg backdrop-blur transition ${
-        active ? "bg-gold text-ink" : "bg-night/70 text-cream hover:bg-night/90"
+        active ? "bg-brand text-white" : "bg-night/70 text-cream hover:bg-night/90"
       } disabled:cursor-not-allowed disabled:opacity-40`}
     >
       <span className="text-base leading-none">{icon}</span>

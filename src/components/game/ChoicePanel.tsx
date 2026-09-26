@@ -14,7 +14,7 @@ function IntentionCard({ card, index, onPick }: { card: IntentCard; index: numbe
       whileHover={{ y: -6, rotate: 0, scale: 1.02 }}
       whileTap={{ scale: 0.97 }}
       onClick={onPick}
-      className="group relative flex w-full items-center gap-3 rounded-2xl border-2 border-[#e9d3ad] bg-paper px-4 py-3 text-left shadow-[0_10px_30px_rgba(0,0,0,0.35)] outline-none ring-gold focus-visible:ring-4 sm:min-h-[92px] sm:flex-col sm:items-start sm:gap-1 sm:px-5 sm:py-4"
+      className="group relative flex w-full items-center gap-3 rounded-2xl border-2 border-[#dfe6f1] bg-paper px-4 py-3 text-left shadow-[0_10px_30px_rgba(0,0,0,0.35)] outline-none ring-brand focus-visible:ring-4 sm:min-h-[92px] sm:flex-col sm:items-start sm:gap-1 sm:px-5 sm:py-4"
     >
       <span className="absolute right-3 top-2 hidden rounded-md bg-ink/10 px-1.5 text-[11px] font-black text-ink/50 sm:block">{index + 1}</span>
       <span className="text-3xl leading-none drop-shadow-sm">{card.icon}</span>
@@ -31,7 +31,9 @@ export function ChoicePanel() {
   const cards = useGame((s) => s.cards);
   const narration = useGame((s) => s.narration);
   const stageId = useGame((s) => s.stageId);
-  const micAvailable = useGame((s) => s.micAvailable);
+  // Voice Mode needs the mic for a free reply; Text Mode always has the composer.
+  const textMode = useGame((s) => s.responseMode === "text");
+  const canReply = useGame((s) => s.responseMode === "text" || s.micAvailable);
   const visible = phase === "choose" && !npcSpeaking;
 
   return (
@@ -64,10 +66,10 @@ export function ChoicePanel() {
                 <IntentionCard key={`${stageId}-${card.key ?? card.id}`} card={card} index={i} onPick={() => controller.chooseCard(card)} />
               ))}
             </div>
-            {micAvailable && (
+            {canReply && (
               <div className="mt-2 text-center">
                 <button onClick={() => controller.speakFreely()} className="rounded-full bg-night/55 px-3 py-1 text-xs font-bold text-cream/85 backdrop-blur-sm hover:bg-night/75 hover:text-cream">
-                  🎤 …or say something else
+                  {textMode ? "✏️ …or write something else" : "🎤 …or say something else"}
                 </button>
               </div>
             )}

@@ -1,6 +1,7 @@
 import type {
   Difficulty,
   InputMode,
+  ResponseMode,
   LanguageCode,
   OutcomeKind,
   ScenarioState,
@@ -61,6 +62,8 @@ export interface LearnerTurn {
     success: boolean;
     answeredQuestion: boolean;
     intentMatched: boolean | null;
+    /** The intent the engine resolved the reply to (the agent's label can differ — see resolveTurn). */
+    intent?: string;
     note?: string;
     nextStageId: string;
   };
@@ -109,6 +112,9 @@ export interface SessionRecord {
   scenarioId: string;
   language: LanguageCode;
   difficulty: Difficulty;
+  /** Voice or Text Mode (sessions saved before modes existed were voice). Use `responseModeOf`. */
+  responseMode?: ResponseMode;
+  /** Voice Mode delivery (live / push-to-talk). */
   inputMode: InputMode;
   seed: number;
   startedAt: number;
@@ -136,8 +142,13 @@ export interface SessionSummary {
   id: string;
   scenarioId: string;
   difficulty: Difficulty;
+  responseMode: ResponseMode;
   startedAt: number;
   status: SessionRecord["status"];
   objectiveComplete: boolean;
   turns: number;
+}
+
+export function responseModeOf(session: Pick<SessionRecord, "responseMode">): ResponseMode {
+  return session.responseMode ?? "voice";
 }

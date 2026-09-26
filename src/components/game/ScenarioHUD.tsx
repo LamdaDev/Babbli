@@ -43,6 +43,7 @@ export function ScenarioHUD({ onLeave }: { onLeave: () => void }) {
   const { scenario, difficulty } = useController();
   const progress = useGame((s) => s.progress);
   const inputMode = useGame((s) => s.inputMode);
+  const responseMode = useGame((s) => s.responseMode);
   const [notesOpen, setNotesOpen] = useState(false);
   const diff = DIFFICULTIES.find((d) => d.id === difficulty)!;
 
@@ -84,7 +85,7 @@ export function ScenarioHUD({ onLeave }: { onLeave: () => void }) {
       <div className="absolute right-3 top-3 z-20 flex flex-col items-end gap-2 sm:right-4 sm:top-4">
         <div className="flex items-center gap-1.5">
           <span className="hidden rounded-full bg-night/70 px-3 py-1.5 text-xs font-bold text-cream/90 backdrop-blur sm:inline">
-            {diff.label} · {inputMode === "live" ? "🎙 Live" : "✋ Push-to-talk"}
+            {diff.label} · {responseMode === "text" ? "⌨ Text" : inputMode === "live" ? "🎙 Live" : "✋ Push-to-talk"}
           </span>
           <IconButton icon="📋" label={scenario.briefing.title} tone="paper" onClick={() => setNotesOpen((o) => !o)} expanded={notesOpen} />
           <IconButton icon="✕" label="Leave" tone="night" onClick={onLeave} />

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getScenario } from "@/lib/scenarios";
-import type { Difficulty, InputMode } from "@/lib/scenarios/types";
+import type { Difficulty, InputMode, ResponseMode } from "@/lib/scenarios/types";
 import { GameClient } from "./GameClient";
 
 const DIFFS: Difficulty[] = ["beginner", "intermediate", "immersion"];
@@ -21,5 +21,7 @@ export default async function PlayPage(props: PageProps<"/play/[scenarioId]">) {
   const difficulty = DIFFS.includes(d) ? d : "beginner";
   const m = String(search.mode ?? "");
   const inputMode: InputMode = m === "live" || m === "ptt" ? m : difficulty === "beginner" ? "ptt" : "live";
-  return <GameClient scenarioId={scenario.id} difficulty={difficulty} inputMode={inputMode} />;
+  // How the learner responds: voice (default) or text. Chosen on the setup screen.
+  const responseMode: ResponseMode = search.respond === "text" ? "text" : "voice";
+  return <GameClient scenarioId={scenario.id} difficulty={difficulty} responseMode={responseMode} inputMode={inputMode} />;
 }

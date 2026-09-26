@@ -5,17 +5,22 @@
   --font-sans: var(--font-nunito), system-ui, sans-serif;
   --font-jp: var(--font-noto-jp), "Hiragino Sans", "Yu Gothic", var(--font-nunito), sans-serif;
 
-  --color-ink: #2a1d14;
-  --color-ink-soft: #5b4636;
-  --color-cream: #fff7ea;
-  --color-paper: #fbefd9;
-  --color-tangerine: #ff8a3d;
-  --color-coral: #ff6b5a;
-  --color-teal: #17a898;
-  --color-plum: #5b3f8c;
-  --color-night: #17111f;
-  --color-gold: #f2b84b;
-  --color-leaf: #4d9a5b;
+  /*
+   * Palette rules: blue brand (from the logo). No purple or indigo gradient text or primary
+   * backgrounds, and the main page background is a single flat color (no gradient).
+   */
+  --color-brand: #1b57cb; /* logo, light bubble — primary actions, selected states, accents */
+  --color-brand-dark: #154aad; /* hover/pressed brand */
+  --color-navy: #0e357e; /* logo, dark bubble + wordmark */
+  --color-page: #f3f6fb; /* flat page background */
+  --color-paper: #ffffff; /* cards and panels */
+  --color-ink: #13233f; /* text */
+  --color-ink-soft: #4b5b77; /* secondary text */
+  --color-cream: #f7f9fc; /* light text / fills on dark surfaces */
+  --color-night: #0d1b2e; /* neutral navy-black for translucent in-scene overlays */
+  --color-gold: #f2b84b; /* warm highlight (your turn, karaoke, in-scene progress) */
+  --color-coral: #ff6b5a; /* recording / leaving */
+  --color-teal: #17a898; /* success */
 }
 
 :root {
@@ -25,7 +30,7 @@
 
 html,
 body {
-  background: var(--color-night);
+  background: var(--color-page);
   color: var(--color-ink);
 }
 

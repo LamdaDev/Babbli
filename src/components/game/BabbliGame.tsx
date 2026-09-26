@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { getScenario } from "@/lib/scenarios";
-import type { Difficulty, InputMode } from "@/lib/scenarios/types";
+import type { Difficulty, InputMode, ResponseMode } from "@/lib/scenarios/types";
 import { ChoicePanel } from "./ChoicePanel";
 import { GameController } from "./controller";
 import { ExitConfirmation } from "./ExitConfirmation";
@@ -42,7 +42,7 @@ function useKeyboard(disabled: boolean) {
         if (s.phase === "speak") {
           e.preventDefault();
           void c.finishSpeaking();
-        } else if (s.phase === "choose" && !s.npcSpeaking && s.micAvailable) {
+        } else if (s.phase === "choose" && !s.npcSpeaking && (s.micAvailable || s.responseMode === "text")) {
           e.preventDefault();
           c.speakFreely();
         }
@@ -115,9 +115,10 @@ function GameScreen() {
 
 function GameWithConversation({ controller }: { controller: GameController }) {
   const micMuted = useStore(controller.store, (s) => s.micMuted);
+  // Text Mode has no microphone: a text-only conversation throws on setMicMuted, so leave mute uncontrolled.
   return (
     <GameContext.Provider value={controller}>
-      <ConversationProvider isMuted={micMuted}>
+      <ConversationProvider isMuted={controller.responseMode === "text" ? undefined : micMuted}>
         <ConversationBridge />
         <GameScreen />
       </ConversationProvider>
@@ -125,9 +126,19 @@ function GameWithConversation({ controller }: { controller: GameController }) {
   );
 }
 
-export default function BabbliGame({ scenarioId, difficulty, inputMode }: { scenarioId: string; difficulty: Difficulty; inputMode: InputMode }) {
+export default function BabbliGame({
+  scenarioId,
+  difficulty,
+  responseMode,
+  inputMode,
+}: {
+  scenarioId: string;
+  difficulty: Difficulty;
+  responseMode: ResponseMode;
+  inputMode: InputMode;
+}) {
   // Constructing a controller has no side effects; everything starts in controller.enter().
-  const [controller] = useState(() => new GameController(getScenario(scenarioId)!, difficulty, inputMode));
+  const [controller] = useState(() => new GameController(getScenario(scenarioId)!, difficulty, inputMode, responseMode));
   useEffect(() => {
     controller.activate();
     // Dev-only handle for inspecting/driving game state from the browser console.

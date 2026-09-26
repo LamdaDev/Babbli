@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { SessionRecord, SessionSummary } from "@/lib/session/types";
+import { responseModeOf, type SessionRecord, type SessionSummary } from "@/lib/session/types";
 import { env } from "./env";
 
 const ID = /^[a-z0-9-]{6,64}$/i;
@@ -70,6 +70,7 @@ export async function listSessions(limit = 12): Promise<SessionSummary[]> {
       id: r.id,
       scenarioId: r.scenarioId,
       difficulty: r.difficulty,
+      responseMode: responseModeOf(r),
       startedAt: r.startedAt,
       status: r.status,
       objectiveComplete: r.state.objectiveComplete,

@@ -56,30 +56,66 @@ function CountdownRing() {
   );
 }
 
-/** The YOUR TURN panel — remounts for every turn, so its typing state resets naturally. */
-function SpeakPanel() {
+/** Voice Mode: the microphone (no typing — the learner chose to speak). */
+function VoiceInput() {
   const controller = useController();
-  const card = useGame((s) => s.selectedCard);
   const inputMode = useGame((s) => s.inputMode);
   const recording = useGame((s) => s.recording);
   const micAvailable = useGame((s) => s.micAvailable);
   const npcSpeaking = useGame((s) => s.npcSpeaking);
-  const [typing, setTyping] = useState(false);
-  const [text, setText] = useState("");
   const { scenario } = controller;
-
-  const submit = () => {
-    if (!text.trim()) return;
-    controller.submitText(text);
-    setText("");
-    setTyping(false);
-  };
-
+  if (!micAvailable || !recording)
+    return <div className="rounded-2xl bg-night/70 px-4 py-2 text-sm text-cream">The microphone isn&apos;t available. Reload to try again, or choose Text Mode from the menu.</div>;
   const status = npcSpeaking
     ? `${scenario.npc.name} is talking…`
     : inputMode === "live"
       ? `${scenario.npc.name} is listening… speak in ${scenario.languageEnglish} and just pause when you're done`
       : `Recording… speak in ${scenario.languageEnglish}, then tap the mic`;
+  return (
+    <>
+      <MicButton onClick={() => void controller.finishSpeaking()} label="Finish speaking" />
+      <div className="flex items-center gap-2 rounded-full bg-night/70 px-4 py-1.5 text-sm font-bold text-cream backdrop-blur">
+        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-coral" />
+        {status}
+      </div>
+    </>
+  );
+}
+
+/** Text Mode: a composer in place of the microphone. Same card, same NPC, same engine. */
+function TextComposer() {
+  const controller = useController();
+  const [text, setText] = useState("");
+  const { scenario } = controller;
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (text.trim()) controller.submitText(text);
+      }}
+      className="flex w-[min(92vw,520px)] gap-2 rounded-2xl bg-night/70 p-2 shadow-xl backdrop-blur"
+    >
+      <input
+        autoFocus
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        lang={scenario.language}
+        aria-label={`Your reply in ${scenario.languageEnglish}`}
+        placeholder={`Write your reply in ${scenario.languageEnglish}…`}
+        className="min-w-0 flex-1 rounded-xl border-2 border-transparent bg-paper px-3 py-2.5 font-jp text-lg text-ink outline-none focus:border-brand"
+      />
+      <button disabled={!text.trim()} className="rounded-xl bg-brand px-5 font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-50">
+        Send
+      </button>
+    </form>
+  );
+}
+
+/** The YOUR TURN panel — remounts for every turn, so its state resets naturally. */
+function SpeakPanel() {
+  const controller = useController();
+  const card = useGame((s) => s.selectedCard);
+  const responseMode = useGame((s) => s.responseMode);
 
   return (
     <>
@@ -91,53 +127,15 @@ function SpeakPanel() {
             You want to: {card.label}
           </span>
         ) : (
-          <span>Say it your way</span>
+          <span>{responseMode === "text" ? "Write it your way" : "Say it your way"}</span>
         )}
       </div>
-      {micAvailable && recording ? (
-        <MicButton onClick={() => void controller.finishSpeaking()} label="Finish speaking" />
-      ) : (
-        <div className="rounded-2xl bg-night/70 px-4 py-2 text-sm text-cream">Microphone unavailable — type your reply below.</div>
-      )}
-      {recording && !typing && (
-        <div className="flex items-center gap-2 rounded-full bg-night/70 px-4 py-1.5 text-sm font-bold text-cream backdrop-blur">
-          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-coral" />
-          {status}
-        </div>
-      )}
+      {responseMode === "text" ? <TextComposer /> : <VoiceInput />}
       <div className="flex items-center gap-4 text-xs font-bold text-cream/75">
         <button onClick={() => controller.backToChoices()} className="hover:text-cream">
           ← choose again
         </button>
-        <button
-          onClick={() => {
-            if (!typing) controller.pauseTurnTimer();
-            setTyping((t) => !t);
-          }}
-          className="hover:text-cream"
-        >
-          ⌨ type instead
-        </button>
       </div>
-      {(typing || !micAvailable) && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            submit();
-          }}
-          className="flex w-[min(90vw,420px)] gap-2"
-        >
-          <input
-            autoFocus
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            lang={scenario.language}
-            placeholder={`Type in ${scenario.languageEnglish}…`}
-            className="min-w-0 flex-1 rounded-xl border-2 border-paper/60 bg-cream/95 px-3 py-2 font-jp text-ink outline-none focus:border-gold"
-          />
-          <button className="rounded-xl bg-tangerine px-4 font-bold text-white">Say</button>
-        </form>
-      )}
     </>
   );
 }

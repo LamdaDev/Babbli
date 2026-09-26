@@ -9,7 +9,7 @@ import { buildReport } from "@/lib/evaluation/scoring";
 import { referenceTiming, type ReferenceTiming } from "@/lib/evaluation/speech";
 import { getScenario } from "@/lib/scenarios";
 import { DIFFICULTIES, type Difficulty } from "@/lib/scenarios/types";
-import type { AgentAnalysis, SessionRecord } from "@/lib/session/types";
+import { responseModeOf, type AgentAnalysis, type SessionRecord } from "@/lib/session/types";
 import { AgentReview } from "./AgentReview";
 import { PlayButton } from "./PlayButton";
 import { ScoreTile } from "./ScoreTile";
@@ -119,12 +119,12 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
     if (!session || !scenario) return null;
     const timings: Record<string, ReferenceTiming | null> = {};
     for (const [k, v] of Object.entries(refs)) timings[k] = v?.timing ?? null;
-    return buildReport(session, scenario, timings);
-  }, [session, scenario, refs]);
+    return buildReport(session, scenario, timings, analysis);
+  }, [session, scenario, refs, analysis]);
 
   if (error) {
     return (
-      <main className="grid min-h-dvh place-items-center bg-paper p-6 text-ink">
+      <main className="grid min-h-dvh place-items-center bg-page p-6 text-ink">
         <div className="text-center">
           <div className="font-display text-2xl">Session not found</div>
           <p className="mt-2 text-ink-soft">{error}</p>
@@ -136,19 +136,24 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
     );
   }
   if (!session || !scenario || !report) {
-    return <main className="grid min-h-dvh place-items-center bg-paper text-ink-soft">Loading your session…</main>;
+    return <main className="grid min-h-dvh place-items-center bg-page text-ink-soft">Loading your session…</main>;
   }
 
   const diff = DIFFICULTIES.find((d) => d.id === session.difficulty)!;
   const next = NEXT[session.difficulty];
+  const mode = responseModeOf(session);
+  const text = mode === "text";
+  // Retries keep the way the learner chose to respond.
+  const playHref = (difficulty: Difficulty) =>
+    `/play/${scenario.id}?difficulty=${difficulty}&respond=${mode}${text ? "" : `&mode=${session.inputMode}`}`;
   const turns = session.turns.filter((t) => report.metrics[t.id]);
   const reached = getStage(scenario, session.state.stageId).group;
   const mins = Math.floor(report.completion.durationSec / 60);
   const secs = report.completion.durationSec % 60;
 
   return (
-    <main className="min-h-dvh bg-[#f6ecd9] pb-20 text-ink">
-      <div className="bg-night text-cream">
+    <main className="min-h-dvh bg-page pb-20 text-ink">
+      <div className="bg-navy text-cream">
         <div className="mx-auto max-w-6xl px-5 py-6">
           <div className="flex items-center justify-between text-sm">
             <Link href="/" className="font-bold text-cream/80 hover:text-cream">
@@ -160,8 +165,11 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
           </div>
           <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <div className="text-xs font-black tracking-[0.2em] text-gold">
-                <Flag code={scenario.language} /> {scenario.locationLabel} · {diff.label.toUpperCase()}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <div className="text-xs font-black tracking-[0.2em] text-gold">
+                  <Flag code={scenario.language} /> {scenario.locationLabel} · {diff.label.toUpperCase()}
+                </div>
+                <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-bold text-cream">{text ? "⌨ Text Session" : "🎙 Voice Session"}</span>
               </div>
               <h1 className="mt-1 font-display text-4xl">{scenario.title}</h1>
               <p className="mt-1 text-cream/70">{scenario.objective}</p>
@@ -187,30 +195,41 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
           </div>
         )}
 
-        <Section title="How you did" subtitle="Five separate signals — understanding what was said is scored separately from how clearly you said it.">
+        <Section
+          title="How you did"
+          subtitle={
+            text
+              ? "Five signals measured from your written replies. Understanding the scene is scored separately from how accurately you wrote."
+              : "Five separate signals — understanding what was said is scored separately from how clearly you said it."
+          }
+        >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <ScoreTile label="Comprehension" score={report.scores.comprehension} />
-            <ScoreTile label="Speaking clarity" score={report.scores.clarity} />
-            <ScoreTile label="Fluency" score={report.scores.fluency} />
-            <ScoreTile label="Vocabulary" score={report.scores.vocabulary} />
-            <ScoreTile label="Independence" score={report.scores.independence} />
+            {report.scores.map((s) => (
+              <ScoreTile key={s.id} label={s.label} score={s} method={s.method} />
+            ))}
           </div>
+          {report.notApplicable.length > 0 && (
+            <p className="mt-3 rounded-xl bg-ink/5 px-4 py-2.5 text-sm text-ink-soft">
+              <span className="font-bold text-ink">Not measured in Text Mode:</span> {report.notApplicable.map((m) => m.label).join(" · ")} (pace, pauses,
+              filler words, response time). These need a voice recording, so they aren&apos;t scored and don&apos;t count toward anything here.
+            </p>
+          )}
         </Section>
 
         <div className="mt-10 grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl bg-[#fffaf1] p-5 shadow-sm ring-1 ring-ink/5">
+          <div className="rounded-2xl bg-paper p-5 shadow-sm ring-1 ring-ink/5">
             <h3 className="font-display text-lg">✓ Handled well</h3>
             <ul className="mt-2 space-y-1.5 text-sm">
               {report.handledWell.length ? report.handledWell.map((x) => <li key={x}>{x}</li>) : <li className="text-ink-soft">Keep going — every attempt counts.</li>}
             </ul>
           </div>
-          <div className="rounded-2xl bg-[#fffaf1] p-5 shadow-sm ring-1 ring-ink/5">
+          <div className="rounded-2xl bg-paper p-5 shadow-sm ring-1 ring-ink/5">
             <h3 className="font-display text-lg">! Struggled with</h3>
             <ul className="mt-2 space-y-1.5 text-sm">
               {report.struggledWith.length ? report.struggledWith.map((x) => <li key={x}>{x}</li>) : <li className="text-ink-soft">Nothing major — nice.</li>}
             </ul>
           </div>
-          <div className="rounded-2xl bg-[#fffaf1] p-5 shadow-sm ring-1 ring-ink/5">
+          <div className="rounded-2xl bg-paper p-5 shadow-sm ring-1 ring-ink/5">
             <h3 className="font-display text-lg">→ Next time</h3>
             <ul className="mt-2 space-y-1.5 text-sm">
               {report.nextTime.length ? report.nextTime.map((x) => <li key={x}>{x}</li>) : <li className="text-ink-soft">Try a harder difficulty or another city.</li>}
@@ -219,12 +238,19 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
         </div>
 
         <Section title={`${scenario.npc.name}'s review`} subtitle="Written by ElevenLabs Agents' post-call analysis of the real conversation.">
-          <div className="rounded-2xl bg-[#fffaf1] p-5 shadow-sm ring-1 ring-ink/5">
+          <div className="rounded-2xl bg-paper p-5 shadow-sm ring-1 ring-ink/5">
             <AgentReview analysis={analysis} npcName={scenario.npc.name} pending={!!session.conversationId} />
           </div>
         </Section>
 
-        <Section title="Replay the conversation" subtitle="Every reply with what was heard, what was understood, the help you used, and native-vs-you timing.">
+        <Section
+          title="Replay the conversation"
+          subtitle={
+            text
+              ? "Every reply with what you wrote, what was understood, the help you used, and the model phrase to listen to."
+              : "Every reply with what was heard, what was understood, the help you used, and native-vs-you timing."
+          }
+        >
           <div className="space-y-4">
             {turns.length ? (
               turns.map((t) => {
@@ -232,6 +258,7 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
                 return (
                   <TurnCard
                     key={t.id}
+                    mode={mode}
                     turn={t}
                     metrics={report.metrics[t.id]}
                     scenario={scenario}
@@ -255,7 +282,7 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
         <Section title="Vocabulary & expressions" subtitle="What came up in this scene. ✓ marks the ones you used yourself.">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {report.vocabulary.map((v) => (
-              <div key={v.term} className="flex items-center justify-between gap-3 rounded-xl bg-[#fffaf1] px-3 py-2 shadow-sm ring-1 ring-ink/5">
+              <div key={v.term} className="flex items-center justify-between gap-3 rounded-xl bg-paper px-3 py-2 shadow-sm ring-1 ring-ink/5">
                 <div>
                   <div className="font-jp text-lg font-bold" lang={scenario.language}>
                     {v.term} {v.used && <span className="align-middle text-xs font-bold text-[#0a7a0a]">✓ used</span>}
@@ -273,25 +300,32 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
 
         <Section title="Session details">
           <div className="grid gap-3 text-sm sm:grid-cols-2">
-            <div className="rounded-xl bg-[#fffaf1] p-4 ring-1 ring-ink/5">
+            <div className="rounded-xl bg-paper p-4 ring-1 ring-ink/5">
               <div className="font-bold">Assistance used</div>
               <ul className="mt-1 text-ink-soft">
                 <li>
                   Hints by level: {Object.entries(report.counts.hints).map(([k, v]) => `L${k}×${v}`).join(" · ")} ({report.counts.fullReveals} full-answer reveals)
                 </li>
                 <li>
-                  Repeats {report.counts.repeats} · Slow replays {report.counts.slows} · Translations {report.counts.translations} · Typed replies {report.counts.typed}
+                  Repeats {report.counts.repeats} · Slow replays {report.counts.slows} · Translations {report.counts.translations}
+                  {text ? "" : ` · Typed replies ${report.counts.typed}`}
                 </li>
                 <li>Clarification requests: {report.counts.clarificationRequests}</li>
               </ul>
             </div>
-            <div className="rounded-xl bg-[#fffaf1] p-4 ring-1 ring-ink/5">
+            <div className="rounded-xl bg-paper p-4 ring-1 ring-ink/5">
               <div className="font-bold">Behind the scenes</div>
               <ul className="mt-1 break-all text-ink-soft">
                 <li>ElevenLabs conversation: {session.conversationId ?? "—"}</li>
                 <li>Agent: {session.agentId ?? "—"}</li>
                 <li>
-                  Input: {session.inputMode === "live" ? "Live (agent ASR)" : "Push-to-talk (Scribe → agent)"} · Seed {session.seed}
+                  Input:{" "}
+                  {text
+                    ? "Text Mode (typed → ElevenAgents text conversation; NPC voiced with ElevenLabs TTS)"
+                    : session.inputMode === "live"
+                      ? "Voice Mode · Live (agent ASR)"
+                      : "Voice Mode · Push-to-talk (Scribe → agent)"}{" "}
+                  · Seed {session.seed}
                 </li>
               </ul>
             </div>
@@ -299,11 +333,11 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
         </Section>
 
         <div className="mt-10 flex flex-wrap gap-3">
-          <Link href={`/play/${scenario.id}?difficulty=${session.difficulty}`} className="rounded-2xl bg-ink px-5 py-3 font-display text-lg text-cream">
+          <Link href={playHref(session.difficulty)} className="rounded-2xl bg-ink px-5 py-3 font-display text-lg text-cream">
             Try again
           </Link>
           {next && (
-            <Link href={`/play/${scenario.id}?difficulty=${next}`} className="rounded-2xl bg-tangerine px-5 py-3 font-display text-lg text-white">
+            <Link href={playHref(next)} className="rounded-2xl bg-brand px-5 py-3 font-display text-lg text-white transition-colors hover:bg-brand-dark">
               Try {DIFFICULTIES.find((d) => d.id === next)!.label} →
             </Link>
           )}

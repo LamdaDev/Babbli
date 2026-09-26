@@ -3,6 +3,7 @@ import path from "node:path";
 import { env } from "./env";
 import { ElevenLabsError, xi, xiBytes, xiJson } from "./elevenlabs";
 import { hashOf, once } from "./registry";
+import { stripAudioTags } from "@/lib/evaluation/text";
 import { VOICE_DEFS, ensureVoice } from "./voices";
 
 const FALLBACK_TTS_MODEL = "eleven_multilingual_v2";
@@ -181,7 +182,8 @@ export async function synthesize(opts: {
         method: "POST",
         query: { output_format: "mp3_44100_128" },
         json: {
-          text: opts.text,
+          // eleven_v3 performs audio tags ([cheerful]…); other models would read them out loud.
+          text: model.startsWith("eleven_v3") ? opts.text : stripAudioTags(opts.text),
           model_id: model,
           ...(language ? { language_code: language } : {}),
           voice_settings: { stability: 0.5, similarity_boost: 0.8, style: params.style, use_speaker_boost: true, speed },

@@ -1,7 +1,7 @@
 "use client";
 
 import { createStore } from "zustand/vanilla";
-import type { IntentCard, NpcExpression, SceneEventId } from "@/lib/scenarios/types";
+import type { IntentCard, NpcExpression, ResponseMode, SceneEventId } from "@/lib/scenarios/types";
 
 export type Phase =
   | "briefing"
@@ -27,6 +27,8 @@ export interface Subtitle {
 export interface GameUI {
   phase: Phase;
   error: string | null;
+  /** Optional way out of the error (e.g. "Switch to Text Mode"). */
+  errorAction: { label: string; href: string } | null;
   busyLabel: string | null;
   toast: { id: number; text: string; tone: "info" | "warn" | "good" } | null;
 
@@ -58,6 +60,8 @@ export interface GameUI {
   turnTimer: { startedAt: number; ms: number; total: number } | null;
   micAvailable: boolean;
   inputMode: "live" | "ptt";
+  /** Voice or Text Mode, fixed for the session (chosen before the scene). */
+  responseMode: ResponseMode;
 
   world: SceneEventId[];
   timeSkipped: boolean;

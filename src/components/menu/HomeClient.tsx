@@ -8,10 +8,16 @@ import { useEffect, useRef, useState } from "react";
 import { api, assetUrl } from "@/lib/client/api";
 import { audioEngine } from "@/lib/client/audioEngine";
 import { LANGUAGES, SCENARIOS, getScenario, scenariosForLanguage } from "@/lib/scenarios";
-import { DIFFICULTIES, type Difficulty, type InputMode, type LanguageCode } from "@/lib/scenarios/types";
+import { DIFFICULTIES, type Difficulty, type InputMode, type LanguageCode, type ResponseMode } from "@/lib/scenarios/types";
 import type { SessionSummary } from "@/lib/session/types";
 import { Logo } from "./Logo";
 import { ScenePreview } from "./ScenePreview";
+
+/* Light, flat surfaces (see the palette rules in globals.css). */
+const PILL = "rounded-full bg-paper px-3 py-1.5 font-bold text-ink shadow-sm ring-1 ring-ink/10 transition hover:ring-brand/40";
+const LABEL = "text-xs font-black uppercase tracking-[0.3em] text-brand";
+const CARD = "bg-paper text-ink shadow-[0_12px_32px_rgba(19,35,63,0.10)] ring-1 ring-ink/10";
+const choice = (selected: boolean) => (selected ? "border-brand bg-brand/10" : "border-ink/10 bg-paper hover:border-brand/40");
 
 function useMenuMusic() {
   const [on, setOn] = useState(false);
@@ -71,6 +77,8 @@ export function HomeClient() {
   const [scenarioId, setScenarioId] = useState<string | null>(null);
   const [difficulty, setDifficulty] = useState<Difficulty>("beginner");
   // null = follow the difficulty's recommendation until the learner picks explicitly
+  // How the learner responds (Voice or Text Mode); for voice, how they talk (push-to-talk or live).
+  const [respond, setRespond] = useState<ResponseMode>("voice");
   const [modeChoice, setModeChoice] = useState<InputMode | null>(null);
   const defaultMode: InputMode = difficulty === "beginner" ? "ptt" : "live";
   const mode = modeChoice ?? defaultMode;
@@ -91,19 +99,14 @@ export function HomeClient() {
   const scenario = scenarioId ? getScenario(scenarioId) : null;
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-night text-cream">
-      <div className="pointer-events-none absolute inset-0 opacity-40">
-        <div className="absolute -left-40 -top-40 h-[520px] w-[520px] rounded-full bg-tangerine/30 blur-[120px]" />
-        <div className="absolute -bottom-40 right-0 h-[520px] w-[620px] rounded-full bg-plum/50 blur-[140px]" />
-      </div>
-
+    <main className="relative min-h-dvh overflow-hidden bg-page text-ink">
       <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-5 pt-6">
         <Logo />
         <div className="flex items-center gap-2 text-sm">
-          <button onClick={() => void music.toggle()} className="rounded-full bg-white/10 px-3 py-1.5 font-bold hover:bg-white/15" title="Menu theme composed with Eleven Music">
+          <button onClick={() => void music.toggle()} className={PILL} title="Menu theme composed with Eleven Music">
             {music.on ? "♪ Music on" : "♪ Music off"}
           </button>
-          <Link href="/studio" className="rounded-full bg-white/10 px-3 py-1.5 font-bold hover:bg-white/15">
+          <Link href="/studio" className={PILL}>
             ElevenLabs Studio
           </Link>
         </div>
@@ -115,16 +118,16 @@ export function HomeClient() {
           animate={{ opacity: 1, y: 0 }}
           className="font-display text-5xl leading-[1.05] lg:whitespace-nowrap lg:text-[56px]"
         >
-          Walk in. <span className="text-tangerine">Figure out what to say.</span>
+          Walk in. <span className="text-brand">Figure out what to say.</span>
         </motion.h1>
-        <p className="mt-4 max-w-2xl text-lg text-cream/75">
+        <p className="mt-4 max-w-2xl text-lg text-ink-soft">
           We simulate the situations you&apos;re actually going to encounter, before you encounter them. Real characters, real voices, a real goal, and no script to memorise.
         </p>
 
         <AnimatePresence mode="wait">
           {!language || !scenario ? (
             <motion.div key="lang" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mt-10">
-              <div className="mb-4 text-xs font-black uppercase tracking-[0.3em] text-gold">Where are you going?</div>
+              <div className={`mb-4 ${LABEL}`}>Where are you going?</div>
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
                 {LANGUAGES.map((l, i) => {
                   const s = scenariosForLanguage(l.code)[0];
@@ -135,12 +138,12 @@ export function HomeClient() {
                       initial={{ opacity: 0, y: 30, rotate: (i - 1.5) * 2 }}
                       animate={{ opacity: 1, y: 0, rotate: (i - 1.5) * 1.5, transition: { delay: 0.1 + i * 0.08 } }}
                       whileHover={{ y: -8, rotate: 0, scale: 1.02 }}
-                      className="group overflow-hidden rounded-3xl bg-paper text-left text-ink shadow-[0_20px_50px_rgba(0,0,0,0.45)] outline-none focus-visible:ring-4 focus-visible:ring-gold"
+                      className={`group overflow-hidden rounded-3xl text-left outline-none focus-visible:ring-4 focus-visible:ring-brand/40 ${CARD}`}
                     >
                       <div className="relative aspect-[16/10] overflow-hidden">
                         <ScenePreview scenario={s} className="h-full w-full transition-transform duration-700 group-hover:scale-105" />
                         {s.demoRole === "hero" && (
-                          <span className="absolute left-3 top-3 rounded-full bg-tangerine px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow">
+                          <span className="absolute left-3 top-3 rounded-full bg-brand px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow">
                             Featured
                           </span>
                         )}
@@ -163,7 +166,7 @@ export function HomeClient() {
             </motion.div>
           ) : (
             <motion.div key="setup" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-              <div className="overflow-hidden rounded-3xl bg-paper text-ink shadow-2xl">
+              <div className={`overflow-hidden rounded-3xl ${CARD}`}>
                 <div className="relative aspect-[16/9]">
                   <ScenePreview scenario={scenario} className="h-full w-full" />
                   <button onClick={() => setLanguage(null)} className="absolute left-3 top-3 rounded-full bg-night/70 px-3 py-1.5 text-xs font-bold text-cream backdrop-blur">
@@ -171,13 +174,13 @@ export function HomeClient() {
                   </button>
                 </div>
                 <div className="space-y-3 p-6">
-                  <div className="text-[11px] font-black uppercase tracking-[0.2em] text-tangerine">
+                  <div className="text-[11px] font-black uppercase tracking-[0.2em] text-brand">
                     <Flag code={scenario.language} /> {scenario.locationLabel}
                   </div>
                   {scenariosForLanguage(language).length > 1 && (
                     <div className="flex flex-wrap gap-2">
                       {scenariosForLanguage(language).map((s) => (
-                        <button key={s.id} onClick={() => setScenarioId(s.id)} className={`rounded-full px-3 py-1 text-sm font-bold ${s.id === scenario.id ? "bg-ink text-cream" : "bg-ink/10"}`}>
+                        <button key={s.id} onClick={() => setScenarioId(s.id)} className={`rounded-full px-3 py-1 text-sm font-bold ${s.id === scenario.id ? "bg-brand text-white" : "bg-ink/5 hover:bg-brand/10"}`}>
                           {s.title}
                         </button>
                       ))}
@@ -186,77 +189,84 @@ export function HomeClient() {
                   <div className="font-display text-3xl">{scenario.title}</div>
                   <p className="text-ink-soft">{scenario.blurb}</p>
                   <div className="rounded-2xl bg-ink/5 p-4">
-                    <div className="text-[11px] font-black uppercase tracking-widest text-tangerine">Objective</div>
+                    <div className="text-[11px] font-black uppercase tracking-widest text-brand">Objective</div>
                     <div className="font-display text-lg">{scenario.objective}</div>
-                    <div className="mt-2 flex flex-wrap gap-1.5 text-xs font-bold text-ink-soft">
-                      {Array.from(new Set(scenario.stages.map((s) => s.group))).map((g, i, arr) => (
-                        <span key={g}>
-                          {g}
-                          {i < arr.length - 1 ? " →" : ""}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="text-sm text-ink-soft">
-                    You&apos;ll meet <b className="text-ink">{scenario.npc.name}</b>, the {scenario.npc.role.toLowerCase()}. Every visit is different: stock, mistakes and follow-up questions change each run.
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3">
-                <div className="text-xs font-black uppercase tracking-[0.3em] text-gold">Choose your difficulty</div>
+              <div className="flex flex-col gap-3 lg:self-center">
+                <div className={LABEL}>Choose your difficulty</div>
                 {DIFFICULTIES.map((d) => (
                   <button
                     key={d.id}
                     onClick={() => setDifficulty(d.id)}
-                    className={`rounded-2xl border-2 p-4 text-left transition ${
-                      difficulty === d.id ? "border-tangerine bg-tangerine/15" : "border-white/10 bg-white/5 hover:bg-white/10"
-                    }`}
+                    className={`rounded-2xl border-2 p-4 text-left transition ${choice(difficulty === d.id)}`}
                     aria-pressed={difficulty === d.id}
                   >
-                    <div className="flex items-baseline justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between sm:gap-x-3">
                       <span className="font-display text-xl">{d.label}</span>
-                      <span className="text-xs font-bold text-cream/60">{d.tagline}</span>
+                      <span className="text-sm text-ink-soft">{d.summary}</span>
                     </div>
-                    <ul className="mt-1 grid grid-cols-1 gap-x-4 text-sm text-cream/75 sm:grid-cols-2">
-                      {d.details.map((x) => (
-                        <li key={x}>· {x}</li>
-                      ))}
-                    </ul>
                   </button>
                 ))}
-                <div className="mt-3 text-xs font-black uppercase tracking-[0.3em] text-gold">How you&apos;ll talk</div>
-                <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="How you'll talk">
+                <div className={`mt-3 ${LABEL}`}>How do you want to respond?</div>
+                <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="How do you want to respond?">
                   {(
                     [
-                      ["ptt", "✋ Push-to-talk", "Take your time. Tap the mic when you've finished your sentence."],
-                      ["live", "🎙 Live conversation", `${scenario.npc.name} listens in real time. Just talk, and pause when you're done.`],
+                      ["voice", "🎙 Voice", "Speak your replies aloud"],
+                      ["text", "⌨ Text", "Type your replies"],
                     ] as const
                   ).map(([m, title, desc]) => (
                     <button
                       key={m}
                       role="radio"
-                      aria-checked={mode === m}
-                      onClick={() => setModeChoice(m)}
-                      className={`rounded-2xl border-2 p-3 text-left transition ${
-                        mode === m ? "border-tangerine bg-tangerine/15" : "border-white/10 bg-white/5 hover:bg-white/10"
-                      }`}
+                      aria-checked={respond === m}
+                      onClick={() => setRespond(m)}
+                      className={`rounded-2xl border-2 p-3 text-left transition ${choice(respond === m)}`}
                     >
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-                        <span className="whitespace-nowrap font-bold">{title}</span>
-                        {defaultMode === m && <span className="text-[10px] font-bold uppercase tracking-wider text-cream/50">Recommended</span>}
-                      </div>
-                      <div className="mt-0.5 text-sm leading-snug text-cream/70">{desc}</div>
+                      <div className="font-bold">{title}</div>
+                      <div className="mt-0.5 text-sm leading-snug text-ink-soft">{desc}</div>
                     </button>
                   ))}
                 </div>
+                {respond === "voice" && (
+                  <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="How you'll talk">
+                    {(
+                      [
+                        ["ptt", "✋ Push-to-talk", "Tap the mic when done"],
+                        ["live", "🎙 Live", "Just talk, then pause"],
+                      ] as const
+                    ).map(([m, title, desc]) => (
+                      <button
+                        key={m}
+                        role="radio"
+                        aria-checked={mode === m}
+                        onClick={() => setModeChoice(m)}
+                        className={`rounded-xl border-2 px-3 py-2 text-left text-sm transition ${choice(mode === m)}`}
+                      >
+                        <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                          <span className="whitespace-nowrap font-bold">{title}</span>
+                          {defaultMode === m && <span className="text-[10px] font-bold uppercase tracking-wider text-brand">Recommended</span>}
+                        </div>
+                        <div className="text-xs text-ink-soft">{desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => router.push(`/play/${scenario.id}?difficulty=${difficulty}&mode=${mode}`)}
-                  className="mt-2 rounded-2xl bg-tangerine px-6 py-4 font-display text-2xl text-white shadow-[0_12px_40px_rgba(255,138,61,0.45)]"
+                  onClick={() =>
+                    router.push(
+                      respond === "text"
+                        ? `/play/${scenario.id}?difficulty=${difficulty}&respond=text`
+                        : `/play/${scenario.id}?difficulty=${difficulty}&respond=voice&mode=${mode}`,
+                    )
+                  }
+                  className="mt-2 rounded-2xl bg-brand px-6 py-4 font-display text-2xl text-white shadow-[0_10px_28px_rgba(27,87,203,0.3)] transition-colors hover:bg-brand-dark"
                 >
-                  Enter the scene →
+                  Start →
                 </motion.button>
               </div>
             </motion.div>
@@ -265,19 +275,19 @@ export function HomeClient() {
 
         {recent.length > 0 && (
           <div className="mt-14">
-            <div className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-cream/60">Your recent sessions</div>
+            <div className={`mb-3 ${LABEL}`}>Your recent sessions</div>
             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
               {recent.map((r) => {
                 const s = SCENARIOS.find((x) => x.id === r.scenarioId);
                 return (
-                  <Link key={r.id} href={`/session/${r.id}`} className="min-w-56 rounded-2xl bg-white/5 p-4 hover:bg-white/10">
+                  <Link key={r.id} href={`/session/${r.id}`} className="min-w-56 rounded-2xl bg-paper p-4 ring-1 ring-ink/10 transition hover:ring-brand/40">
                     <div className="text-sm font-bold">
                       {s && <Flag code={s.language} />} {s?.title}
                     </div>
-                    <div className="text-xs text-cream/60">
-                      <span className="capitalize">{r.difficulty}</span> · {new Date(r.startedAt).toLocaleDateString()} · {r.turns} {r.turns === 1 ? "reply" : "replies"}
+                    <div className="text-xs text-ink-soft">
+                      <span className="capitalize">{r.difficulty}</span> · {r.responseMode === "text" ? "Text" : "Voice"} · {new Date(r.startedAt).toLocaleDateString()} · {r.turns} {r.turns === 1 ? "reply" : "replies"}
                     </div>
-                    <div className={`mt-2 text-xs font-bold ${r.objectiveComplete ? "text-teal" : "text-gold"}`}>
+                    <div className={`mt-2 text-xs font-bold ${r.objectiveComplete ? "text-[#0a7a0a]" : "text-ink-soft"}`}>
                       {r.objectiveComplete ? "✓ Objective complete" : "○ Incomplete"}
                     </div>
                   </Link>
@@ -287,7 +297,7 @@ export function HomeClient() {
           </div>
         )}
 
-        <footer className="mt-16 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-cream/50">
+        <footer className="mt-16 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-ink-soft">
           <span>NPCs: ElevenLabs Agents</span>
           <span>Voices: ElevenLabs Voice Design</span>
           <span>Ambience &amp; SFX: ElevenLabs Sound Effects</span>

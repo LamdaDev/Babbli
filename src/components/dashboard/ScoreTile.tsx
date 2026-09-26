@@ -12,10 +12,10 @@ export function statusFor(value: number | null) {
 }
 
 /** Stat tile + meter. The meter's fill carries severity; icon + label keep it readable without color. */
-export function ScoreTile({ label, score, note }: { label: string; score: Score; note?: string }) {
+export function ScoreTile({ label, score, note, method }: { label: string; score: Score; note?: string; method?: string }) {
   const s = statusFor(score.value);
   return (
-    <div className="flex flex-col rounded-2xl bg-[#fffaf1] p-4 shadow-sm ring-1 ring-ink/5">
+    <div className="flex flex-col rounded-2xl bg-paper p-4 shadow-sm ring-1 ring-ink/5">
       <div className="text-sm font-bold text-ink-soft">{label}</div>
       <div className="mt-1 flex items-baseline gap-1.5">
         <span className="text-4xl font-bold text-ink">{score.value ?? "—"}</span>
@@ -23,7 +23,7 @@ export function ScoreTile({ label, score, note }: { label: string; score: Score;
       </div>
       <div
         className="mt-2 h-2 w-full overflow-hidden rounded-full"
-        style={{ background: s?.track ?? "#ece4d6" }}
+        style={{ background: s?.track ?? "#e6ebf3" }}
         role="meter"
         aria-valuemin={0}
         aria-valuemax={100}
@@ -51,6 +51,12 @@ export function ScoreTile({ label, score, note }: { label: string; score: Score;
         ))}
       </ul>
       {note && <p className="mt-2 text-[11px] italic leading-snug text-ink-soft">{note}</p>}
+      {method && (
+        <details className="mt-auto pt-3 text-xs">
+          <summary className="cursor-pointer font-bold text-brand">How this is calculated</summary>
+          <p className="mt-1 leading-snug text-ink-soft">{method}</p>
+        </details>
+      )}
     </div>
   );
 }

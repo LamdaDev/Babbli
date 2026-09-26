@@ -2,7 +2,7 @@
 
 import { turnAudioUrl } from "@/lib/client/api";
 import type { ReferenceTiming, TurnSpeechMetrics } from "@/lib/evaluation/speech";
-import { GENERIC_INTENTS, type ScenarioDef } from "@/lib/scenarios/types";
+import { GENERIC_INTENTS, type ResponseMode, type ScenarioDef } from "@/lib/scenarios/types";
 import type { LearnerTurn } from "@/lib/session/types";
 import { PlayButton } from "./PlayButton";
 import { RhythmChart } from "./RhythmChart";
@@ -26,6 +26,7 @@ function fmt(n: number | null | undefined, digits = 1) {
 }
 
 export function TurnCard({
+  mode,
   turn,
   metrics,
   scenario,
@@ -34,6 +35,7 @@ export function TurnCard({
   referenceState,
   referenceUrl,
 }: {
+  mode: ResponseMode;
   turn: LearnerTurn;
   metrics: TurnSpeechMetrics;
   scenario: ScenarioDef;
@@ -47,11 +49,12 @@ export function TurnCard({
   const words = turn.stt?.words ?? [];
   const joiner = lang === "ja" ? "" : " ";
   const hintsUsed = turn.hints.length ? Math.max(...turn.hints) : 0;
+  const text = mode === "text";
 
   return (
-    <article className="rounded-2xl bg-[#fffaf1] p-5 shadow-sm ring-1 ring-ink/5">
+    <article className="rounded-2xl bg-paper p-5 shadow-sm ring-1 ring-ink/5">
       <header className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-xs font-black uppercase tracking-widest text-tangerine">
+        <div className="text-xs font-black uppercase tracking-widest text-brand">
           Turn {turn.index + 1} · {turn.stageGroup}
         </div>
         {o ? (
@@ -78,7 +81,7 @@ export function TurnCard({
 
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">You said</div>
+          <div className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">{text ? "You wrote" : "You said"}</div>
           <p className="font-jp text-lg leading-relaxed" lang={lang}>
             {words.length
               ? words.map((w, i) => {
@@ -97,7 +100,8 @@ export function TurnCard({
                 })
               : metrics.transcript || <span className="text-ink-soft">(no transcript)</span>}
           </p>
-          {turn.inputMethod === "text" && <div className="text-xs font-bold text-ink-soft">⌨ typed, not spoken</div>}
+          {/* Older Voice Mode sessions could mix in typed replies. */}
+          {!text && turn.inputMethod === "text" && <div className="text-xs font-bold text-ink-soft">⌨ typed, not spoken</div>}
           {metrics.lowConfidenceWords.length > 0 && (
             <div className="mt-1 text-xs text-ink-soft">
               <span className="font-bold text-[#a52b2b]">Hard to recognise:</span> {metrics.lowConfidenceWords.join(" · ")}
@@ -107,11 +111,11 @@ export function TurnCard({
         <div className="space-y-1.5 text-sm">
           <div>
             <span className="font-bold text-ink-soft">You wanted to: </span>
-            {turn.expected ? `${turn.expected.label}` : "(spoke freely)"}
+            {turn.expected ? `${turn.expected.label}` : text ? "(wrote freely)" : "(spoke freely)"}
           </div>
           <div>
             <span className="font-bold text-ink-soft">{scenario.npc.name} understood: </span>
-            {intentLabel(scenario, turn.report?.intent)}
+            {intentLabel(scenario, turn.outcome?.intent ?? turn.report?.intent)}
             {turn.outcome?.intentMatched === true && <span className="ml-1 font-bold text-[#0a7a0a]">✓ match</span>}
             {turn.outcome?.intentMatched === false && <span className="ml-1 font-bold text-[#a52b2b]">≠ not what you meant</span>}
           </div>
@@ -121,14 +125,15 @@ export function TurnCard({
             {turn.repeats > 0 && <span className="rounded-full bg-ink/10 px-2 py-0.5 font-bold">🔁 ×{turn.repeats}</span>}
             {turn.slows > 0 && <span className="rounded-full bg-ink/10 px-2 py-0.5 font-bold">🐢 ×{turn.slows}</span>}
             {turn.translations > 0 && <span className="rounded-full bg-ink/10 px-2 py-0.5 font-bold">EN ×{turn.translations}</span>}
-            {!hintsUsed && !turn.repeats && !turn.slows && !turn.translations && turn.inputMethod === "voice" && (
+            {!hintsUsed && !turn.repeats && !turn.slows && !turn.translations && (text || turn.inputMethod === "voice") && (
               <span className="rounded-full bg-[#0ca30c]/12 px-2 py-0.5 font-bold text-[#0a7a0a]">✓ no help used</span>
             )}
           </div>
         </div>
       </div>
 
-      {metrics.hasSpeech && (
+      {/* Speech analytics: Voice Mode only (Text Mode has no audio to measure). */}
+      {!text && metrics.hasSpeech && (
         <dl className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
           {[
             ["Started after", `${fmt(metrics.latency)}s`],
@@ -145,19 +150,19 @@ export function TurnCard({
         </dl>
       )}
 
-      {(turn.audio?.uploaded || turn.expected) && (
+      {((!text && turn.audio?.uploaded) || turn.expected) && (
         <div className="mt-4 rounded-xl bg-white/70 p-3">
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-xs font-bold text-ink-soft">Compare:</span>
+            <span className="mr-1 text-xs font-bold text-ink-soft">{text ? "Model phrase:" : "Compare:"}</span>
             {turn.expected && referenceUrl && <PlayButton getSrc={referenceUrl} label="Native reference" tone="native" />}
-            {turn.audio?.uploaded && <PlayButton src={turnAudioUrl(sessionId, turn.id)} label="Your recording" tone="learner" />}
+            {!text && turn.audio?.uploaded && <PlayButton src={turnAudioUrl(sessionId, turn.id)} label="Your recording" tone="learner" />}
             {turn.expected && (
               <span className="font-jp text-sm text-ink-soft" lang={lang}>
                 “{turn.expected.reference}”
               </span>
             )}
           </div>
-          {metrics.hasSpeech && <RhythmChart native={reference?.segments ?? null} nativeState={referenceState} learner={metrics.segments} />}
+          {!text && metrics.hasSpeech && <RhythmChart native={reference?.segments ?? null} nativeState={referenceState} learner={metrics.segments} />}
         </div>
       )}
 

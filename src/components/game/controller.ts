@@ -15,13 +15,13 @@ import {
   seededRandom,
 } from "@/lib/engine/engine";
 import { cleanTranscript, stripAudioTags } from "@/lib/evaluation/text";
-import { api, assetUrl } from "@/lib/client/api";
+import { api, assetUrl, type TtsResult } from "@/lib/client/api";
 import { audioEngine } from "@/lib/client/audioEngine";
 import { LiveCaptions } from "@/lib/client/liveCaptions";
 import { MicRecorder, type Recording } from "@/lib/client/recorder";
-import type { Difficulty, InputMode, IntentCard, ScenarioDef, SceneEventId, TurnReport } from "@/lib/scenarios/types";
+import type { Difficulty, InputMode, IntentCard, ResponseMode, ScenarioDef, SceneEventId, TurnReport } from "@/lib/scenarios/types";
 import type { LearnerTurn, NpcLine, SessionRecord } from "@/lib/session/types";
-import { createGameStore, type GameStore, type GameUI, type Phase } from "./store";
+import { createGameStore, type GameStore, type GameUI, type Phase, type Subtitle } from "./store";
 
 const AGENT_SPEED: Record<Difficulty, number> = { beginner: 0.85, intermediate: 1, immersion: 1.08 };
 /** Playback rates for Repeat and Slow (applied in the browser, pitch kept). */
@@ -35,6 +35,24 @@ const DEFERRED: SceneEventId[] = ["order_placed", "time_skip", "served"];
 
 const rid = (n = 8) => crypto.randomUUID().replace(/-/g, "").slice(0, n);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const AUDIO_TAG = /\[[^\]]{1,30}\]\s*/g;
+
+/**
+ * Karaoke timings for an NPC line voiced with TTS in Text Mode. The audio was generated from the raw
+ * line (audio tags like [cheerful] included, for expressive delivery) but the subtitle shows it
+ * without them, so the tags' characters are dropped from the alignment. No karaoke if it doesn't line up.
+ */
+function karaokeFor(raw: string, shown: string, alignment: TtsResult["alignment"], rate: number, t0: number): Subtitle["karaoke"] {
+  if (!alignment) return undefined;
+  const { characters: chars, character_start_times_seconds: starts } = alignment;
+  const keep = chars.map(() => true);
+  if (chars.join("") === raw) for (const m of raw.matchAll(AUDIO_TAG)) for (let i = m.index; i < m.index + m[0].length; i++) keep[i] = false;
+  let idx = chars.map((_, i) => i).filter((i) => keep[i]);
+  while (idx.length && /\s/.test(chars[idx[0]])) idx = idx.slice(1);
+  while (idx.length && /\s/.test(chars[idx[idx.length - 1]])) idx = idx.slice(0, -1);
+  if (idx.map((i) => chars[i]).join("") !== shown) return undefined;
+  return { chars: idx.map((i) => chars[i]), starts: idx.map((i) => starts[i] / rate), t0 };
+}
 
 export class GameController {
   readonly store: GameStore;
@@ -54,6 +72,8 @@ export class GameController {
   private agentSpeaking = false;
   /** Learner turn whose words reached the agent and still wait for the report tool call. */
   private awaitingTool: string | null = null;
+  /** Text Mode: NPC lines voiced locally, strictly one after another. */
+  private npcVoiceQueue: Promise<void> = Promise.resolve();
   private listeningTimer: ReturnType<typeof setTimeout> | null = null;
   private watchdog: ReturnType<typeof setTimeout> | null = null;
   private activityTimer: ReturnType<typeof setInterval> | null = null;
@@ -70,6 +90,8 @@ export class GameController {
     readonly scenario: ScenarioDef,
     readonly difficulty: Difficulty,
     inputMode: InputMode,
+    /** Voice or Text Mode — fixed for the session. Only changes how the learner responds, never the scenario logic. */
+    readonly responseMode: ResponseMode = "voice",
   ) {
     const seed = Math.floor(Math.random() * 2 ** 31);
     const state = createInitialState(scenario);
@@ -80,6 +102,7 @@ export class GameController {
       scenarioId: scenario.id,
       language: scenario.language,
       difficulty,
+      responseMode,
       inputMode,
       seed,
       startedAt: Date.now(),
@@ -94,6 +117,7 @@ export class GameController {
     const initial: GameUI = {
       phase: "briefing",
       error: null,
+      errorAction: null,
       busyLabel: null,
       toast: null,
       npcSpeaking: false,
@@ -116,8 +140,9 @@ export class GameController {
       micMuted: true,
       recording: false,
       turnTimer: null,
-      micAvailable: true,
+      micAvailable: responseMode === "voice",
       inputMode,
+      responseMode,
       world: [],
       timeSkipped: false,
       slots: {},
@@ -156,9 +181,20 @@ export class GameController {
     this.set({ toast: { id: Date.now(), text, tone } });
   }
 
-  /** Mouth amplitude for the NPC (ElevenAgents output or a local ElevenLabs TTS replay). */
+  /** Text Mode: typed replies, a text-only ElevenAgents conversation, no microphone at all. */
+  private get textMode() {
+    return this.responseMode === "text";
+  }
+
+  /** Voice Mode where ElevenAgents hears the mic directly (vs push-to-talk). */
+  private get liveVoice() {
+    return this.responseMode === "voice" && this.session.inputMode === "live";
+  }
+
+  /** Mouth amplitude for the NPC (ElevenAgents output or a local ElevenLabs TTS playback). */
   npcLevel() {
-    if (this.agentSpeaking && this.controls) {
+    // Text Mode has no agent audio stream — the NPC's line plays locally (voiceOwner "npc").
+    if (this.agentSpeaking && this.controls && !this.textMode) {
       try {
         return Math.min(1, this.controls.getOutputVolume() * 2.2);
       } catch {
@@ -256,12 +292,18 @@ export class GameController {
       console.warn("[babbli] ambience unavailable", e),
     );
 
-    try {
-      await this.recorder.init();
-    } catch {
-      this.set({ micAvailable: false, inputMode: "ptt" });
-      this.session.inputMode = "ptt";
-      this.toast("No microphone access — you can still type your replies.", "warn");
+    // Text Mode never touches the microphone. Voice Mode needs it — and never falls back to typing.
+    if (!this.textMode) {
+      try {
+        await this.recorder.init();
+      } catch {
+        this.set({ micAvailable: false });
+        this.fail("Voice Mode needs your microphone, and the browser didn't allow it. Allow microphone access and try again, or switch to Text Mode to type your replies.", {
+          label: "Switch to Text Mode",
+          href: `/play/${this.scenario.id}?difficulty=${this.difficulty}&respond=text`,
+        });
+        return;
+      }
     }
 
     let agent;
@@ -284,8 +326,11 @@ export class GameController {
       connectionType: "websocket",
       overrides: {
         agent: { prompt: { prompt }, firstMessage: greeting.text, language: this.scenario.language },
-        tts: { speed: AGENT_SPEED[this.difficulty] },
-        asr: { keywords: this.scenario.asrKeywords },
+        // Text Mode: the same agent, tool and engine over a text-only conversation (no mic, no audio
+        // stream) — the NPC's lines are voiced locally with ElevenLabs TTS (see voiceNpcLine).
+        ...(this.textMode
+          ? { conversation: { textOnly: true } }
+          : { tts: { speed: AGENT_SPEED[this.difficulty] }, asr: { keywords: this.scenario.asrKeywords } }),
       },
       clientTools: { [agent.toolName]: (params: Record<string, unknown>) => this.handleTool(params) },
       onConnect: ({ conversationId }) => {
@@ -301,22 +346,25 @@ export class GameController {
       onMessage: ({ message, role }) => (role === "agent" ? this.handleAgentLine(message) : this.handleUserTranscript(message)),
       // Live mode: what the agent is hearing so far, for the learner's own captions.
       onIncomingEvent: (event: { type?: string; tentative_user_transcription_event?: { user_transcript?: string } }) => {
-        if (event?.type !== "tentative_user_transcript" || this.session.inputMode !== "live" || this.ui.phase !== "speak") return;
+        if (event?.type !== "tentative_user_transcript" || !this.liveVoice || this.ui.phase !== "speak") return;
         const text = cleanTranscript(event.tentative_user_transcription_event?.user_transcript ?? "");
         if (text) this.set({ userCaption: { text, final: false } });
       },
-      onModeChange: ({ mode }) => this.handleMode(mode),
+      // Text Mode has no agent audio: its speaking/listening cycle comes from voiceNpcLine instead.
+      onModeChange: ({ mode }) => {
+        if (!this.textMode) this.handleMode(mode);
+      },
     };
     this.controls.startSession(options);
-    this.log("session_start", { difficulty: this.difficulty, inputMode: this.session.inputMode, variant: this.session.variant });
+    this.log("session_start", { difficulty: this.difficulty, responseMode: this.responseMode, inputMode: this.session.inputMode, variant: this.session.variant });
     this.startWatchdog(25000, () => {
       if (this.ui.phase === "connecting") this.fail("The NPC didn't answer. Check your ElevenLabs key and network, then try again.");
     });
   }
 
-  private fail(message: string) {
+  private fail(message: string, action: GameUI["errorAction"] = null) {
     this.clearWatchdog();
-    this.set({ error: message, busyLabel: null });
+    this.set({ error: message, errorAction: action, busyLabel: null });
     this.setPhase("error");
     this.audio.stopAmbient(1);
   }
@@ -357,11 +405,39 @@ export class GameController {
       this.clearWatchdog();
       this.setPhase("npc");
     }
+    if (this.textMode) this.voiceNpcLine(raw, line);
     this.scheduleSave();
   }
 
+  /**
+   * Text Mode: ElevenAgents answers in text, so each NPC line is voiced here with ElevenLabs TTS in
+   * the character's own designed voice, one after another. Playback drives the same speaking →
+   * listening cycle as the live agent audio does in Voice Mode (handleMode).
+   */
+  private voiceNpcLine(raw: string, line: NpcLine) {
+    this.npcVoiceQueue = this.npcVoiceQueue.then(async () => {
+      if (this.disposed || this.ui.phase === "ending" || this.ui.phase === "done") return;
+      const rate = AGENT_SPEED[this.difficulty];
+      this.handleMode("speaking");
+      try {
+        const tts = await api.tts(raw, this.scenario.npc.voiceKey, 1);
+        if (this.disposed) return;
+        const handle = await this.audio.playVoice(tts.url, rate);
+        const karaoke = karaokeFor(raw, line.text, tts.alignment, rate, handle.startedAt);
+        if (karaoke && this.ui.subtitle?.id === line.id) this.set({ subtitle: { ...this.ui.subtitle, karaoke } });
+        await handle.done;
+      } catch (e) {
+        // No audio (network, credits…): still give the learner time to read the line.
+        console.warn("[babbli] NPC voice unavailable", e);
+        await sleep(Math.min(5000, 800 + line.text.length * 45));
+      } finally {
+        this.handleMode("listening");
+      }
+    });
+  }
+
   private handleUserTranscript(text: string) {
-    if (this.session.inputMode !== "live") return;
+    if (!this.liveVoice) return;
     const turn = this.activeTurn;
     if (!turn || turn.transcriptAgent) return;
     turn.transcriptAgent = text;
@@ -508,6 +584,7 @@ export class GameController {
       success: outcome.success,
       answeredQuestion: outcome.answeredQuestion,
       intentMatched,
+      intent,
       note: outcome.note,
       nextStageId: outcome.nextStageId,
     };
@@ -602,7 +679,7 @@ export class GameController {
           }
         : undefined,
       startedAt: Date.now(),
-      inputMethod: "voice",
+      inputMethod: this.textMode ? "text" : "voice",
       inputMode: this.session.inputMode,
       hints: [...this.pendingAssist.hints],
       repeats: this.pendingAssist.repeats,
@@ -642,12 +719,18 @@ export class GameController {
 
   private beginSpeaking(card: IntentCard | null) {
     const turn = this.createTurn(card);
+    // Text Mode: the composer takes over — no microphone, captions or speaking time limit.
+    if (this.textMode) {
+      this.set({ expression: "neutral", userCaption: null });
+      this.setPhase("speak");
+      return;
+    }
     this.set({ expression: "neutral", userCaption: { text: "", final: false } });
     this.setPhase("speak");
     if (this.recorder.ready) {
       this.recorder.start();
-      this.set({ recording: true, micMuted: this.session.inputMode !== "live" });
-      if (this.session.inputMode === "ptt") {
+      this.set({ recording: true, micMuted: !this.liveVoice });
+      if (!this.liveVoice) {
         this.captions.start(this.scenario.language, this.keyterms(turn)).catch((e) => console.warn("[babbli] live captions unavailable", e));
       }
       this.startTurnTimer();
@@ -673,11 +756,6 @@ export class GameController {
     if (this.turnTimer) clearTimeout(this.turnTimer);
     this.turnTimer = null;
     if (this.ui.turnTimer) this.set({ turnTimer: null });
-  }
-
-  /** Typing a reply shouldn't be cut off by the speaking time limit. */
-  pauseTurnTimer() {
-    this.clearTurnTimer();
   }
 
   /** Freeze the time limit (e.g. while the exit dialog is open), keeping the time left. */
@@ -706,8 +784,8 @@ export class GameController {
 
   /** Learner taps the mic to say they're done. */
   async finishSpeaking() {
-    if (this.ui.phase !== "speak") return;
-    if (this.session.inputMode === "live") {
+    if (this.ui.phase !== "speak" || this.textMode) return;
+    if (this.liveVoice) {
       await this.closeLiveTurn();
       this.startWatchdog(12000, () => this.recoverFromSilence());
       return;
@@ -792,15 +870,13 @@ export class GameController {
     }
   }
 
+  /** Text Mode only: the typed reply goes to the same ElevenAgents NPC (and engine) as speech would. */
   submitText(text: string) {
     const clean = text.trim();
-    if (!clean || !this.controls) return;
+    if (!clean || !this.controls || !this.textMode) return;
     if (this.ui.phase !== "choose" && this.ui.phase !== "speak") return;
     let turn = this.activeTurn;
     if (!turn) turn = this.createTurn(this.ui.selectedCard);
-    if (this.recorder.recording) void this.recorder.stop();
-    this.captions.stop();
-    turn.inputMethod = "text";
     turn.transcriptAgent = clean;
     turn.endedAt = Date.now();
     this.session.assistance.typedTurns += 1;

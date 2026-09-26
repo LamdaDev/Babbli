@@ -53,14 +53,14 @@ export function HintPanel() {
           <ol className="space-y-2.5">
             {level >= 1 && (
               <li>
-                <div className="text-[11px] font-black uppercase tracking-widest text-tangerine">1 · {LEVELS[0].title}</div>
+                <div className="text-[11px] font-black uppercase tracking-widest text-brand">1 · {LEVELS[0].title}</div>
                 <p className="text-sm">{stage.situation}</p>
                 <p className="text-sm font-semibold">{card.hints.intent}</p>
               </li>
             )}
             {level >= 2 && (
               <li>
-                <div className="text-[11px] font-black uppercase tracking-widest text-tangerine">2 · {LEVELS[1].title}</div>
+                <div className="text-[11px] font-black uppercase tracking-widest text-brand">2 · {LEVELS[1].title}</div>
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {card.hints.vocab.map((v) => (
                     <span key={v.term} className="rounded-lg bg-white px-2 py-1 text-sm shadow-sm">
@@ -76,7 +76,7 @@ export function HintPanel() {
             )}
             {level >= 3 && (
               <li>
-                <div className="text-[11px] font-black uppercase tracking-widest text-tangerine">3 · {LEVELS[2].title}</div>
+                <div className="text-[11px] font-black uppercase tracking-widest text-brand">3 · {LEVELS[2].title}</div>
                 <p className="font-jp text-xl font-bold" lang={controller.scenario.language}>
                   {card.hints.starter}
                 </p>
@@ -84,7 +84,7 @@ export function HintPanel() {
             )}
             {level >= 4 && (
               <li>
-                <div className="text-[11px] font-black uppercase tracking-widest text-tangerine">4 · {LEVELS[3].title}</div>
+                <div className="text-[11px] font-black uppercase tracking-widest text-brand">4 · {LEVELS[3].title}</div>
                 <p className="font-jp text-xl font-bold" lang={controller.scenario.language}>
                   {card.hints.full}
                 </p>
@@ -94,7 +94,7 @@ export function HintPanel() {
             )}
             {level >= 5 && (
               <li>
-                <div className="text-[11px] font-black uppercase tracking-widest text-tangerine">5 · {LEVELS[4].title}</div>
+                <div className="text-[11px] font-black uppercase tracking-widest text-brand">5 · {LEVELS[4].title}</div>
                 <button
                   onClick={() => void controller.playHintAudio()}
                   disabled={busy}
@@ -108,7 +108,7 @@ export function HintPanel() {
           {next && (
             <button
               onClick={() => controller.nextHint()}
-              className="mt-4 w-full rounded-xl border-2 border-dashed border-tangerine/60 py-2 text-sm font-bold text-tangerine hover:bg-tangerine/10"
+              className="mt-4 w-full rounded-xl border-2 border-dashed border-brand/50 py-2 text-sm font-bold text-brand hover:bg-brand/10"
             >
               Reveal: {next.title} <span className="font-normal text-ink-soft">(−{next.cost} independence)</span>
             </button>

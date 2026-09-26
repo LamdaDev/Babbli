@@ -6,8 +6,13 @@
 
 export type LanguageCode = "en" | "ja" | "fr" | "es";
 export type Difficulty = "beginner" | "intermediate" | "immersion";
-/** live = ElevenAgents listens to the mic directly; ptt = record → Scribe → text to agent. */
+/** Voice Mode delivery: live = ElevenAgents listens to the mic directly; ptt = record → Scribe → text to agent. */
 export type InputMode = "live" | "ptt";
+/**
+ * How the learner responds, chosen before the scene. It decides the UI (microphone vs text composer)
+ * and which measurements are valid (speech metrics only exist for voice) — never the scenario logic.
+ */
+export type ResponseMode = "voice" | "text";
 
 export type NpcPose = "idle" | "speaking" | "listening" | "thinking";
 export type NpcExpression = "neutral" | "positive" | "confused";
@@ -239,38 +244,11 @@ export interface ScenarioDef {
   successTitle: string;
 }
 
-export const DIFFICULTIES: { id: Difficulty; label: string; tagline: string; details: string[] }[] = [
-  {
-    id: "beginner",
-    label: "Beginner",
-    tagline: "Take it slow",
-    details: [
-      "Slower NPC speech & simple vocabulary",
-      "Target-language subtitles + optional English",
-      "Full five-step hint ladder",
-    ],
-  },
-  {
-    id: "intermediate",
-    label: "Intermediate",
-    tagline: "Natural pace",
-    details: [
-      "Natural speed & phrasing",
-      "Target-language subtitles",
-      "Unexpected follow-up questions",
-    ],
-  },
-  {
-    id: "immersion",
-    label: "Immersion",
-    tagline: "Just like being there",
-    details: [
-      "Native speed & colloquial speech",
-      "No subtitles by default",
-      "Louder ambience & interruptions",
-      "You ask for clarification yourself",
-    ],
-  },
+/** `summary`: what to expect, in five words max (shown on the home screen). */
+export const DIFFICULTIES: { id: Difficulty; label: string; summary: string }[] = [
+  { id: "beginner", label: "Beginner", summary: "Slow speech, subtitles, full hints" },
+  { id: "intermediate", label: "Intermediate", summary: "Natural pace, surprise questions" },
+  { id: "immersion", label: "Immersion", summary: "Native speed, no subtitles" },
 ];
 
 export const GENERIC_INTENTS: Record<string, string> = {

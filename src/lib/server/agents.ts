@@ -94,6 +94,8 @@ function buildAgentBody(scenario: ScenarioDef, o: BodyOptions) {
         agent: { first_message: true, language: true, prompt: { prompt: true } },
         tts: { speed: true, voice_id: true, stability: true },
         asr: { keywords: true },
+        // Text Mode: the same agent over a text-only conversation (no microphone needed).
+        conversation: { text_only: true },
       },
     },
   };
