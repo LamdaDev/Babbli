@@ -1,10 +1,13 @@
 import type { LanguageCode } from "@/lib/scenarios/types";
 import type { LearnerTurn, WordTiming } from "@/lib/session/types";
-import { NATIVE_RATE, containsTerm, isFiller, languageMatches, normalize, similarity, speechUnits } from "./text";
+import { SPEECH_HEURISTICS } from "./sources";
+import { NATIVE_RATE, containsTerm, detectFillers, languageMatches, normalize, similarity, syllableCount } from "./text";
 
 export interface ReferenceTiming {
   duration: number;
+  /** Syllables (Japanese: characters) in the model phrase. */
   units: number;
+  /** Native rate in the same units per second. */
   rate: number;
   segments: { start: number; end: number; text: string }[];
 }
@@ -14,14 +17,22 @@ export interface TurnSpeechMetrics {
   transcript: string;
   /** Seconds from the mic opening to the first word. */
   latency: number | null;
+  /** First to last recognised word, in seconds — the speech sample (pauses inside included). */
   speakingTime: number;
+  /** Syllables (Japanese: characters), filler words excluded. */
   units: number;
+  /** units per second over the speaking time (pauses included). */
   rate: number | null;
   /** learner rate ÷ native rate */
   rateRatio: number | null;
+  /** Long pauses (≥ 0.45 s) — used by the Fluency score heuristic. */
   pauses: number;
   longestPause: number;
+  /** Every silence between words of ≥ 0.25 s, in seconds. */
+  silentPauses: number[];
   fillers: number;
+  /** Which filler each detected hesitation was ("um", "euh", "えっと"…). */
+  fillerLabels: string[];
   /** Mean Scribe word confidence (recognition clarity — not a phoneme-level score). */
   clarity: number | null;
   lowConfidenceWords: string[];
@@ -33,7 +44,7 @@ export interface TurnSpeechMetrics {
   fluency: number | null;
 }
 
-const PAUSE = 0.45;
+const { pauseSeconds: PAUSE, longPauseSeconds: LONG_PAUSE } = SPEECH_HEURISTICS;
 
 /** Group aligned characters (TTS) into speech segments split at silences. */
 export function referenceTiming(
@@ -68,7 +79,7 @@ export function referenceTiming(
   const first = segments[0].start;
   const last = segments[segments.length - 1].end;
   const duration = Math.max(0.1, last - first);
-  const units = speechUnits(text, lang);
+  const units = syllableCount(text, lang);
   return {
     duration,
     units,
@@ -90,12 +101,14 @@ export function analyzeTurn(turn: LearnerTurn, lang: LanguageCode, reference?: R
       transcript,
       latency: null,
       speakingTime: 0,
-      units: speechUnits(transcript, lang),
+      units: syllableCount(transcript, lang),
       rate: null,
       rateRatio: null,
       pauses: 0,
       longestPause: 0,
+      silentPauses: [],
       fillers: 0,
+      fillerLabels: [],
       clarity: null,
       lowConfidenceWords: [],
       confidentWords: [],
@@ -112,17 +125,21 @@ export function analyzeTurn(turn: LearnerTurn, lang: LanguageCode, reference?: R
   const speakingTime = Math.max(0.1, last - first);
   let pauses = 0;
   let longestPause = 0;
+  const silentPauses: number[] = [];
   for (let i = 1; i < words.length; i++) {
     const gap = words[i].start - words[i - 1].end;
-    if (gap >= PAUSE) {
-      pauses++;
-      longestPause = Math.max(longestPause, gap);
-    }
+    if (gap >= PAUSE) silentPauses.push(gap);
+    if (gap >= LONG_PAUSE) pauses++;
+    longestPause = Math.max(longestPause, gap);
   }
-  const fillers = words.filter((w) => isFiller(w.text, lang)).length;
-  const scored = words.filter((w) => w.confidence !== null && !isFiller(w.text, lang) && normalize(w.text, lang) !== "");
+  const fillerHits = detectFillers(words, lang);
+  const fillerIdx = new Set(fillerHits.flatMap((h) => h.indices));
+  const fillers = fillerHits.length;
+  const spoken = words.filter((_, i) => !fillerIdx.has(i));
+  const scored = spoken.filter((w) => w.confidence !== null && normalize(w.text, lang) !== "");
   const clarity = scored.length ? scored.reduce((s, w) => s + (w.confidence ?? 0), 0) / scored.length : null;
-  const units = speechUnits(stt?.transcript ?? transcript, lang);
+  // Speech rate (Kormos & Dénes, 2004 — see sources.ts): syllables over the whole sample, pauses included.
+  const units = syllableCount(spoken.map((w) => w.text).join(lang === "ja" ? "" : " "), lang);
   const rate = units / speakingTime;
   const nativeRate = reference?.rate ?? NATIVE_RATE[lang] ?? 3.3;
   const rateRatio = rate / nativeRate;
@@ -142,8 +159,10 @@ export function analyzeTurn(turn: LearnerTurn, lang: LanguageCode, reference?: R
     rate,
     rateRatio,
     pauses,
-    longestPause,
+    longestPause: silentPauses.length ? longestPause : 0,
+    silentPauses,
     fillers,
+    fillerLabels: fillerHits.map((h) => h.label),
     clarity,
     lowConfidenceWords: scored.filter((w) => (w.confidence ?? 1) < 0.55).map((w) => w.text),
     confidentWords: scored.filter((w) => (w.confidence ?? 0) >= 0.9).map((w) => w.text),

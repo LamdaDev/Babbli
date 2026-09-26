@@ -13,6 +13,7 @@ import { responseModeOf, type AgentAnalysis, type SessionRecord } from "@/lib/se
 import { AgentReview } from "./AgentReview";
 import { PlayButton } from "./PlayButton";
 import { ScoreTile } from "./ScoreTile";
+import { SpeechAnalytics } from "./SpeechAnalytics";
 import { TurnCard } from "./TurnCard";
 
 const NEXT: Record<Difficulty, Difficulty | null> = { beginner: "intermediate", intermediate: "immersion", immersion: null };
@@ -208,6 +209,12 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
               <ScoreTile key={s.id} label={s.label} score={s} method={s.method} />
             ))}
           </div>
+          {/* Voice Mode only: the report has no speech stats for text sessions. */}
+          {report.speech && (
+            <div className="mt-4">
+              <SpeechAnalytics stats={report.speech} />
+            </div>
+          )}
           {report.notApplicable.length > 0 && (
             <p className="mt-3 rounded-xl bg-ink/5 px-4 py-2.5 text-sm text-ink-soft">
               <span className="font-bold text-ink">Not measured in Text Mode:</span> {report.notApplicable.map((m) => m.label).join(" · ")} (pace, pauses,

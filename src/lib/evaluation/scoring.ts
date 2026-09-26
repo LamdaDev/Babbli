@@ -2,7 +2,8 @@ import { getStage, isOffLanguage } from "@/lib/engine/engine";
 import type { ResponseMode, ScenarioDef, VocabItem } from "@/lib/scenarios/types";
 import { responseModeOf, type AgentAnalysis, type LearnerTurn, type SessionRecord } from "@/lib/session/types";
 import { analyzeTurn, type ReferenceTiming, type TurnSpeechMetrics } from "./speech";
-import { containsTerm } from "./text";
+import { SPEECH_HEURISTICS } from "./sources";
+import { containsTerm, rateUnit } from "./text";
 
 /**
  * Mode-aware evaluation. One pipeline: shared inputs are computed once per session, each metric is
@@ -35,8 +36,39 @@ export const METRIC_SETS: Record<ResponseMode, MetricId[]> = {
 /** Measurements that need the learner's audio. */
 export const SPEECH_METRICS: MetricId[] = ["clarity", "fluency"];
 
+/**
+ * Voice Mode speech statistics, pooled over the session's spoken replies. Only speech rate is an
+ * established measure (see FLUENCY_SOURCE); the rest is descriptive feedback.
+ */
+export interface SpeechStats {
+  /** "syllables", or "characters" for Japanese. */
+  unit: string;
+  speakingSec: number;
+  fillerCount: number;
+  fillersPerMin: number | null;
+  /** Most-used first. */
+  fillers: { label: string; count: number }[];
+  /** Silences between words of ≥ 0.25 s. */
+  pauseCount: number;
+  pausesPerMin: number | null;
+  avgPause: number | null;
+  longestPause: number | null;
+  /** Pauses over 0.45 s — the ones the Fluency score counts. */
+  longPauses: number;
+  /** Speech rate in `unit` per minute (Kormos & Dénes, 2004). */
+  speechRate: number | null;
+  /** The same measure on the native model phrases (ElevenLabs TTS), when available. */
+  nativeRate: number | null;
+  avgLatency: number | null;
+  /** Per reply, for the charts (turn = reply number). */
+  latencies: { turn: number; value: number }[];
+  pauses: { turn: number; value: number }[];
+}
+
 export interface SessionReport {
   mode: ResponseMode;
+  /** Voice Mode only (null in Text Mode — nothing spoken to measure). */
+  speech: SpeechStats | null;
   completion: { objectiveComplete: boolean; finished: boolean; stagesDone: number; stagesTotal: number; durationSec: number };
   /** The valid metrics for this session's mode, in display order. */
   scores: MetricResult[];
@@ -99,6 +131,7 @@ interface EvalContext {
   /** Replies outside the target language (for the English scene: any other language). */
   offLanguage: number;
   learnerErrors: string[] | null;
+  references: Record<string, ReferenceTiming | null>;
 }
 
 function evalContext(
@@ -149,6 +182,7 @@ function evalContext(
             .map((s) => s.trim())
             .filter(Boolean)
         : null,
+    references,
   };
 }
 
@@ -214,21 +248,21 @@ const METRICS: Record<MetricId, MetricDef> = {
       if (!fl.length) return { value: null, headline: "No voice recordings to analyse", detail: [] };
       const latency = avg(c.voiced.map((t) => c.metrics[t.id].latency ?? 0));
       const ratio = avg(c.voiced.map((t) => c.metrics[t.id].rateRatio ?? 0));
-      const pauses = c.voiced.reduce((s, t) => s + c.metrics[t.id].pauses, 0);
+      const longPauses = c.voiced.reduce((s, t) => s + c.metrics[t.id].pauses, 0);
       const fillers = c.voiced.reduce((s, t) => s + c.metrics[t.id].fillers, 0);
-      const examples = c.lang === "ja" ? "えーと, あの" : c.lang === "fr" ? "euh, ben" : c.lang === "en" ? "um, uh" : "eh, este";
       return {
         value: Math.round(avg(fl)),
         headline: `You spoke at about ${pct(ratio)} of native speed`,
         detail: [
+          fillers || longPauses
+            ? `${plural(fillers, "filler")} and ${plural(longPauses, "long pause")} (over ${SPEECH_HEURISTICS.longPauseSeconds} s) affected your fluency`
+            : "No fillers or long pauses held you back",
           `Average ${latency.toFixed(1)}s before you started speaking`,
-          `${plural(pauses, "mid-sentence pause")} longer than 0.45s`,
-          `${plural(fillers, "filler word")} (${examples}…)`,
         ],
       };
     },
     method: () =>
-      "Per spoken reply: your pace compared with a native speaker saying the model phrase (35%), mid-sentence pauses longer than 0.45 s (35%), how long you took to start speaking (15%) and filler words (15%), then averaged over your replies. Timings come from ElevenLabs Scribe word timestamps; the native pace from ElevenLabs TTS.",
+      `Speaking rate uses an established second-language fluency measure: syllables ÷ total speaking time, pauses included, × 60 (Kormos & Dénes, 2004). The 0–100 Fluency score itself is a Babbli heuristic, not a standardized test: per spoken reply, your rate compared with a native speaker saying the model phrase (35%), long pauses over ${SPEECH_HEURISTICS.longPauseSeconds} s (35%), how long you took to start (15%) and filler words (15%), averaged over your replies. Timings come from ElevenLabs Scribe; the native rate from ElevenLabs TTS.`,
   },
 
   accuracy: {
@@ -333,6 +367,40 @@ function vocabList(c: EvalContext) {
     .map((v) => ({ ...v, used: v.term.split(/\s*\/\s*/).some((part) => containsTerm(all, part, c.lang)) }));
 }
 
+/** Voice Mode speech statistics, pooled over every spoken reply (null when nothing was spoken). */
+function speechStatsOf(c: EvalContext): SpeechStats | null {
+  if (!c.speech || !c.voiced.length) return null;
+  const m = c.voiced.map((t) => ({ turn: t.index + 1, m: c.metrics[t.id], ref: t.expected ? c.references[t.expected.reference] : null }));
+  const speakingSec = m.reduce((s, x) => s + x.m.speakingTime, 0);
+  const minutes = speakingSec / 60;
+  const perMin = (n: number) => (minutes > 0 ? n / minutes : null);
+  const counts = new Map<string, number>();
+  for (const x of m) for (const label of x.m.fillerLabels) counts.set(label, (counts.get(label) ?? 0) + 1);
+  const pauses = m.flatMap((x) => x.m.silentPauses.map((value) => ({ turn: x.turn, value })));
+  const latencies = m.filter((x) => x.m.latency !== null).map((x) => ({ turn: x.turn, value: x.m.latency! }));
+  // The native rate, measured the same way on the model phrases the learner attempted.
+  const refs = m.map((x) => x.ref).filter((r): r is ReferenceTiming => !!r);
+  const refSec = refs.reduce((s, r) => s + r.duration, 0);
+  const fillerCount = [...counts.values()].reduce((a, b) => a + b, 0);
+  return {
+    unit: rateUnit(c.lang),
+    speakingSec,
+    fillerCount,
+    fillersPerMin: perMin(fillerCount),
+    fillers: [...counts].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count),
+    pauseCount: pauses.length,
+    pausesPerMin: perMin(pauses.length),
+    avgPause: pauses.length ? avg(pauses.map((p) => p.value)) : null,
+    longestPause: pauses.length ? Math.max(...pauses.map((p) => p.value)) : null,
+    longPauses: m.reduce((s, x) => s + x.m.pauses, 0),
+    speechRate: minutes > 0 ? m.reduce((s, x) => s + x.m.units, 0) / minutes : null,
+    nativeRate: refSec > 0 ? (refs.reduce((s, r) => s + r.units, 0) / refSec) * 60 : null,
+    avgLatency: latencies.length ? avg(latencies.map((l) => l.value)) : null,
+    latencies,
+    pauses,
+  };
+}
+
 function completionOf(c: EvalContext): SessionReport["completion"] {
   const stages = new Set(c.scenario.stages.map((s) => s.group));
   const done = new Set(c.session.state.completedStages.map((id) => getStage(c.scenario, id).group));
@@ -406,6 +474,7 @@ export function buildReport(
 
   return {
     mode: c.mode,
+    speech: speechStatsOf(c),
     completion: completionOf(c),
     scores,
     notApplicable,

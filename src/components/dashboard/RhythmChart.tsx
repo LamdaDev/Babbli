@@ -9,8 +9,9 @@ export interface Segment {
   confidence?: number | null;
 }
 
-const NATIVE = "#2a78d6";
-const LEARNER = "#eb6834";
+/** Series colors shared by the speech charts (validated pair: native vs learner). */
+export const NATIVE = "#2a78d6";
+export const LEARNER = "#eb6834";
 
 /**
  * Timing comparison: speech segments of the native ElevenLabs reference vs the

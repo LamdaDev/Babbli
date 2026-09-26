@@ -55,27 +55,169 @@ export function containsTerm(text: string, term: string, lang: LanguageCode | st
   return ` ${nt} `.includes(` ${nk} `) || (nk.includes(" ") && nt.includes(nk));
 }
 
-export const FILLERS: Record<string, string[]> = {
-  en: ["um", "uh", "er", "erm", "hmm", "uhh", "umm"],
-  ja: ["えーと", "えっと", "えー", "あのー", "あの", "うーん", "んー", "まあ"],
-  fr: ["euh", "heu", "euhm", "hum", "ben", "bah", "hein"],
-  es: ["eh", "em", "este", "mmm", "pues", "ehh", "o sea"],
+/* ------------------------------------------------------------------ */
+/* filler words (Voice Mode only — they need real speech)              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A hesitation filler. `forms` are the spellings speech recognition produces for it. A `contextual`
+ * filler is also an ordinary word ("like", "so", Spanish "este" = this, Japanese "あの" = that), so
+ * it only counts when it clearly stands alone as a hesitation — see detectFillers.
+ */
+interface FillerDef {
+  label: string;
+  forms: string[];
+  contextual?: boolean;
+}
+
+/** Hesitation sounds learners carry into any language (e.g. an English "uh" inside Japanese). */
+const UNIVERSAL_FILLERS: FillerDef[] = [
+  { label: "um", forms: ["um", "umm", "ummm", "uhm"] },
+  { label: "uh", forms: ["uh", "uhh", "uhhh"] },
+  { label: "er", forms: ["er", "erm", "err"] },
+  { label: "hmm", forms: ["hmm", "hmmm", "hm"] },
+];
+
+const FILLER_DEFS: Record<string, FillerDef[]> = {
+  en: [
+    ...UNIVERSAL_FILLERS,
+    { label: "you know", forms: ["you know"], contextual: true },
+    { label: "like", forms: ["like"], contextual: true },
+    { label: "so", forms: ["so"], contextual: true },
+  ],
+  fr: [
+    ...UNIVERSAL_FILLERS,
+    { label: "euh", forms: ["euh", "heu", "euhm", "euuh"] },
+    { label: "hum", forms: ["hum"] },
+    { label: "ben", forms: ["ben", "bah"], contextual: true },
+  ],
+  es: [
+    ...UNIVERSAL_FILLERS,
+    { label: "eh", forms: ["eh", "ehh", "em", "emm", "mmm"] },
+    { label: "este", forms: ["este"], contextual: true },
+    { label: "pues", forms: ["pues"], contextual: true },
+    { label: "o sea", forms: ["o sea"], contextual: true },
+  ],
+  ja: [
+    ...UNIVERSAL_FILLERS,
+    { label: "えっと", forms: ["えっと", "えーと", "えーっと", "えと"] },
+    { label: "えー", forms: ["えー", "えーー"] },
+    { label: "あー", forms: ["あー", "あーー"] },
+    { label: "あのー", forms: ["あのー", "あのう"] },
+    { label: "うーん", forms: ["うーん", "んー", "うーむ"] },
+    { label: "あの", forms: ["あの"], contextual: true },
+    { label: "まあ", forms: ["まあ", "まぁ"], contextual: true },
+  ],
 };
 
-export function isFiller(word: string, lang: LanguageCode | string) {
-  const n = normalize(word, lang);
-  return (FILLERS[lang] ?? []).some((f) => normalize(f, lang) === n);
+/** A silence at least this long around a contextual word marks it as a hesitation (Babbli heuristic). */
+const ISOLATING_PAUSE = 0.25;
+
+export interface FillerHit {
+  label: string;
+  /** Indices of the recognised words that make up the filler. */
+  indices: number[];
 }
 
-/** Speech units: characters for Japanese (no spaces/punctuation), words otherwise. */
-export function speechUnits(text: string, lang: LanguageCode | string) {
-  const n = normalize(text, lang);
-  if (!n) return 0;
-  return lang === "ja" ? [...n].length : n.split(" ").length;
+/**
+ * Finds hesitation fillers in a timed word sequence. Unambiguous sounds (um, uh, euh, えっと…) always
+ * count; context-dependent words count only when isolated — a pause (or the start of the reply, or
+ * a comma) before AND a pause of ≥ 0.25 s after (or the end of the reply). So "I'd like a scarf" or
+ * "あの店" never count, while "it's, like… blue" does. Japanese recognition returns one character per
+ * "word", so forms are matched across consecutive words.
+ */
+export function detectFillers(words: { text: string; start: number; end: number }[], lang: LanguageCode | string): FillerHit[] {
+  const defs = FILLER_DEFS[lang] ?? UNIVERSAL_FILLERS;
+  const norm = words.map((w) => normalize(w.text, lang));
+  const forms = defs
+    .flatMap((d) => d.forms.map((f) => ({ def: d, form: normalize(f, lang) })))
+    .sort((a, b) => b.form.length - a.form.length);
+  const hits: FillerHit[] = [];
+  for (let i = 0; i < words.length; ) {
+    if (!norm[i]) {
+      i++;
+      continue;
+    }
+    let found: FillerHit | null = null;
+    for (const { def, form } of forms) {
+      // Consume consecutive words until the joined text reaches the form's length.
+      let joined = "";
+      let j = i;
+      while (j < words.length && joined.length < form.length) joined += (lang === "ja" || !joined ? "" : " ") + norm[j++];
+      if (joined !== form) continue;
+      if (def.contextual) {
+        const last = j - 1;
+        const before = i === 0 || words[i].start - words[i - 1].end >= ISOLATING_PAUSE || /[,，、。.!?！？…]$/.test(words[i - 1].text.trim());
+        const after = last === words.length - 1 || words[last + 1].start - words[last].end >= ISOLATING_PAUSE;
+        if (!before || !after) continue;
+      }
+      found = { label: def.label, indices: Array.from({ length: j - i }, (_, k) => i + k) };
+      break;
+    }
+    if (found) {
+      hits.push(found);
+      i += found.indices.length;
+    } else i++;
+  }
+  return hits;
 }
 
-/** Typical native speaking rate in units/second — used when no reference audio is available. */
-export const NATIVE_RATE: Record<string, number> = { en: 2.8, ja: 7.2, fr: 3.3, es: 3.4 };
+/* ------------------------------------------------------------------ */
+/* syllables — for the cited speech-rate measure (see sources.ts)      */
+/* ------------------------------------------------------------------ */
+
+// Accents matter here: French "café" isn't a mute e, Spanish "día" isn't a diphthong.
+const VOWELS: Record<string, RegExp> = {
+  en: /[aeiouy]+/g,
+  fr: /[aeiouyàâäéèêëîïôöùûüÿœæ]+/g,
+  es: /[aeiouáéíóúü]+/g,
+};
+/** Spanish: a, e, o — and an accented í / ú — are "strong"; two strong vowels side by side are separate syllables. */
+const STRONG_ES = /[aeoáéóíú]/;
+
+function wordSyllables(word: string, lang: string) {
+  const groups = word.match(VOWELS[lang] ?? VOWELS.en) ?? [];
+  let n = groups.length;
+  if (lang === "en") {
+    // Silent final e ("like", "take"), but not "-le" after a consonant ("table").
+    if (n > 1 && /[^aeiouy]e$/.test(word) && !/[^aeiouy]le$/.test(word)) n--;
+    if (n > 1 && /[^aeiouy]es$/.test(word) && !/(ses|zes|ches|shes|ges|ces)$/.test(word)) n--;
+  } else if (lang === "fr") {
+    // Mute final (unaccented) e / es: "une", "petites".
+    if (n > 1 && /[^aeiouyàâäéèêëîïôöùûüÿœæ]es?$/.test(word)) n--;
+  } else if (lang === "es") {
+    for (const g of groups) for (let k = 1; k < g.length; k++) if (STRONG_ES.test(g[k]) && STRONG_ES.test(g[k - 1])) n++;
+  }
+  return Math.max(1, n);
+}
+
+/**
+ * Estimated syllables in a text, from spelling (English, French, Spanish). Japanese counts characters
+ * instead — close to morae for kana, only an approximation once kanji appear. An estimate: good for
+ * comparing the learner with a native reference counted the same way, not a phonetic transcription.
+ */
+export function syllableCount(text: string, lang: LanguageCode | string) {
+  if (lang === "ja") return [...normalize(text, lang)].length;
+  // Like normalize(), but keeping accents.
+  const words = text
+    .normalize("NFC")
+    .toLowerCase()
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/['’]/g, "") // I'd, s'il, l'addition stay one word
+    .replace(/[\p{P}\p{S}\d]/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  return words.reduce((s, w) => s + wordSyllables(w, lang), 0);
+}
+
+/** The unit syllableCount measures in. */
+export const rateUnit = (lang: LanguageCode | string) => (lang === "ja" ? "characters" : "syllables");
+
+/**
+ * Typical native speech rate in syllables (Japanese: characters) per second — a Babbli default used
+ * only when no native reference audio is available; the reference audio is preferred.
+ */
+export const NATIVE_RATE: Record<string, number> = { en: 4.5, ja: 7.2, fr: 5.5, es: 6.2 };
 
 export function languageMatches(code: string | undefined, lang: LanguageCode | string) {
   if (!code) return null;
