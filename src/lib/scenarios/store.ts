@@ -12,7 +12,7 @@ const COLORS: Record<string, string> = {
 const colorName = (c: string) => COLORS[c] ?? c;
 
 function total(slots: Record<string, string>) {
-  const base = 45 * (slots.storeCard === "yes" ? 0.8 : 1);
+  const base = 39.99 * (slots.storeCard === "yes" ? 0.8 : 1);
   return `$${(Math.round(base * 1.08875 * 100) / 100).toFixed(2)}`;
 }
 
@@ -20,7 +20,7 @@ function total(slots: Record<string, string>) {
 function showItem(color: string, extra: string, meaning: string, more: Partial<Outcome> = {}): Outcome {
   return advance(
     "decide",
-    `${extra} Present the ${colorName(color)} merino wool scarf: say it's really soft and warm, it's $45, and ask what they think.`,
+    `${extra} Present the ${colorName(color)} merino wool scarf: say it's really soft and warm, it's $39.99, and ask what they think.`,
     meaning,
     { events: ["item_shown"], setSlots: { color, fulfilment: "in_store" }, ...more },
   );
@@ -55,7 +55,7 @@ function describeOutcome({ slot, variant }: ResolveContext, from: "greeting" | "
       "Oh, sorry — we're out of navy out here. I could check the back, or we have other colors.",
       { setSlots: { ...set, color }, reaction: "neutral", note: "Navy was sold out — you had to deal with an unavailable item." },
     );
-  return showItem(color, "Say “great choice”.", `Here it is — a ${colorName(color)} merino wool scarf. It's $45. What do you think?`, {
+  return showItem(color, "Say “great choice”.", `Here it is — a ${colorName(color)} merino wool scarf. It's $39.99. What do you think?`, {
     setSlots: { ...set, color, fulfilment: "in_store" },
   });
 }
@@ -206,12 +206,12 @@ export const store: ScenarioDef = {
     "You are Jordan, 28, a friendly, upbeat sales associate in the Accessories department of Whitmore's, a classic department store on Fifth Avenue in New York City. It's a busy Saturday afternoon. You're warm, helpful and chatty in a natural American way, and genuinely want to find the customer the right thing.",
   facts: (v) =>
     [
-      `SCARVES: merino wool scarves $45 in navy blue${v.navyOut ? " (SOLD OUT on the shop floor today)" : ""}, charcoal grey, burgundy and camel. Cashmere scarves $120 in grey and cream.`,
+      `SCARVES: merino wool scarves $39.99 in navy blue${v.navyOut ? " (SOLD OUT on the shop floor today)" : ""}, charcoal grey, burgundy and camel. Cashmere scarves $120 in grey and cream.`,
       `STOCKROOM: ${v.stockroomHasIt ? "has exactly one navy merino scarf left" : "has no navy merino scarves"} — you only find out if you go and check.`,
       "Online orders: delivery in 3–5 business days, free shipping, same price. Returns: 30 days with a receipt; gift receipts available. Gift wrapping is free.",
       "Sales tax is 8.875%.",
       v.storeCard
-        ? "Store card: signing up today gives 20% off this purchase (so $36 instead of $45), no annual fee — only bring it up when the engine tells you to."
+        ? "Store card: signing up today gives 20% off this purchase (so $31.99 instead of $39.99), no annual fee — only bring it up when the engine tells you to."
         : "No discounts on scarves right now.",
       "The merino scarves are 100% merino wool: hand-wash cold or dry-clean, not machine-washable.",
       v.tapDown ? "PAYMENT: tap-to-pay / phone payments are NOT working today; inserted cards and cash are fine." : "Payment: cards, phone/tap payments and cash are all accepted.",
@@ -455,9 +455,9 @@ export const store: ScenarioDef = {
             "info",
             "details",
             variant.navyOut
-              ? "List the colors: charcoal grey, burgundy and camel — and navy blue too, though you're not sure there are any navy ones left on the shelf. All merino wool, $45. Ask which color they'd like."
-              : "List the colors: navy blue, charcoal grey, burgundy and camel — all merino wool, $45. Ask which color they'd like.",
-            "We have navy, charcoal, burgundy and camel — $45 each. Which color would you like?",
+              ? "List the colors: charcoal grey, burgundy and camel — and navy blue too, though you're not sure there are any navy ones left on the shelf. All merino wool, $39.99. Ask which color they'd like."
+              : "List the colors: navy blue, charcoal grey, burgundy and camel — all merino wool, $39.99. Ask which color they'd like.",
+            "We have navy, charcoal, burgundy and camel — $39.99 each. Which color would you like?",
             { setFlags: { askedColors: true } },
           );
         if (report.intent === "ask_recommendation")
@@ -469,7 +469,7 @@ export const store: ScenarioDef = {
             { setFlags: { recommended: true } },
           );
         if (report.intent === "ask_price")
-          return stay("info", "details", "Say the merino wool scarves are $45 and cashmere is $120. Ask what color they'd like.", "Merino wool is $45, cashmere is $120. Which color?");
+          return stay("info", "details", "Say the merino wool scarves are $39.99 and cashmere is $120. Ask what color they'd like.", "Merino wool is $39.99, cashmere is $120. Which color?");
         return null;
       },
     },
@@ -599,7 +599,7 @@ export const store: ScenarioDef = {
           return stay(
             "info",
             "availability",
-            "List the other colors in stock: charcoal grey, burgundy and camel — same merino wool, same $45. Ask which one they'd like.",
+            "List the other colors in stock: charcoal grey, burgundy and camel — same merino wool, same $39.99. Ask which one they'd like.",
             "We have charcoal grey, burgundy and camel — same wool, same price. Which one?",
             { setFlags: { askedColors: true } },
           );
@@ -612,17 +612,17 @@ export const store: ScenarioDef = {
               `Say you understand${color === "navy" ? " — navy is a great choice" : ""}. Gently remind them navy is sold out on the floor, and suggest how they could still get it: ${state.flags.stockChecked ? "ordering it online" : "you could check the stockroom, or order it online"} — or pick another color.`,
               state.flags.stockChecked ? "Navy is sold out here, sorry — but I can order it online for you." : "Navy is sold out here, sorry. I can check the back or order it online.",
             );
-          return showItem(color, `Say good choice — the ${colorName(color)} looks great.`, `Good choice! Here's the ${colorName(color)} one. It's $45. What do you think?`);
+          return showItem(color, `Say good choice — the ${colorName(color)} looks great.`, `Good choice! Here's the ${colorName(color)} one. It's $39.99. What do you think?`);
         }
         if (report.intent === "ask_order" || report.intent === "ask_delivery")
           return advance(
             "decide",
-            "Say yes — you can order navy online for them right here: delivery in 3–5 business days, free shipping, same $45. Ask if they'd like to go ahead.",
-            "Yes! I can order it for you — it arrives in 3 to 5 days, free shipping, $45. Want to go ahead?",
+            "Say yes — you can order navy online for them right here: delivery in 3–5 business days, free shipping, same $39.99. Ask if they'd like to go ahead.",
+            "Yes! I can order it for you — it arrives in 3 to 5 days, free shipping, $39.99. Want to go ahead?",
             { setSlots: { color: "navy", fulfilment: "order" }, note: "You found a way to get the exact item you wanted." },
           );
         if (report.intent === "ask_price")
-          return stay("info", "availability", "Say all the merino scarves are $45. Repeat the options briefly.", "They're all $45.");
+          return stay("info", "availability", "Say all the merino scarves are $39.99. Repeat the options briefly.", "They're all $39.99.");
         return null;
       },
     },
@@ -694,13 +694,13 @@ export const store: ScenarioDef = {
         const lead = report.intent === "apologize" ? "Say it was no trouble at all. " : report.intent === "thanks" ? "Say you're welcome. " : "";
         if (report.intent === "describe_item" || report.intent === "take_it") {
           if (variant.stockroomHasIt)
-            return showItem("navy", "Say there's no need — you found the very last navy one in the stockroom!", "No need — I found the last navy one! It's $45. What do you think?", { setSlots: { color: "navy", fulfilment: "in_store" } });
+            return showItem("navy", "Say there's no need — you found the very last navy one in the stockroom!", "No need — I found the last navy one! It's $39.99. What do you think?", { setSlots: { color: "navy", fulfilment: "in_store" } });
           const color = slot("color") && slot("color") !== "navy" ? slot("color") : "charcoal";
-          return showItem(color, `Apologize: no navy in the stockroom either — but say the ${colorName(color)} is a great choice.`, `No navy in the back, sorry — but here's the ${colorName(color)} one. It's $45. What do you think?`);
+          return showItem(color, `Apologize: no navy in the stockroom either — but say the ${colorName(color)} is a great choice.`, `No navy in the back, sorry — but here's the ${colorName(color)} one. It's $39.99. What do you think?`);
         }
         if (["ask_found", "thanks", "greet", "apologize"].includes(report.intent)) {
           if (variant.stockroomHasIt)
-            return showItem("navy", `${lead}Happily say you found the very last navy one in the stockroom!`, "Good news — I found the last navy one! It's $45. What do you think?", { setSlots: { color: "navy", fulfilment: "in_store" } });
+            return showItem("navy", `${lead}Happily say you found the very last navy one in the stockroom!`, "Good news — I found the last navy one! It's $39.99. What do you think?", { setSlots: { color: "navy", fulfilment: "in_store" } });
           return advance(
             "availability",
             `${lead}Apologize: no luck — there were no navy ones in the stockroom either. Offer to order navy online (3–5 days, free shipping) or suggest charcoal, burgundy or camel.`,
@@ -710,10 +710,10 @@ export const store: ScenarioDef = {
         }
         if (report.intent === "ask_order" || report.intent === "ask_delivery") {
           if (variant.stockroomHasIt)
-            return showItem("navy", "Say no need to order — you found the very last navy one in the stockroom!", "No need — I found the last navy one! It's $45. What do you think?", { setSlots: { color: "navy", fulfilment: "in_store" } });
+            return showItem("navy", "Say no need to order — you found the very last navy one in the stockroom!", "No need — I found the last navy one! It's $39.99. What do you think?", { setSlots: { color: "navy", fulfilment: "in_store" } });
           return advance(
             "decide",
-            "Say you didn't find any navy in the back, but yes — you can order it online right now: 3–5 business days, free shipping, $45. Ask if they'd like to go ahead.",
+            "Say you didn't find any navy in the back, but yes — you can order it online right now: 3–5 business days, free shipping, $39.99. Ask if they'd like to go ahead.",
             "No navy in the back, but I can order it online — 3 to 5 days, free shipping. Go ahead?",
             { setSlots: { color: "navy", fulfilment: "order" } },
           );
@@ -724,8 +724,8 @@ export const store: ScenarioDef = {
     {
       id: "decide",
       group: "Decide",
-      npcGoal: "Present the scarf (or the online order), mention the price ($45), and ask if they'd like it.",
-      meaning: "It's $45. Would you like it?",
+      npcGoal: "Present the scarf (or the online order), mention the price ($39.99), and ask if they'd like it.",
+      meaning: "It's $39.99. Would you like it?",
       situation: "Jordan showed you the option. Decide — or ask a question first.",
       extraIntents: ["ask_price", "describe_item", "ask_material", "ask_delivery"],
       aliases: { yes: "take_it", accept_offer: "take_it", looking_for: "describe_item" },
@@ -816,13 +816,13 @@ export const store: ScenarioDef = {
               "Gently remind them navy is sold out on the floor — but you could order it online for them (3–5 business days, free shipping). Ask what they'd like to do.",
               "Navy is sold out here, but I could order it online for you. What would you like?",
             );
-          return showItem(color, `Say sure — here's the ${colorName(color)} one instead.`, `Sure! Here's the ${colorName(color)} one. It's $45. What do you think?`);
+          return showItem(color, `Say sure — here's the ${colorName(color)} one instead.`, `Sure! Here's the ${colorName(color)} one. It's $39.99. What do you think?`);
         }
         if (report.intent === "ask_order" && state.slots.fulfilment !== "order")
           return advance(
             "decide",
-            "Say yes — you can order navy online for them right here: 3–5 business days, free shipping, same $45. Ask if they'd like to go ahead.",
-            "Yes! I can order navy online — 3 to 5 days, free shipping, $45. Want to go ahead?",
+            "Say yes — you can order navy online for them right here: 3–5 business days, free shipping, same $39.99. Ask if they'd like to go ahead.",
+            "Yes! I can order navy online — 3 to 5 days, free shipping, $39.99. Want to go ahead?",
             { setSlots: { color: "navy", fulfilment: "order" } },
           );
         if (report.intent === "take_it") {
@@ -853,7 +853,7 @@ export const store: ScenarioDef = {
             "Yes — 30 days with a receipt, and I can add a gift receipt. Would you like it?",
             { setFlags: { returnsAsked: true } },
           );
-        if (report.intent === "ask_price") return stay("info", "decide", "Say it's $45 plus tax. Ask if they'd like it.", "It's $45 plus tax. Would you like it?");
+        if (report.intent === "ask_price") return stay("info", "decide", "Say it's $39.99 plus tax. Ask if they'd like it.", "It's $39.99 plus tax. Would you like it?");
         if (report.intent === "ask_material")
           return stay(
             "info",
@@ -945,8 +945,8 @@ export const store: ScenarioDef = {
           return stay(
             "info",
             "offer",
-            "Say 20% off saves them $9 today — the scarf would be $36 instead of $45, plus tax. Ask if they'd like to sign up.",
-            "You'd save $9 — it would be $36 instead of $45. Want to sign up?",
+            "Say 20% off saves them $8 today — the scarf would be $31.99 instead of $39.99, plus tax. Ask if they'd like to sign up.",
+            "You'd save $8 — it would be $31.99 instead of $39.99. Want to sign up?",
           );
         if (report.intent === "decline")
           return advance("checkout", "Say no problem at all, you'll ring them up, and ask if they'd like it gift-wrapped (it's free).", "No problem! Would you like it gift-wrapped? It's free.");

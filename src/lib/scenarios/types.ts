@@ -246,9 +246,9 @@ export interface ScenarioDef {
 
 /** `summary`: what to expect, in five words max (shown on the home screen). */
 export const DIFFICULTIES: { id: Difficulty; label: string; summary: string }[] = [
-  { id: "beginner", label: "Beginner", summary: "Slow speech, subtitles, full hints" },
+  { id: "beginner", label: "Beginner", summary: "Subtitles and full hints" },
   { id: "intermediate", label: "Intermediate", summary: "Natural pace, surprise questions" },
-  { id: "immersion", label: "Immersion", summary: "Native speed, no subtitles" },
+  { id: "immersion", label: "Immersion", summary: "Native speed, no subtitles or hints" },
 ];
 
 export const GENERIC_INTENTS: Record<string, string> = {

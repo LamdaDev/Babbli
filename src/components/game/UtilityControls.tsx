@@ -82,6 +82,7 @@ export function UtilityControls() {
             )}
             <Ctl label="Slow" icon="🐢" kbd="S" onClick={() => void controller.replay(true)} disabled={!interactive || npcSpeaking || !hasLine} />
             <Ctl label="Repeat" icon="🔁" kbd="R" onClick={() => void controller.replay(false)} disabled={!interactive || npcSpeaking || !hasLine} />
+            {controller.difficulty !== "immersion" && (
             <Ctl label="Hint" icon="💡" kbd="H" onClick={() => controller.toggleHints()} active={hintOpen} disabled={!interactive}>
               <span className="flex gap-0.5">
                 {[1, 2, 3, 4, 5].map((l) => (
@@ -89,6 +90,7 @@ export function UtilityControls() {
                 ))}
               </span>
             </Ctl>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -101,7 +103,7 @@ export function UtilityControls() {
           active={helpOpen}
           alwaysLabel={!helpOpen}
         />
-        <Ctl label="Subtitles" icon="CC" kbd="C" onClick={() => controller.toggleSubtitles()} active={showSubtitles} />
+        {controller.difficulty === "beginner" && <Ctl label="Subtitles" icon="CC" kbd="C" onClick={() => controller.toggleSubtitles()} active={showSubtitles} />}
       </div>
     </div>
   );

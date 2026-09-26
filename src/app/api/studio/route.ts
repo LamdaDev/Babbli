@@ -4,6 +4,7 @@ import { AUDIO_ASSETS, assetExists, ensureAsset } from "@/lib/server/audio";
 import { xiJson } from "@/lib/server/elevenlabs";
 import { env } from "@/lib/server/env";
 import { errorResponse } from "@/lib/server/http";
+import { studioAuthError } from "@/lib/server/guard";
 import { readRegistry } from "@/lib/server/registry";
 import { VOICE_DEFS, ensureVoice } from "@/lib/server/voices";
 
@@ -63,7 +64,9 @@ async function status() {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const locked = studioAuthError(request);
+  if (locked) return locked;
   try {
     return Response.json(await status());
   } catch (e) {
@@ -73,6 +76,8 @@ export async function GET() {
 
 /** Provision one resource: { kind: "voice" | "agent" | "asset", id, force? } */
 export async function POST(request: Request) {
+  const locked = studioAuthError(request);
+  if (locked) return locked;
   const body = (await request.json().catch(() => ({}))) as { kind?: string; id?: string; force?: boolean };
   try {
     const scenario = body.id ? getScenario(body.id) : undefined;

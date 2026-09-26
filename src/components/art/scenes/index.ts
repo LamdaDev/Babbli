@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import { memo, type ComponentType } from "react";
 import type { ScenarioDef } from "@/lib/scenarios/types";
 import type { SceneArtProps } from "../types";
 import { CAFE_NPC, CafeBack, CafeFront } from "./CafeScene";
@@ -12,9 +12,10 @@ export interface SceneArt {
   npc: { x: number; y: number; scale: number };
 }
 
+// Memoized: the NPC changes pose many times a turn, but the scene art only redraws when the world does.
 export const SCENE_ART: Record<ScenarioDef["art"], SceneArt> = {
-  store: { Back: StoreBack, Front: StoreFront, npc: STORE_NPC },
-  ramen: { Back: RamenBack, Front: RamenFront, npc: RAMEN_NPC },
-  cafe: { Back: CafeBack, Front: CafeFront, npc: CAFE_NPC },
-  hotel: { Back: HotelBack, Front: HotelFront, npc: HOTEL_NPC },
+  store: { Back: memo(StoreBack), Front: memo(StoreFront), npc: STORE_NPC },
+  ramen: { Back: memo(RamenBack), Front: memo(RamenFront), npc: RAMEN_NPC },
+  cafe: { Back: memo(CafeBack), Front: memo(CafeFront), npc: CAFE_NPC },
+  hotel: { Back: memo(HotelBack), Front: memo(HotelFront), npc: HOTEL_NPC },
 };

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { PlayButton } from "@/components/dashboard/PlayButton";
+import { LogoMark } from "@/components/menu/Logo";
 
 interface Status {
   hasKey: boolean;
@@ -15,25 +16,109 @@ interface Status {
 
 type Job = { kind: "voice" | "agent" | "asset"; id: string; force?: boolean };
 
+const PASSWORD_KEY = "babbli:studio-password";
+
+/** The Studio spends ElevenLabs quota, so in production it asks for the admin password first. */
+function StudioGate({ onUnlock, error, checking }: { onUnlock: (pw: string) => void; error: string | null; checking: boolean }) {
+  const [pw, setPw] = useState("");
+  return (
+    <main className="grid min-h-dvh place-items-center bg-page p-4 text-ink">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (pw) onUnlock(pw);
+        }}
+        className="w-full max-w-sm rounded-3xl bg-paper p-7 shadow-[0_12px_32px_rgba(19,35,63,0.10)] ring-1 ring-ink/10"
+      >
+        <LogoMark className="h-12 w-auto" decorative />
+        <h1 className="mt-3 font-display text-2xl">ElevenLabs Studio</h1>
+        <p className="mt-1 text-sm leading-relaxed text-ink-soft">
+          The Studio creates and regenerates Babbli&apos;s ElevenLabs voices, agents and sounds, so it&apos;s for the team. Enter the admin password to continue.
+        </p>
+        <input
+          type="password"
+          autoFocus
+          autoComplete="current-password"
+          value={pw}
+          onChange={(e) => setPw(e.target.value)}
+          aria-label="Admin password"
+          placeholder="Admin password"
+          className="mt-4 w-full rounded-xl border-2 border-ink/10 bg-page px-3 py-2.5 outline-none focus:border-brand"
+        />
+        {error && (
+          <p role="alert" className="mt-2 text-sm font-bold text-[#a52b2b]">
+            {error}
+          </p>
+        )}
+        <button disabled={!pw || checking} className="mt-4 w-full rounded-2xl bg-brand py-3 font-display text-lg text-white transition-colors hover:bg-brand-dark disabled:opacity-50">
+          {checking ? "Checking…" : "Unlock"}
+        </button>
+        <Link href="/" className="mt-3 block text-center text-sm font-bold text-ink-soft hover:text-brand">
+          ← Back to Babbli
+        </Link>
+      </form>
+    </main>
+  );
+}
+
 export function StudioClient() {
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
+  const [password, setPassword] = useState(() => {
+    try {
+      return sessionStorage.getItem(PASSWORD_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const [locked, setLocked] = useState(false);
+  const [gateError, setGateError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
 
-  const refresh = useCallback(async () => {
-    const r = await fetch("/api/studio");
-    setStatus(await r.json());
-  }, []);
+  /** Loads the Studio status; false when the password is missing or wrong. */
+  const refresh = useCallback(
+    async (pw = password) => {
+      const r = await fetch("/api/studio", { headers: { "x-studio-password": pw } });
+      if (r.status === 401) {
+        setLocked(true);
+        return false;
+      }
+      setLocked(false);
+      setStatus(await r.json());
+      return true;
+    },
+    [password],
+  );
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const unlock = async (pw: string) => {
+    setChecking(true);
+    setGateError(null);
+    if (await refresh(pw)) {
+      try {
+        sessionStorage.setItem(PASSWORD_KEY, pw);
+      } catch {
+        /* storage unavailable: stays unlocked for this page view */
+      }
+      setPassword(pw);
+    } else setGateError("That password isn't right.");
+    setChecking(false);
+  };
 
   const run = async (job: Job) => {
     const label = `${job.kind}:${job.id}`;
     setBusy(label);
     const t0 = performance.now();
     try {
-      const r = await fetch("/api/studio", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(job) });
+      const r = await fetch("/api/studio", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-studio-password": password },
+        body: JSON.stringify(job),
+      });
+      if (r.status === 401) setLocked(true);
       const body = await r.json();
       if (!r.ok) throw new Error(body.error ?? r.statusText);
       setStatus(body);
@@ -55,6 +140,7 @@ export function StudioClient() {
     for (const j of jobs) await run(j);
   };
 
+  if (locked) return <StudioGate onUnlock={(pw) => void unlock(pw)} error={gateError} checking={checking} />;
   if (!status) return <main className="grid min-h-dvh place-items-center bg-page text-ink-soft">Loading…</main>;
 
   return (

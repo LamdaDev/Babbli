@@ -75,6 +75,7 @@ export class GameController {
   /** Text Mode: NPC lines voiced locally, strictly one after another. */
   private npcVoiceQueue: Promise<void> = Promise.resolve();
   private listeningTimer: ReturnType<typeof setTimeout> | null = null;
+  private expressionTimer: ReturnType<typeof setTimeout> | null = null;
   private watchdog: ReturnType<typeof setTimeout> | null = null;
   private activityTimer: ReturnType<typeof setInterval> | null = null;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -288,6 +289,10 @@ export class GameController {
     this.set({ busyLabel: "Stepping inside…", needsTap: false });
     await this.audio.unlock();
     void this.audio.playSfx(assetUrl(this.scenario.sfx.enter), 0.8);
+    // Decode the feedback and scene sounds now, so the first success chime isn't late (or missed).
+    for (const id of new Set(["ui-success", "ui-hint", "ui-complete", ...Object.values(this.scenario.sfx)])) {
+      this.audio.load(assetUrl(id)).catch(() => undefined);
+    }
     this.audio.startAmbient(assetUrl(this.scenario.ambienceAsset), AMBIENT_BASE[this.difficulty]).catch((e) =>
       console.warn("[babbli] ambience unavailable", e),
     );
@@ -490,9 +495,17 @@ export class GameController {
     this.set({ narration: this.narrationPending && stage.learnerOpens ? stage.learnerOpens : null });
     this.narrationPending = false;
     this.setPhase("choose");
-    setTimeout(() => {
+    // The reaction fades back to neutral — unless a newer reaction or line has replaced it by then.
+    this.clearExpressionTimer();
+    this.expressionTimer = setTimeout(() => {
+      this.expressionTimer = null;
       if (!this.ui.npcSpeaking) this.set({ expression: "neutral" });
     }, 1400);
+  }
+
+  private clearExpressionTimer() {
+    if (this.expressionTimer) clearTimeout(this.expressionTimer);
+    this.expressionTimer = null;
   }
 
   private async playDeferredEvents() {
@@ -595,17 +608,24 @@ export class GameController {
     this.pendingMeaning = outcome.meaning;
     this.narrationPending = outcome.nextStageId !== before.stageId && !!getStage(this.scenario, outcome.nextStageId).learnerOpens;
 
+    // Every reply the engine counts as a success gets the chime — questions and small talk that
+    // don't move the scene on included (asking for a repeat isn't an answer).
+    const correct = outcome.success && outcome.kind !== "learner_clarify";
+    if (correct) void this.audio.playSfx(assetUrl("ui-success"), 0.45);
     const immediate = (outcome.events ?? []).filter((e) => !DEFERRED.includes(e));
     this.deferredEvents.push(...(outcome.events ?? []).filter((e) => DEFERRED.includes(e)));
     for (const e of immediate) {
       this.addWorld(e);
       const sfx = this.scenario.sfx[e];
-      if (sfx) void this.audio.playSfx(assetUrl(sfx), 0.6);
-    }
-    if (outcome.success && (outcome.kind === "advance" || outcome.kind === "complete")) {
-      void this.audio.playSfx(assetUrl("ui-success"), 0.28);
+      // Scene sounds (bag rustle, card reader…) follow the chime instead of drowning it out.
+      if (sfx) {
+        setTimeout(() => {
+          if (!this.disposed) void this.audio.playSfx(assetUrl(sfx), 0.6);
+        }, correct ? 450 : 0);
+      }
     }
 
+    this.clearExpressionTimer();
     this.set({
       expression: outcome.reaction,
       selectedCard: null,
@@ -719,6 +739,7 @@ export class GameController {
 
   private beginSpeaking(card: IntentCard | null) {
     const turn = this.createTurn(card);
+    this.clearExpressionTimer();
     // Text Mode: the composer takes over — no microphone, captions or speaking time limit.
     if (this.textMode) {
       this.set({ expression: "neutral", userCaption: null });
@@ -916,6 +937,7 @@ export class GameController {
   }
 
   toggleHints() {
+    if (this.difficulty === "immersion") return; // no hints in Immersion
     if (this.ui.hintOpen) {
       this.set({ hintOpen: false });
       return;
@@ -998,6 +1020,7 @@ export class GameController {
   }
 
   toggleSubtitles() {
+    if (this.difficulty !== "beginner") return; // on in Intermediate, off in Immersion — fixed
     const on = !this.ui.showSubtitles;
     this.set({ showSubtitles: on });
     this.session.assistance.subtitleToggles += 1;
@@ -1064,6 +1087,7 @@ export class GameController {
     this.captions.stop();
     if (this.activityTimer) clearInterval(this.activityTimer);
     if (this.listeningTimer) clearTimeout(this.listeningTimer);
+    this.clearExpressionTimer();
     if (this.saveTimer) clearTimeout(this.saveTimer);
     try {
       this.controls?.endSession();
