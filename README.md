@@ -13,6 +13,9 @@ Babbli is a first-person language-practice simulator. You don't chat with an AI:
 | Café des Lilas, Paris | French | Order breakfast, answer a question about your order, ask for the bill |
 | Hotel Azahar, Sevilla | Spanish | Check in and sort out a problem with your reservation |
 
+<img width="1920" height="989" alt="thumbnail_newer" src="https://github.com/user-attachments/assets/5519caf1-fdff-4cdb-b7b1-a348fef8c276" />
+
+
 ## How it works
 
 1. **Pick a destination, a difficulty and how you'll answer.** Speak with your voice (push-to-talk or a live conversation), or type your replies in Text Mode.
