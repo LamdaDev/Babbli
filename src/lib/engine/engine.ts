@@ -178,15 +178,15 @@ function clarifyDirective(
         ? `The customer's reply does not fit what you asked. React with brief, natural confusion.`
         : `You did not understand the customer. React naturally, like a real ${scenario.npc.role.toLowerCase()} who didn't catch it.`;
   if (difficulty === "immersion") {
-    return `${opener} Then ask again — ${stage.npcGoal} Keep native speed and natural phrasing; do NOT simplify unless they explicitly ask you to repeat or slow down. Never give them the answer.`;
+    return `${opener} Then ask again: ${stage.npcGoal} Keep native speed and natural phrasing; do NOT simplify unless they explicitly ask you to repeat or slow down. Never give them the answer.`;
   }
   if (attempt <= 1) {
-    return `${opener} Then ask again with different wording — ${stage.npcGoal} Never give them the answer.`;
+    return `${opener} Then ask again with different wording: ${stage.npcGoal} Never give them the answer.`;
   }
   if (attempt === 2 || difficulty === "intermediate") {
-    return `${opener} Rephrase more simply and a little more slowly — ${stage.npcGoal} You may offer 2–3 short options for them to choose from, but never say their full sentence for them.`;
+    return `${opener} Rephrase more simply and a little more slowly: ${stage.npcGoal} You may offer 2–3 short options for them to choose from, but never say their full sentence for them.`;
   }
-  return `${opener} Be patient and kind. Offer two or three one-word options in ${lang} (for example pointing at the menu) so they can just pick one — ${stage.npcGoal} Still never say their full sentence for them.`;
+  return `${opener} Be patient and kind. Offer two or three one-word options in ${lang} (for example pointing at the menu) so they can just pick one. ${stage.npcGoal} Still never say their full sentence for them.`;
 }
 
 function genericOutcome(
@@ -203,7 +203,7 @@ function genericOutcome(
       report.intent === "ask_meaning"
         ? scenario.language === "en"
           ? "The customer asked what a word means. Explain it very simply with easier words or a quick example, then repeat your question."
-          : `The customer asked what a word means. Explain it very simply in ${lang} (no English — use an easier synonym or a gesture-like description), then repeat your question.`
+          : `The customer asked what a word means. Explain it very simply in ${lang} (no English, use an easier synonym or a gesture-like description), then repeat your question.`
         : report.intent === "ask_slower"
           ? `The customer asked you to speak more slowly. Say your last question again, clearly and slowly, in simpler words.`
           : `The customer asked you to repeat. Say your last question again${difficulty === "immersion" ? " (same natural speed)" : " a little more slowly"}.`;
@@ -212,10 +212,10 @@ function genericOutcome(
       success: true,
       answeredQuestion: false,
       ...stay,
-      directive: `${what} Current step — ${stage.npcGoal} Never give them the answer.`,
+      directive: `${what} Current step: ${stage.npcGoal} Never give them the answer.`,
       meaning: `(Repeats) ${stage.meaning}`,
       reaction: "neutral",
-      note: "You asked for clarification in the target language — a real-world skill.",
+      note: "You asked for clarification in the target language: a real-world skill.",
     };
   }
 
@@ -228,7 +228,7 @@ function genericOutcome(
       directive: clarifyDirective(scenario, stage, state.attemptsInStage + 1, difficulty, "off_language"),
       meaning: `${scenario.language === "en" ? "Sorry, I only speak English…" : "Sorry, I don't speak much English…"} ${stage.meaning}`,
       reaction: "confused",
-      note: `You switched out of ${lang} — try to stay in ${lang}.`,
+      note: `You switched out of ${lang}. Try to stay in ${lang}.`,
     };
   }
 
@@ -238,7 +238,7 @@ function genericOutcome(
       success: true,
       answeredQuestion: report.answered_question,
       ...stay,
-      directive: `Return the greeting briefly and warmly, then continue — ${stage.npcGoal}`,
+      directive: `Return the greeting briefly and warmly, then continue: ${stage.npcGoal}`,
       meaning: `Hello! ${stage.meaning}`,
       reaction: "positive",
     };
@@ -249,7 +249,7 @@ function genericOutcome(
       success: true,
       answeredQuestion: report.answered_question,
       ...stay,
-      directive: `Say "you're welcome" briefly in ${lang}, then continue — ${stage.npcGoal}`,
+      directive: `Say "you're welcome" briefly in ${lang}, then continue: ${stage.npcGoal}`,
       meaning: `You're welcome. ${stage.meaning}`,
       reaction: "positive",
     };
@@ -261,8 +261,8 @@ function genericOutcome(
       success: false,
       answeredQuestion: false,
       ...stay,
-      directive: `Look surprised — the customer seems to be leaving before finishing. Ask if they are leaving already, then gently continue — ${stage.npcGoal}`,
-      meaning: `Oh — are you leaving already? ${stage.meaning}`,
+      directive: `Look surprised: the customer seems to be leaving before finishing. Ask if they are leaving already, then gently continue: ${stage.npcGoal}`,
+      meaning: `Oh, are you leaving already? ${stage.meaning}`,
       reaction: "confused",
       note: "You said goodbye before finishing the task.",
     };
@@ -276,7 +276,7 @@ function genericOutcome(
       success: true,
       answeredQuestion: true,
       ...stay,
-      directive: `The customer answered "${report.intent}". Acknowledge it in a few words — without treating it as agreeing to anything this result doesn't confirm — then ask for what you need now: ${stage.npcGoal}`,
+      directive: `The customer answered "${report.intent}". Acknowledge it in a few words, without treating it as agreeing to anything this result doesn't confirm, then ask for what you need now: ${stage.npcGoal}`,
       meaning: stage.meaning,
       reaction: "neutral",
     };
@@ -290,7 +290,7 @@ function genericOutcome(
       success: false,
       answeredQuestion: report.answered_question,
       ...stay,
-      directive: `You understood the customer, but what they said doesn't settle this step yet. Reply to it briefly and naturally — without agreeing to anything, offering anything new, or moving on to a later step — then bring them back to what you need: ${stage.npcGoal}`,
+      directive: `You understood the customer, but what they said doesn't settle this step yet. Reply to it briefly and naturally, without agreeing to anything, offering anything new, or moving on to a later step, then bring them back to what you need: ${stage.npcGoal}`,
       meaning: stage.meaning,
       reaction: "neutral",
       note: `That didn't answer what ${scenario.npc.name} needed at that moment.`,
@@ -441,16 +441,16 @@ export function formatDirective(
   const idx = groups.findIndex((g) => g.label === stage.group) + 1;
   const understood =
     outcome.kind === "clarify"
-      ? "NO — you did not get what you needed"
+      ? "NO, you did not get what you needed"
       : outcome.kind === "info" && !outcome.success
-        ? "yes — but it doesn't settle this step yet"
+        ? "yes, but it doesn't settle this step yet"
         : "yes";
   const lines = [
-    "BABBLI ENGINE RESULT (authoritative — follow it exactly)",
+    "BABBLI ENGINE RESULT (authoritative, follow it exactly)",
     `- Understood: ${understood}`,
     `- Step now: ${stage.group} (${idx}/${groups.length})`,
     `- Recorded so far: ${describeSlots(scenario, state.slots)}`,
-    `NEXT LINE — say this now in natural ${scenario.languageEnglish}, your own words: ${outcome.directive}`,
+    `NEXT LINE (say this now in natural ${scenario.languageEnglish}, in your own words): ${outcome.directive}`,
   ];
   if (state.finished) {
     lines.push("This is your FINAL line of the scene. After saying it, stay silent.");

@@ -107,7 +107,7 @@ export const cafe: ScenarioDef = {
   sfx: { enter: "cafe-bell", served: "cafe-cup", order_placed: "cafe-espresso", payment_done: "register" },
   briefing: {
     title: "Your notes",
-    lines: ["€20 note and a bank card", "It's 9am — you want coffee and something to eat", "Parisians expect a « Bonjour » first!"],
+    lines: ["€20 note and a bank card", "It's 9am and you want coffee and something to eat", "Parisians expect a « Bonjour » first!"],
   },
   initialStage: "greeting",
   randomizeCards: true,
@@ -151,7 +151,7 @@ export const cafe: ScenarioDef = {
       { text: "Bonjour bonjour ! Vous vous installez où vous voulez.", meaning: "Hello! Sit wherever you like." },
     ],
     immersion: [
-      { text: "B'jour ! Installez-vous où vous voulez, hein, j'arrive !", meaning: "Hi! Sit wherever you like — I'm coming!" },
+      { text: "B'jour ! Installez-vous où vous voulez, hein, j'arrive !", meaning: "Hi! Sit wherever you like, I'm coming!" },
       { text: "Bonjour ! Alors, qu'est-ce qui vous ferait plaisir ce matin ?", meaning: "Hello! So, what would you like this morning?" },
     ],
   },
@@ -162,14 +162,14 @@ export const cafe: ScenarioDef = {
     strictBonjour: difficulty !== "beginner",
   }),
   persona:
-    "You are Camille, 29, a server at Café des Lilas, a corner café in the Marais, Paris. It's a busy weekday morning. You're friendly but brisk, with a dry Parisian sense of humour, and you care about good manners — customers should say « Bonjour » before ordering. Julien, the barista, works the espresso machine behind the zinc bar.",
+    "You are Camille, 29, a server at Café des Lilas, a corner café in the Marais, Paris. It's a busy weekday morning. You're friendly but brisk, with a dry Parisian sense of humour, and you care about good manners: customers should say « Bonjour » before ordering. Julien, the barista, works the espresso machine behind the zinc bar.",
   facts: (v) =>
     [
       "MENU: " + Object.values(ITEMS).map((i) => `${i.fr} ${euros(i.price)}`).join(" / "),
-      "PASTRIES: " + Object.entries(FOOD).map(([k, f]) => `${f.fr} ${euros(f.price)}${k === "croissant" && v.croissantOut ? " — SOLD OUT this morning (plus de croissants)" : ""}`).join(" / "),
-      "Milk options: lait entier (regular) or lait d'avoine (oat) — no skimmed milk. Water (carafe d'eau) is free. Service is included (service compris); tipping is optional.",
+      "PASTRIES: " + Object.entries(FOOD).map(([k, f]) => `${f.fr} ${euros(f.price)}${k === "croissant" && v.croissantOut ? ", SOLD OUT this morning (plus de croissants)" : ""}`).join(" / "),
+      "Milk options: lait entier (regular) or lait d'avoine (oat), no skimmed milk. Water (carafe d'eau) is free. Service is included (service compris); tipping is optional.",
       "Free Wi-Fi: the password « deslilas » is on the little card on each table. Toilets: downstairs, at the back on the left. Nearby: the Place des Vosges, two minutes' walk.",
-      v.terminalDown ? "PAYMENT: the card terminal is BROKEN today (le terminal ne marche pas) — cash only." : "Payment: card or cash.",
+      v.terminalDown ? "PAYMENT: the card terminal is BROKEN today (le terminal ne marche pas), cash only." : "Payment: card or cash.",
     ].join("\n"),
   asrKeywords: ["café crème", "croissant", "pain au chocolat", "cappuccino", "l'addition", "sur place", "à emporter", "lait d'avoine", "carafe d'eau", "par carte", "en espèces"],
   vocabulary: [
@@ -209,11 +209,11 @@ export const cafe: ScenarioDef = {
       id: "greeting",
       group: "Bonjour",
       npcGoal: "Greet the customer and invite them to sit; wait for them to greet you back.",
-      meaning: "Hello! Welcome — have a seat.",
+      meaning: "Hello! Welcome, have a seat.",
       situation: "Camille greeted you as you walked in.",
       cards: () => [
         card("greet", "👋", "Say hello back", {
-          intent: "Greet her back politely — this matters a lot in France.",
+          intent: "Greet her back politely. This matters a lot in France.",
           vocab: [
             { term: "Bonjour", meaning: "hello / good morning" },
             { term: "madame", meaning: "ma'am (polite)" },
@@ -272,7 +272,7 @@ export const cafe: ScenarioDef = {
           if (state.flags.bonjourLesson && state.slots.item) return toClarification(state, variant, {}, true);
           return advance(
             "order",
-            "Greet them back warmly (if they asked how you are, answer briefly: « Très bien, merci ! »). Show them to a table — where they asked to sit if they said (the terrace, by the window…), otherwise a small table by the window — and ask what you can get them (Qu'est-ce que je vous sers ?).",
+            "Greet them back warmly (if they asked how you are, answer briefly: « Très bien, merci ! »). Show them to a table, where they asked to sit if they said (the terrace, by the window…), otherwise a small table by the window, and ask what you can get them (Qu'est-ce que je vous sers ?).",
             "Hello! Have a seat. What can I get you?",
             { setFlags: { greeted: true } },
           );
@@ -287,7 +287,7 @@ export const cafe: ScenarioDef = {
               "greeting",
               "They ordered without saying « Bonjour ». Playfully remind them, with a smile, that in Paris you say « Bonjour » first (« Bonjour d'abord ! »). Then wait for them.",
               "Hello first! (In Paris, you say « Bonjour » before anything else.)",
-              { reaction: "confused", setSlots: slots, setFlags: { bonjourLesson: true }, note: "In France, always start with « Bonjour » — skipping it feels rude to Parisians." },
+              { reaction: "confused", setSlots: slots, setFlags: { bonjourLesson: true }, note: "In France, always start with « Bonjour ». Skipping it feels rude to Parisians." },
             );
           return toClarification(state, variant, slots);
         }
@@ -341,7 +341,7 @@ export const cafe: ScenarioDef = {
             "info",
             "order",
             variant.croissantOut
-              ? "List the pastries: pain au chocolat and tartine beurre-confiture — the croissants are all gone this morning (il n'y a plus de croissants). Then ask what they'd like."
+              ? "List the pastries: pain au chocolat and tartine beurre-confiture, the croissants are all gone this morning (il n'y a plus de croissants). Then ask what they'd like."
               : "List the pastries: croissant, pain au chocolat and tartine beurre-confiture. Then ask what they'd like.",
             variant.croissantOut ? "We have pains au chocolat and bread with jam. No more croissants, sorry! What would you like?" : "Croissants, pains au chocolat, or bread with butter and jam. What would you like?",
             // Once she's said the croissants are gone, the menu cards adapt.
@@ -359,7 +359,7 @@ export const cafe: ScenarioDef = {
               "order",
               `Apologize: there are no more croissants this morning (il n'y a plus de croissants). Suggest a pain au chocolat instead${slots.item ? `, and note the ${ITEMS[slots.item].fr}` : ""}.`,
               "Sorry, there are no more croissants. How about a pain au chocolat?",
-              { setSlots: slots.item ? { item: slots.item } : {}, setFlags: { croissantOut: true }, note: "Croissants were sold out — you had to adapt your order." },
+              { setSlots: slots.item ? { item: slots.item } : {}, setFlags: { croissantOut: true }, note: "Croissants were sold out, so you had to adapt your order." },
             );
           if (!slots.item && !state.slots.item)
             return stay("info", "order", `Note the ${FOOD[slots.food]?.fr}, then ask what they'd like to drink.`, "And to drink?", { setSlots: slots });
@@ -369,7 +369,7 @@ export const cafe: ScenarioDef = {
           return stay(
             "info",
             "order",
-            `Recommend a café crème with a ${variant.croissantOut ? "pain au chocolat" : "croissant"} — the classic Parisian breakfast — then ask what they'd like.`,
+            `Recommend a café crème with a ${variant.croissantOut ? "pain au chocolat" : "croissant"}, the classic Parisian breakfast, then ask what they'd like.`,
             `I'd recommend a café crème with a ${variant.croissantOut ? "pain au chocolat" : "croissant"}. What would you like?`,
             { setFlags: { recommended: true } },
           );
@@ -383,7 +383,7 @@ export const cafe: ScenarioDef = {
       group: "Clarification",
       npcGoal: "Ask the clarification question about their order (for here or to go / which milk).",
       meaning: "For here or to go?",
-      situation: "Camille needs one more detail about your order — listen for what she's asking.",
+      situation: "Camille needs one more detail about your order. Listen for what she's asking.",
       cards: ({ state }) =>
         state.slots.clarify === "milk"
           ? [
@@ -509,7 +509,7 @@ export const cafe: ScenarioDef = {
         }
         if (report.intent === "ask_options")
           return milk
-            ? stay("info", "clarify", "Answer their question: you have regular milk (lait entier) or oat milk (lait d'avoine) — no skimmed milk. Then ask which they'd like.", "We have regular or oat milk. Which would you like?")
+            ? stay("info", "clarify", "Answer their question: you have regular milk (lait entier) or oat milk (lait d'avoine), no skimmed milk. Then ask which they'd like.", "We have regular or oat milk. Which would you like?")
             : stay("info", "clarify", "Explain the options simply: they can have it here at their table (sur place) or take it away (à emporter). Then ask again.", "You can have it here, or take it away. Which one?");
         return null;
       },
@@ -566,13 +566,13 @@ export const cafe: ScenarioDef = {
           return stay(
             "info",
             "anything_else",
-            "Say yes — the password is « deslilas », it's on the little card on the table. Then ask if that's all (Ce sera tout ?).",
-            "Yes — the password is on the little card. Is that all?",
+            "Say yes, the password is « deslilas », it's on the little card on the table. Then ask if that's all (Ce sera tout ?).",
+            "Yes, the password is on the little card. Is that all?",
           );
         if (report.intent === "thats_all")
           return advance(
             "bill",
-            "Say « Très bien, je vous apporte ça tout de suite » (I'll bring it right away) in your own words — just one short sentence.",
+            "Say « Très bien, je vous apporte ça tout de suite » (I'll bring it right away) in your own words, just one short sentence.",
             "Very good, I'll bring that right away.",
             { events: ["order_placed", "time_skip", "served"] },
           );
@@ -581,7 +581,7 @@ export const cafe: ScenarioDef = {
         if (report.intent === "order_item") {
           const food = slot("food");
           if (food === "croissant" && variant.croissantOut)
-            return stay("branch", "anything_else", "Apologize: no more croissants. Suggest a pain au chocolat, then ask if that's all.", "Sorry, no more croissants — a pain au chocolat instead?", { setFlags: { croissantOut: true } });
+            return stay("branch", "anything_else", "Apologize: no more croissants. Suggest a pain au chocolat, then ask if that's all.", "Sorry, no more croissants. A pain au chocolat instead?", { setFlags: { croissantOut: true } });
           const key = FOOD_SLOTS.find((k) => !state.slots[k]) ?? "food3";
           return stay("info", "anything_else", "Note it, then ask if that's everything.", "Noted. Is that everything?", { setSlots: food ? { [key]: food } : {} });
         }
@@ -591,7 +591,7 @@ export const cafe: ScenarioDef = {
     {
       id: "bill",
       group: "Bill",
-      learnerOpens: "Your cup is empty. Catch Camille's eye — you speak first.",
+      learnerOpens: "Your cup is empty. Catch Camille's eye: you speak first.",
       npcGoal: "Pass by the table; respond to what the customer asks.",
       meaning: "",
       situation: "You've finished. In France the server won't bring the bill until you ask for it.",
@@ -765,19 +765,19 @@ export const cafe: ScenarioDef = {
               "pay",
               "Apologize: the card terminal isn't working today (le terminal ne marche pas). Ask if they could pay in cash.",
               "Sorry, the card machine isn't working today. Could you pay in cash?",
-              { setFlags: { terminalRefused: true }, note: "The card machine was down — you needed a plan B." },
+              { setFlags: { terminalRefused: true }, note: "The card machine was down, so you needed a plan B." },
             );
           return advance(
             "farewell",
             method === "card"
               ? "Bring the card terminal, say it went through (c'est bon !), and thank them."
               : `Take the cash, give the change for a ${t} total, and thank them.`,
-            method === "card" ? "All good, thank you!" : "Here's your change — thank you!",
+            method === "card" ? "All good, thank you!" : "Here's your change, thank you!",
             { objectiveComplete: true, events: ["payment_done"], setSlots: { paid: method } },
           );
         }
         if (report.intent === "ask_service")
-          return stay("info", "pay", "Explain briefly that service is included (le service est compris) — tipping is optional. Remind them of the total.", `Yes, service is included. It's ${t}.`);
+          return stay("info", "pay", "Explain briefly that service is included (le service est compris), tipping is optional. Remind them of the total.", `Yes, service is included. It's ${t}.`);
         return null;
       },
     },
@@ -842,7 +842,7 @@ export const cafe: ScenarioDef = {
         if (report.intent === "ask_local_tip" || report.intent === "ask_recommendation")
           return complete(
             "farewell",
-            "Recommend the Place des Vosges — a beautiful square, two minutes' walk away — then say a warm goodbye (Bonne journée !).",
+            "Recommend the Place des Vosges, a beautiful square, two minutes' walk away, then say a warm goodbye (Bonne journée !).",
             "Go and see the Place des Vosges, it's two minutes away. Have a nice day!",
           );
         if (["thanks", "goodbye", "come_again", "compliment", "greet", "yes", "no"].includes(report.intent))

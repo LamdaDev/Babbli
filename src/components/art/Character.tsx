@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { CharacterLook, NpcExpression, NpcPose } from "@/lib/scenarios/types";
+import type { CharacterLook, HairStyle, NpcExpression, NpcPose } from "@/lib/scenarios/types";
 
 /**
  * Layered vector NPC (viewBox-local coordinates: 420 × 560, neck at ~210,262).
@@ -51,6 +51,71 @@ const POSES: Record<NpcPose, PoseTargets> = {
 const HEAD_PIVOT = "210 255";
 const BODY_PIVOT = "210 560";
 const TAU = Math.PI * 2;
+
+/** Hair drawn behind the head and neck (turns with the head). Shared with the learner avatar. */
+export function HairBack({ style, color }: { style: HairStyle; color: string }) {
+  if (style === "bob") return <path d="M118 170 Q112 80 210 70 Q308 80 302 170 L308 262 Q300 282 270 276 L150 276 Q120 282 112 262 Z" fill={color} />;
+  if (style === "long") return <path d="M116 176 Q106 76 210 66 Q314 76 304 176 L314 334 Q308 360 280 356 L140 356 Q112 360 106 334 Z" fill={color} />;
+  if (style === "bun") return <circle cx={210} cy={74} r={36} fill={color} />;
+  return null;
+}
+
+/**
+ * Middle part: a rounded cap parted at the centre, the fringe framing the forehead in an arch, and
+ * full sides that cover the ears down to the cheeks, with a soft shine on top.
+ */
+function MiddlePart({ color }: { color: string }) {
+  return (
+    <g>
+      <path
+        d="M128 228 Q108 200 110 158 Q110 74 204 64 Q210 72 216 64 Q310 74 310 158 Q312 200 292 228 Q298 206 288 182 Q250 128 210 104 Q170 128 132 182 Q122 206 128 228 Z"
+        fill={color}
+      />
+      <path d="M200 74 Q164 90 146 140 M220 74 Q256 90 274 140" stroke="#000" strokeOpacity={0.14} strokeWidth={3} fill="none" strokeLinecap="round" />
+      <path d="M210 70 L210 102" stroke="#000" strokeOpacity={0.22} strokeWidth={2.5} strokeLinecap="round" />
+      <g fill="#fff" opacity={0.16}>
+        <ellipse cx={156} cy={90} rx={14} ry={5.5} transform="rotate(-32 156 90)" />
+        <ellipse cx={264} cy={90} rx={14} ry={5.5} transform="rotate(32 264 90)" />
+      </g>
+    </g>
+  );
+}
+
+/** Hair over the forehead. Shared with the learner avatar. */
+export function HairFront({ style, color }: { style: HairStyle; color: string }) {
+  switch (style) {
+    case "short":
+      return <path d="M128 172 Q120 86 210 78 Q300 86 292 172 Q284 128 256 118 Q214 104 170 118 Q138 130 128 172 Z" fill={color} />;
+    case "buzz":
+      return <path d="M131 160 Q126 92 210 86 Q294 92 289 160 Q282 120 210 112 Q138 120 131 160 Z" fill={color} opacity={0.92} />;
+    case "middle":
+      return <MiddlePart color={color} />;
+    case "bob":
+    case "long":
+      return <path d="M126 196 Q118 92 210 84 Q302 92 294 196 Q290 150 270 138 Q240 150 208 132 Q176 152 148 142 Q130 156 126 196 Z" fill={color} />;
+    case "bun":
+      return <path d="M128 176 Q122 92 210 84 Q298 92 292 176 Q280 124 248 116 Q210 108 172 116 Q140 124 128 176 Z" fill={color} />;
+    case "curly":
+      return (
+        <g fill={color}>
+          <path d="M132 160 Q128 100 210 90 Q292 100 288 160 Q276 124 210 118 Q144 124 132 160 Z" />
+          {[
+            [140, 128, 22],
+            [158, 104, 26],
+            [188, 88, 28],
+            [222, 86, 28],
+            [254, 98, 26],
+            [278, 122, 22],
+            [288, 150, 14],
+            [132, 152, 14],
+            [206, 110, 22],
+          ].map(([cx, cy, r]) => (
+            <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={r} />
+          ))}
+        </g>
+      );
+  }
+}
 
 /** A damped spring that always continues from where it is (and how fast it's moving). */
 class Spring {
@@ -158,10 +223,7 @@ export function Character({ look, pose, expression, name, getLevel, listeningLev
     <g ref={bodyRef}>
       {/* back hair for bob / bun: behind the neck and torso, but turning with the head */}
       <g ref={headBackRef}>
-        {look.hairStyle === "bob" && (
-          <path d="M118 170 Q112 80 210 70 Q308 80 302 170 L308 262 Q300 282 270 276 L150 276 Q120 282 112 262 Z" fill={look.hair} />
-        )}
-        {look.hairStyle === "bun" && <circle cx={210} cy={74} r={36} fill={look.hair} />}
+        <HairBack style={look.hairStyle} color={look.hair} />
       </g>
 
       {/* torso */}
@@ -241,33 +303,7 @@ export function Character({ look, pose, expression, name, getLevel, listeningLev
         <ellipse cx={252} cy={218} rx={17} ry={10} fill="#ff8f86" opacity={happy ? 0.55 : 0.3} />
 
         {/* hair front */}
-        {look.hairStyle === "short" && (
-          <path d="M128 172 Q120 86 210 78 Q300 86 292 172 Q284 128 256 118 Q214 104 170 118 Q138 130 128 172 Z" fill={look.hair} />
-        )}
-        {look.hairStyle === "bob" && (
-          <path d="M126 196 Q118 92 210 84 Q302 92 294 196 Q290 150 270 138 Q240 150 208 132 Q176 152 148 142 Q130 156 126 196 Z" fill={look.hair} />
-        )}
-        {look.hairStyle === "bun" && (
-          <path d="M128 176 Q122 92 210 84 Q298 92 292 176 Q280 124 248 116 Q210 108 172 116 Q140 124 128 176 Z" fill={look.hair} />
-        )}
-        {look.hairStyle === "curly" && (
-          <g fill={look.hair}>
-            <path d="M132 160 Q128 100 210 90 Q292 100 288 160 Q276 124 210 118 Q144 124 132 160 Z" />
-            {[
-              [140, 128, 22],
-              [158, 104, 26],
-              [188, 88, 28],
-              [222, 86, 28],
-              [254, 98, 26],
-              [278, 122, 22],
-              [288, 150, 14],
-              [132, 152, 14],
-              [206, 110, 22],
-            ].map(([cx, cy, r]) => (
-              <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={r} />
-            ))}
-          </g>
-        )}
+        <HairFront style={look.hairStyle} color={look.hair} />
         {look.accessory === "headband" && (
           <g>
             <path d="M128 142 Q210 110 292 142 L292 164 Q210 132 128 164 Z" fill={look.accent} />

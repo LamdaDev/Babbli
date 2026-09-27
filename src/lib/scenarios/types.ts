@@ -165,11 +165,13 @@ export interface StageDef {
   learnerOpens?: string;
 }
 
+export type HairStyle = "short" | "buzz" | "middle" | "bob" | "long" | "bun" | "curly";
+
 export interface CharacterLook {
   skin: string;
   skinShade: string;
   hair: string;
-  hairStyle: "short" | "bob" | "bun" | "curly";
+  hairStyle: HairStyle;
   outfit: string;
   outfitShade: string;
   apron?: string;
@@ -187,9 +189,24 @@ export interface NpcDef {
   sprites?: Partial<Record<NpcVisual, string>>;
 }
 
+/**
+ * How characters address the learner (from their profile pronouns): feminine for she/her,
+ * neutral for they/them or custom pronouns. Unset pronouns and he/him keep the default text.
+ */
+export type AddressForm = "feminine" | "masculine" | "neutral";
+/** Variants of a line for languages where addressing someone is gendered (e.g. bienvenido/bienvenida). */
+export type AddressForms = Partial<Record<"feminine" | "neutral", string>>;
+
+export function inAddressForm(text: string, forms: AddressForms | undefined, form: AddressForm | null): string {
+  if (form === "feminine") return forms?.feminine ?? text;
+  if (form === "neutral") return forms?.neutral ?? text;
+  return text;
+}
+
 export interface GreetingLine {
   text: string;
   meaning: string;
+  forms?: AddressForms;
 }
 
 export interface ScenarioDef {
@@ -242,6 +259,7 @@ export interface ScenarioDef {
   eventLines: Partial<Record<SceneEventId, (state: ScenarioState) => { voice: string; text: string; meaning: string }>>;
   timeSkipText: string;
   successTitle: string;
+  successTitleForms?: AddressForms;
 }
 
 /** `summary`: what to expect, in five words max (shown on the home screen). */

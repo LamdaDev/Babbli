@@ -1,6 +1,4 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
-import { env, requireApiKey } from "./env";
+import { requireApiKey } from "./env";
 import { ElevenLabsError, xiJson } from "./elevenlabs";
 import { once, readRegistry, updateRegistry } from "./registry";
 
@@ -26,7 +24,7 @@ export const VOICE_DEFS: Record<string, VoiceDef> = {
     description:
       "A friendly, upbeat American man in his late 20s, a sales associate at a New York department store. Warm, natural and conversational with a clear General American accent and lively, helpful retail energy.",
     sample:
-      "Hi there! Welcome to Whitmore's. Can I help you find anything today? Oh, a scarf for your sister — how nice! We've got some really soft merino wool ones right over here. Let me grab a few colors for you.",
+      "Hi there! Welcome to Whitmore's. Can I help you find anything today? Oh, a scarf for your sister, how nice! We've got some really soft merino wool ones right over here. Let me grab a few colors for you.",
     fallback: "TX3LPaxmHKxFdv7VOQHJ",
   },
   announcer: {
@@ -138,6 +136,48 @@ export const VOICE_DEFS: Record<string, VoiceDef> = {
       "Hola. Voy a leer algunas expresiones útiles, despacio y con claridad. Escuche con atención y repita después de mí. Tengo una reserva a nombre de Alex Morgan. Muchas gracias.",
     fallback: "FGY2WhTYpPnrIDTdsKH5",
   },
+  // Alternate coaches, picked in the Traveler Profile. Only playback uses them: the standard coach
+  // stays the native timing reference for scores. Designed the first time someone chooses one.
+  coach_en_alt: {
+    name: "Babbli · Coach 2 (English)",
+    language: "en",
+    role: "Hints & native reference audio (alternate)",
+    description:
+      "A warm, clear native American English man in his 30s with a neutral General American accent, speaking slowly and precisely like a friendly language teacher recording reference audio.",
+    sample:
+      "Hi there. Let's practice some useful phrases together, nice and slowly. Listen first, then say it with me. Do you have this scarf in navy? I'll take it, thank you so much.",
+    fallback: "nPczCjzI2devNBz1zQrb",
+  },
+  coach_ja_alt: {
+    name: "Babbli · Coach 2 (Japanese)",
+    language: "ja",
+    role: "Hints & native reference audio (alternate)",
+    description:
+      "A warm, clear native Japanese man in his 30s with a standard Tokyo accent, speaking slowly and precisely like a friendly language teacher recording reference audio.",
+    sample:
+      "こんにちは。一緒に、よく使う表現をゆっくり練習しましょう。まず聞いて、それからまねして言ってみてください。醤油ラーメンを一つお願いします。お水をください。ごちそうさまでした。",
+    fallback: "JBFqnCBsd6RMkjVDRZzb",
+  },
+  coach_fr_alt: {
+    name: "Babbli · Coach 2 (French)",
+    language: "fr",
+    role: "Hints & native reference audio (alternate)",
+    description:
+      "A bright, clear native French woman in her 30s with a standard Parisian accent, speaking slowly and precisely like a friendly language teacher recording reference audio.",
+    sample:
+      "Bonjour ! On va pratiquer ensemble quelques expressions utiles, doucement. Écoutez d'abord, puis répétez avec moi. Un café crème, s'il vous plaît. Je peux avoir l'addition ?",
+    fallback: "EXAVITQu4vr4xnSDxMaL",
+  },
+  coach_es_alt: {
+    name: "Babbli · Coach 2 (Spanish)",
+    language: "es",
+    role: "Hints & native reference audio (alternate)",
+    description:
+      "A warm, clear native Spanish man from Madrid in his 30s, speaking slowly and precisely like a friendly language teacher recording reference audio.",
+    sample:
+      "Hola. Vamos a practicar juntos algunas expresiones útiles, despacio. Primero escuche y luego repita conmigo. Tengo una reserva a nombre de Morgan. ¿A qué hora es el desayuno?",
+    fallback: "TX3LPaxmHKxFdv7VOQHJ",
+  },
 };
 
 export function coachVoiceKey(language: string) {
@@ -158,8 +198,6 @@ async function designVoice(key: string, def: VoiceDef): Promise<string> {
       });
       const preview = design.previews[0];
       if (!preview) throw new Error("Voice design returned no previews");
-      await fs.mkdir(path.join(env.dataDir, "cache"), { recursive: true });
-      await fs.writeFile(path.join(env.dataDir, "cache", `voice-preview-${key}.mp3`), Buffer.from(preview.audio_base_64, "base64"));
       const created = await xiJson<{ voice_id: string }>("/v1/text-to-voice", {
         method: "POST",
         json: {

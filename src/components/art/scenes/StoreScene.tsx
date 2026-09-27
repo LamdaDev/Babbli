@@ -256,16 +256,19 @@ const RUBY = "#c0392b";
 const AQUA = "#7fc4d8";
 const DIAMOND = "#eef8fc";
 
+/** Rounded so the server and the browser print identical coordinates (trig differs in the last digit). */
+const r2 = (n: number) => Math.round(n * 100) / 100;
+
 /** Points along a U-shaped strand (quadratic curve), for pearls and chains. */
 function strand(n: number, x0: number, y0: number, cx: number, cy: number, x1: number, y1: number) {
   return Array.from({ length: n }, (_, i) => {
     const t = i / (n - 1);
-    return [(1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t ** 2 * x1, (1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t ** 2 * y1];
+    return [r2((1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t ** 2 * x1), r2((1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t ** 2 * y1)];
   });
 }
 /** Points around an ellipse (bracelets and coiled strands lying flat). */
 function ring(n: number, rx: number, ry: number) {
-  return Array.from({ length: n }, (_, i) => [Math.cos((i / n) * Math.PI * 2) * rx, Math.sin((i / n) * Math.PI * 2) * ry]);
+  return Array.from({ length: n }, (_, i) => [r2(Math.cos((i / n) * Math.PI * 2) * rx), r2(Math.sin((i / n) * Math.PI * 2) * ry)]);
 }
 const BUST_PEARLS = strand(11, -17, -34, 0, -4, 17, -34);
 

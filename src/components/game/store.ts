@@ -1,6 +1,7 @@
 "use client";
 
 import { createStore } from "zustand/vanilla";
+import type { BadgeId } from "@/lib/profile/badges";
 import type { IntentCard, NpcExpression, ResponseMode, SceneEventId } from "@/lib/scenarios/types";
 
 export type Phase =
@@ -68,7 +69,8 @@ export interface GameUI {
   slots: Record<string, string>;
   flags: Record<string, boolean>;
   transitionText: string | null;
-  completion: { objectiveComplete: boolean } | null;
+  /** badges: passport pins this scene unlocked (cosmetic). */
+  completion: { objectiveComplete: boolean; badges?: BadgeId[] } | null;
   sessionId: string;
   /** The page was opened without a prior click, so one tap is needed before audio + mic. */
   needsTap: boolean;

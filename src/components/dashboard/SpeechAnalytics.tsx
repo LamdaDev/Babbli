@@ -10,7 +10,7 @@ import { LEARNER, NATIVE } from "./RhythmChart";
  * as the scores. Never rendered for Text Mode (the report has no speech stats there).
  */
 
-const fmt = (n: number | null, digits = 1) => (n === null ? "—" : n.toFixed(digits));
+const fmt = (n: number | null, digits = 1) => (n === null ? "n/a" : n.toFixed(digits));
 const card = "rounded-2xl bg-paper p-5 shadow-sm ring-1 ring-ink/5";
 
 /** A tiny hover/focus tooltip for chart marks. */
@@ -91,7 +91,7 @@ function FillerChart({ stats }: { stats: SpeechStats }) {
         </tbody>
       </table>
       <p className="mt-3 text-xs leading-snug text-ink-soft">
-        Hesitation sounds (um, uh, euh, えっと…) always count. Words that are also ordinary words — like, so, este, あの — count only when they stand
+        Hesitation sounds (um, uh, euh, えっと…) always count. Words that are also ordinary words (like, so, este, あの) count only when they stand
         alone between pauses.
       </p>
     </div>
@@ -216,7 +216,7 @@ function FluencyBreakdown({ stats }: { stats: SpeechStats }) {
         <summary className="cursor-pointer font-bold text-brand">How this is calculated</summary>
         <div className="mt-1.5 space-y-1.5 leading-snug text-ink-soft">
           <p>
-            <b className="text-ink">Speaking rate — an established measure.</b> {FLUENCY_SOURCE.speechRate.formula}. {FLUENCY_SOURCE.speechRate.finding}{" "}
+            <b className="text-ink">Speaking rate</b> = {FLUENCY_SOURCE.speechRate.formula}. {FLUENCY_SOURCE.speechRate.finding}{" "}
             {FLUENCY_SOURCE.speechRate.babbliProcess} Source:{" "}
             <a href={FLUENCY_SOURCE.url} target="_blank" rel="noreferrer" className="font-bold text-brand underline">
               Kormos &amp; Dénes (2004), System 32(2)
@@ -224,10 +224,9 @@ function FluencyBreakdown({ stats }: { stats: SpeechStats }) {
             .
           </p>
           <p>
-            <b className="text-ink">Pauses, fillers and response time — Babbli feedback, not validated measures.</b> A pause is a silence of at least{" "}
-            {SPEECH_HEURISTICS.pauseSeconds} s between recognised words; response time runs from the moment the mic opened to your first word. {FLUENCY_SOURCE.caveat}
+            <b className="text-ink">Pauses, fillers and response time</b> are Babbli feedback, not validated measures. A pause is a silence of{" "}
+            {SPEECH_HEURISTICS.pauseSeconds} s or more; response time runs from the mic opening to your first word. {FLUENCY_SOURCE.caveat}
           </p>
-          <p>Speaking clarity elsewhere on this page is speech-recognition confidence, not a pronunciation score.</p>
         </div>
       </details>
     </div>

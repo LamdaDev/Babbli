@@ -5,8 +5,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { ProfileChip, TravelerStrip } from "@/components/profile/TravelerStrip";
 import { api, assetUrl } from "@/lib/client/api";
 import { audioEngine } from "@/lib/client/audioEngine";
+import { useProfile } from "@/lib/client/profileStore";
 import { LANGUAGES, SCENARIOS, getScenario, scenariosForLanguage } from "@/lib/scenarios";
 import { DIFFICULTIES, type Difficulty, type InputMode, type LanguageCode, type ResponseMode } from "@/lib/scenarios/types";
 import type { SessionSummary } from "@/lib/session/types";
@@ -75,10 +77,14 @@ export function HomeClient() {
   const router = useRouter();
   const [language, setLanguage] = useState<LanguageCode | null>(null);
   const [scenarioId, setScenarioId] = useState<string | null>(null);
-  const [difficulty, setDifficulty] = useState<Difficulty>("beginner");
-  // null = follow the difficulty's recommendation until the learner picks explicitly
+  // Until the learner picks here, difficulty and response mode follow their Traveler Profile defaults.
+  const profile = useProfile();
+  const [difficultyChoice, setDifficulty] = useState<Difficulty | null>(null);
+  const difficulty = difficultyChoice ?? profile.difficulty;
   // How the learner responds (Voice or Text Mode); for voice, how they talk (push-to-talk or live).
-  const [respond, setRespond] = useState<ResponseMode>("voice");
+  const [respondChoice, setRespond] = useState<ResponseMode | null>(null);
+  const respond = respondChoice ?? profile.responseMode;
+  // null = follow the difficulty's recommendation until the learner picks explicitly
   const [modeChoice, setModeChoice] = useState<InputMode | null>(null);
   const defaultMode: InputMode = difficulty === "beginner" ? "ptt" : "live";
   const mode = modeChoice ?? defaultMode;
@@ -102,13 +108,11 @@ export function HomeClient() {
     <main className="relative min-h-dvh overflow-hidden bg-page text-ink">
       <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-5 pt-6">
         <Logo />
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex flex-wrap items-center justify-end gap-2 text-sm">
+          <ProfileChip className={PILL} />
           <button onClick={() => void music.toggle()} className={PILL} title="Menu theme composed with Eleven Music">
             {music.on ? "♪ Music on" : "♪ Music off"}
           </button>
-          <Link href="/studio" className={PILL}>
-            ElevenLabs Studio
-          </Link>
         </div>
       </header>
 
@@ -123,6 +127,7 @@ export function HomeClient() {
         <p className="mt-4 max-w-2xl text-lg text-ink-soft">
           We simulate the situations you&apos;re actually going to encounter, before you encounter them. Real characters, real voices, a real goal, and no script to memorise.
         </p>
+        <TravelerStrip onGo={pickLanguage} />
 
         <AnimatePresence mode="wait">
           {!language || !scenario ? (
@@ -142,11 +147,14 @@ export function HomeClient() {
                     >
                       <div className="relative aspect-[16/10] overflow-hidden">
                         <ScenePreview scenario={s} className="h-full w-full transition-transform duration-700 group-hover:scale-105" />
-                        {s.demoRole === "hero" && (
-                          <span className="absolute left-3 top-3 rounded-full bg-brand px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow">
-                            Featured
-                          </span>
-                        )}
+                        <div className="absolute left-3 top-3 flex gap-1.5">
+                          {s.demoRole === "hero" && (
+                            <span className="rounded-full bg-brand px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow">Featured</span>
+                          )}
+                          {profile.language === l.code && (
+                            <span className="rounded-full bg-gold px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-ink shadow">★ Your pick</span>
+                          )}
+                        </div>
                       </div>
                       <div className="p-4">
                         <div className="flex items-baseline justify-between gap-2">

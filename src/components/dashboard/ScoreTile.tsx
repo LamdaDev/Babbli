@@ -18,7 +18,7 @@ export function ScoreTile({ label, score, note, method }: { label: string; score
     <div className="flex flex-col rounded-2xl bg-paper p-4 shadow-sm ring-1 ring-ink/5">
       <div className="text-sm font-bold text-ink-soft">{label}</div>
       <div className="mt-1 flex items-baseline gap-1.5">
-        <span className="text-4xl font-bold text-ink">{score.value ?? "—"}</span>
+        <span className="text-4xl font-bold text-ink">{score.value ?? "n/a"}</span>
         {score.value !== null && <span className="text-sm text-ink-soft">/ 100</span>}
       </div>
       <div

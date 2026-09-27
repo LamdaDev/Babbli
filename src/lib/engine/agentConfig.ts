@@ -19,7 +19,7 @@ export function buildToolConfig(scenario: ScenarioDef) {
     intent: {
       type: "string",
       enum: intents,
-      description: `What the customer is trying to do with this utterance, given what you just said. Anything connected to this scene (questions, small talk, changing their mind, asking for something else) gets the closest intent — use off_topic only for things unrelated to the scene, and unintelligible only if you couldn't make out the words. A bare yes/no answer is "yes"/"no". Be honest: the learner is being evaluated. ${intentGuide}`,
+      description: `What the customer is trying to do with this utterance, given what you just said. Anything connected to this scene (questions, small talk, changing their mind, asking for something else) gets the closest intent. Use off_topic only for things unrelated to the scene, and unintelligible only if you couldn't make out the words. A bare yes/no answer is "yes"/"no". Be honest: the learner is being evaluated. ${intentGuide}`,
     },
     answered_question: {
       type: "boolean",
@@ -48,7 +48,7 @@ export function buildToolConfig(scenario: ScenarioDef) {
     type: "client",
     name: toolName(scenario),
     description:
-      "Report your interpretation of what the customer just said. You MUST call this after EVERY customer utterance, before you speak. The result tells you what happens next and what to say. Fill the slots with what THIS utterance says or agrees to — if you offered navy and they said \"yes, that one\", that's color=navy — and don't repeat values from earlier turns.",
+      "Report your interpretation of what the customer just said. You MUST call this after EVERY customer utterance, before you speak. The result tells you what happens next and what to say. Fill the slots with what THIS utterance says or agrees to (if you offered navy and they said \"yes, that one\", that's color=navy), and don't repeat values from earlier turns.",
     parameters: {
       type: "object",
       required: ["heard", "intent", "answered_question", "language"],
@@ -68,11 +68,11 @@ export function buildToolConfig(scenario: ScenarioDef) {
 export function buildResyncNote(scenario: ScenarioDef, state: ScenarioState) {
   const stage = getStage(scenario, state.stageId);
   return [
-    "BABBLI ENGINE NOTE (not from the customer — don't reply to this)",
+    "BABBLI ENGINE NOTE (not from the customer, don't reply to this)",
     `You answered the customer's last message without calling the \`${toolName(scenario)}\` tool, so the engine never saw it and nothing in that reply happened in the scene.`,
-    `The scene is still at: ${stage.group} — ${stage.npcGoal}`,
+    `The scene is still at: ${stage.group}. ${stage.npcGoal}`,
     `Recorded so far: ${describeSlots(scenario, state.slots)}`,
-    "Don't build on your last reply. When the customer speaks again, call the tool FIRST — even for one-word answers — then say only what its NEXT LINE tells you.",
+    "Don't build on your last reply. When the customer speaks again, call the tool FIRST, even for one-word answers, then say only what its NEXT LINE tells you.",
   ].join("\n");
 }
 
@@ -82,7 +82,7 @@ function languageRule(scenario: ScenarioDef) {
   if (scenario.language === "en")
     return "Speak ONLY natural American English. If the customer uses another language, stay in English and kindly ask them to try in English. Never translate for them.";
   const lang = scenario.languageEnglish;
-  return `Speak ONLY ${lang}. Never English — not even if the customer speaks English. Never translate for them.`;
+  return `Speak ONLY ${lang}. Never English, not even if the customer speaks English. Never translate for them.`;
 }
 
 function styleFor(difficulty: Difficulty, scenario: ScenarioDef) {
@@ -91,7 +91,7 @@ function styleFor(difficulty: Difficulty, scenario: ScenarioDef) {
     return `The learner is a BEGINNER. Speak slowly and clearly using standard polite forms and very common words. Short sentences (about 12 words max). Be warm, patient and encouraging.`;
   if (difficulty === "intermediate")
     return `The learner is INTERMEDIATE. Use natural speed and the natural phrasing a real ${role} uses (including set service expressions). Where natural, add a small, relevant follow-up question, as a real ${role} would.`;
-  return `IMMERSION mode. Speak exactly like a real, busy native ${role}: native speed, colloquial phrasing, contractions and set expressions. Do NOT simplify on your own — only repeat or slow down if the customer explicitly asks. When you don't understand, react the way a native would (a quick "…?" / "sorry?"), not with a simplified explanation.`;
+  return `IMMERSION mode. Speak exactly like a real, busy native ${role}: native speed, colloquial phrasing, contractions and set expressions. Do NOT simplify on your own; only repeat or slow down if the customer explicitly asks. When you don't understand, react the way a native would (a quick "…?" / "sorry?"), not with a simplified explanation.`;
 }
 
 export function buildNpcPrompt(opts: {
@@ -99,26 +99,29 @@ export function buildNpcPrompt(opts: {
   difficulty: Difficulty;
   variant: Variant;
   stageId?: string;
+  /** How to refer to the learner (their pronouns), from the Traveler Profile. */
+  learner?: string | null;
 }) {
   const { scenario, difficulty, variant } = opts;
   const lang = scenario.languageEnglish;
   const stage = getStage(scenario, opts.stageId ?? scenario.initialStage);
   return `# Role
 ${scenario.persona}
-You are a character in Babbli, an immersive language-practice simulator. The person in front of you is a learner practicing ${lang}. To them you are a real ${scenario.npc.role.toLowerCase()} in ${scenario.city} — stay fully in character at all times.
+You are a character in Babbli, an immersive language-practice simulator. The person in front of you is a learner practicing ${lang}. To them you are a real ${scenario.npc.role.toLowerCase()} in ${scenario.city}. Stay fully in character at all times.
 
 # Facts for this visit (never contradict these)
 ${scenario.facts(variant, difficulty)}
-
+${opts.learner ? `\n# The customer\n${opts.learner}\n` : ""}
 # How every turn works (critical)
-1. Whenever the customer says anything — even a one-word answer like "yes", "no", "thanks", "oui" or "non" — FIRST call the \`${toolName(scenario)}\` tool, before you say a single word. Never answer without it: a reply that skips the tool doesn't happen in the scene. Fill it honestly with what you heard and what they meant, including what a short answer like "yes, that one" refers to. Use "unintelligible" only if you couldn't make out the words, and "off_topic" only for things unrelated to this scene. Don't invent what they didn't say — the learner is being evaluated.
+1. Whenever the customer says anything, even a one-word answer like "yes", "no", "thanks", "oui" or "non", FIRST call the \`${toolName(scenario)}\` tool, before you say a single word. Never answer without it: a reply that skips the tool doesn't happen in the scene. Fill it honestly with what you heard and what they meant, including what a short answer like "yes, that one" refers to. Use "unintelligible" only if you couldn't make out the words, and "off_topic" only for things unrelated to this scene. Don't invent what they didn't say, the learner is being evaluated.
 2. The tool returns a BABBLI ENGINE RESULT with a NEXT LINE instruction. Say that, in natural ${lang}, in your own words, fully in character. The engine is the source of truth for what happens (stock, prices, mistakes, the next step). Never skip ahead, never invent new steps or items.
-3. Say only what the NEXT LINE asks for. Don't add your own confirmation questions ("so you want X, is that right?"), suggestions, offers or later steps (wrapping, paying…) — the engine brings each of those up at the right moment, and adding them confuses the scene.
+3. Say only what the NEXT LINE asks for. Don't add your own confirmation questions ("so you want X, is that right?"), suggestions, offers or later steps (wrapping, paying…). The engine brings each of those up at the right moment, and adding them confuses the scene.
 4. Then stop and wait for the customer.
 If the customer is silent, wait patiently and say nothing. Only if you are told the customer has been silent for a long time, give one tiny, gentle nudge (like "${NUDGE[scenario.language] ?? "…?"}").
 
 # Language rules
 - ${languageRule(scenario)}
+- Your lines are shown as subtitles: never write em dashes (—). Use a comma or a full stop instead.
 - Never tell the customer what they should say and never say their line for them, even when they struggle. You may only help by rephrasing your own question.
 - ${styleFor(difficulty, scenario)}
 - One or two sentences per turn. Vary your wording naturally; never repeat a sentence word-for-word.

@@ -34,12 +34,12 @@ function describeOutcome({ slot, variant }: ResolveContext, from: "greeting" | "
   const color = slot("color");
   const set: Record<string, string> = { item: "scarf" };
   for (const k of ["material", "recipient"]) if (slot(k)) set[k] = slot(k);
-  const reaction = `${set.recipient === "gift" ? " (a birthday gift — how nice!)" : ""}${set.material ? " (our merino wool ones are lovely and warm)" : ""}`;
+  const reaction = `${set.recipient === "gift" ? " (a birthday gift, how nice!)" : ""}${set.material ? " (our merino wool ones are lovely and warm)" : ""}`;
   if (!color) {
     if (from === "greeting")
       return advance(
         "details",
-        `Say great — you have a lovely selection of scarves right here. Respond to any detail they gave${reaction}, then ask what color they'd like.`,
+        `Say great, you have a lovely selection of scarves right here. Respond to any detail they gave${reaction}, then ask what color they'd like.`,
         "Great, we have lots of scarves here. What color would you like?",
         { setSlots: set },
       );
@@ -52,10 +52,10 @@ function describeOutcome({ slot, variant }: ResolveContext, from: "greeting" | "
     return advance(
       "availability",
       "Check the shelf, then apologize: navy is sold out on the floor right now. Offer options: another color (charcoal, burgundy or camel), checking the stockroom, or ordering online.",
-      "Oh, sorry — we're out of navy out here. I could check the back, or we have other colors.",
-      { setSlots: { ...set, color }, reaction: "neutral", note: "Navy was sold out — you had to deal with an unavailable item." },
+      "Oh, sorry, we're out of navy out here. I could check the back, or we have other colors.",
+      { setSlots: { ...set, color }, reaction: "neutral", note: "Navy was sold out, so you had to deal with an unavailable item." },
     );
-  return showItem(color, "Say “great choice”.", `Here it is — a ${colorName(color)} merino wool scarf. It's $39.99. What do you think?`, {
+  return showItem(color, "Say “great choice”.", `Here it is: a ${colorName(color)} merino wool scarf. It's $39.99. What do you think?`, {
     setSlots: { ...set, color, fulfilment: "in_store" },
   });
 }
@@ -188,12 +188,12 @@ export const store: ScenarioDef = {
       { text: "Hello! Are you looking for something today?", meaning: "Hello! Are you trying to find something?" },
     ],
     intermediate: [
-      { text: "Hi! Welcome to Whitmore's — is there anything I can help you find today?", meaning: "Hello! Can I help you find something?" },
+      { text: "Hi! Welcome to Whitmore's. Is there anything I can help you find today?", meaning: "Hello! Can I help you find something?" },
       { text: "Hey there, how's it going? Looking for anything in particular?", meaning: "Hello, how are you? Are you looking for something specific?" },
     ],
     immersion: [
       { text: "Hey! How's your day going? Anything I can help you track down?", meaning: "Hello! How are you? Can I help you find something?" },
-      { text: "Hi there — finding everything okay? Lemme know if you need a hand.", meaning: "Hello — are you finding what you need? Tell me if you need help." },
+      { text: "Hi there, finding everything okay? Lemme know if you need a hand.", meaning: "Hello, are you finding what you need? Tell me if you need help." },
     ],
   },
   makeVariant: (difficulty, rand) => ({
@@ -207,11 +207,11 @@ export const store: ScenarioDef = {
   facts: (v) =>
     [
       `SCARVES: merino wool scarves $39.99 in navy blue${v.navyOut ? " (SOLD OUT on the shop floor today)" : ""}, charcoal grey, burgundy and camel. Cashmere scarves $120 in grey and cream.`,
-      `STOCKROOM: ${v.stockroomHasIt ? "has exactly one navy merino scarf left" : "has no navy merino scarves"} — you only find out if you go and check.`,
+      `STOCKROOM: ${v.stockroomHasIt ? "has exactly one navy merino scarf left" : "has no navy merino scarves"}, you only find out if you go and check.`,
       "Online orders: delivery in 3–5 business days, free shipping, same price. Returns: 30 days with a receipt; gift receipts available. Gift wrapping is free.",
       "Sales tax is 8.875%.",
       v.storeCard
-        ? "Store card: signing up today gives 20% off this purchase (so $31.99 instead of $39.99), no annual fee — only bring it up when the engine tells you to."
+        ? "Store card: signing up today gives 20% off this purchase (so $31.99 instead of $39.99), no annual fee, only bring it up when the engine tells you to."
         : "No discounts on scarves right now.",
       "The merino scarves are 100% merino wool: hand-wash cold or dry-clean, not machine-washable.",
       v.tapDown ? "PAYMENT: tap-to-pay / phone payments are NOT working today; inserted cards and cash are fine." : "Payment: cards, phone/tap payments and cash are all accepted.",
@@ -220,7 +220,7 @@ export const store: ScenarioDef = {
   vocabulary: [
     { term: "Can I help you find anything?", meaning: "What sales staff say when they offer help", stages: ["greeting"] },
     { term: "I'm looking for…", meaning: "The standard way to say what you want to find", stages: ["greeting"] },
-    { term: "I'm just browsing", meaning: "I'm only looking — I don't need help yet", stages: ["greeting"] },
+    { term: "I'm just browsing", meaning: "I'm only looking and don't need help yet", stages: ["greeting"] },
     { term: "Do you have this in navy?", meaning: "Asking for the same item in another color", stages: ["details", "availability"] },
     { term: "sold out / out of stock", meaning: "There are none left", stages: ["availability"] },
     { term: "in the back / the stockroom", meaning: "The storage room where extra items are kept", stages: ["availability", "stock_wait"] },
@@ -267,10 +267,10 @@ export const store: ScenarioDef = {
           ],
           starter: "Yes, I'm looking for…",
           full: "Yes, please. I'm looking for a scarf.",
-          fullMeaning: "Short and polite — start with “Yes, please” to accept the offer of help.",
+          fullMeaning: "Short and polite: start with “Yes, please” to accept the offer of help.",
         }, ["looking for", "scarf", "please"], { expect: { item: "scarf" }, core: true }),
         card("just_browsing", "👀", "Say you're just looking around", {
-          intent: "Tell Jordan you don't need help yet — you're only looking.",
+          intent: "Tell Jordan you don't need help yet: you're only looking.",
           vocab: [
             { term: "just browsing", meaning: "only looking, not buying yet" },
             { term: "thanks", meaning: "short for “thank you”" },
@@ -328,7 +328,7 @@ export const store: ScenarioDef = {
         if (report.intent === "ask_gift_ideas" || giftOnly)
           return advance(
             "details",
-            "Say you'd love to help — scarves are a really popular birthday gift right now, and you have lovely ones right here. Ask what color their sister likes.",
+            "Say you'd love to help, scarves are a really popular birthday gift right now, and you have lovely ones right here. Ask what color their sister likes.",
             "I'd love to help! Scarves make a great gift. What color does she like?",
             { setSlots: { item: "scarf", recipient: "gift" } },
           );
@@ -339,8 +339,8 @@ export const store: ScenarioDef = {
           return stay(
             "info",
             "greeting",
-            "Answer their small talk briefly and cheerfully (busy Saturday, but you're doing great — thanks for asking!), then ask again if you can help them find anything.",
-            "I'm good, thanks — busy Saturday! Can I help you find anything?",
+            "Answer their small talk briefly and cheerfully (busy Saturday, but you're doing great, thanks for asking!), then ask again if you can help them find anything.",
+            "I'm good, thanks. Busy Saturday! Can I help you find anything?",
           );
         // "Yes, please!" to "Can I help you find anything?" — they haven't said what yet.
         if (report.intent === "yes" && !slot("item"))
@@ -351,14 +351,14 @@ export const store: ScenarioDef = {
         if (report.intent === "looking_for")
           return advance(
             "details",
-            "Say great — you have a lovely selection of scarves right here — and ask what kind they're looking for (a color in mind? for themselves or a gift?).",
+            "Say great, you have a lovely selection of scarves right here, and ask what kind they're looking for (a color in mind? for themselves or a gift?).",
             "Great, we have lots of scarves here. What kind do you want? Any color?",
             { setSlots: { item: "scarf" } },
           );
         if (report.intent === "ask_location")
           return advance(
             "details",
-            "Say scarves are right here in Accessories — gesture to the shelves behind you — and ask what kind they're looking for.",
+            "Say scarves are right here in Accessories, gesture to the shelves behind you, and ask what kind they're looking for.",
             "They're right here! What kind of scarf are you looking for?",
             { setSlots: { item: "scarf" } },
           );
@@ -367,7 +367,7 @@ export const store: ScenarioDef = {
             "info",
             "greeting",
             "Say no problem at all, take your time, and you'll be right here if they need anything. One short, friendly sentence.",
-            "No problem — take your time. I'm here if you need me.",
+            "No problem, take your time. I'm here if you need me.",
             { setFlags: { browsing: true }, reaction: "positive" },
           );
         return null;
@@ -376,7 +376,7 @@ export const store: ScenarioDef = {
     {
       id: "details",
       group: "Describe",
-      npcGoal: "Ask what kind of scarf they want — color, material, who it's for.",
+      npcGoal: "Ask what kind of scarf they want (color, material, who it's for).",
       meaning: "What kind of scarf do you want? Any color in mind?",
       situation: "Jordan wants to know what kind of scarf you're looking for.",
       extraIntents: ["ask_recommendation", "ask_price", "ask_alternatives"],
@@ -416,10 +416,10 @@ export const store: ScenarioDef = {
               intent: "Say you'd like something warm, made of wool.",
               vocab: [
                 { term: "wool", meaning: "warm material from sheep" },
-                { term: "if possible", meaning: "softens a request — “only if you can”" },
+                { term: "if possible", meaning: "softens a request: “only if you can”" },
               ],
               starter: "Something warm…",
-              full: "Something warm — wool, if possible.",
+              full: "Something warm, wool, if possible.",
               fullMeaning: "Natural speech often skips “I want”: just name what you're after.",
             }, ["wool", "warm"], { key: "wool", expect: { material: "wool" } }),
           );
@@ -455,17 +455,17 @@ export const store: ScenarioDef = {
             "info",
             "details",
             variant.navyOut
-              ? "List the colors: charcoal grey, burgundy and camel — and navy blue too, though you're not sure there are any navy ones left on the shelf. All merino wool, $39.99. Ask which color they'd like."
-              : "List the colors: navy blue, charcoal grey, burgundy and camel — all merino wool, $39.99. Ask which color they'd like.",
-            "We have navy, charcoal, burgundy and camel — $39.99 each. Which color would you like?",
+              ? "List the colors: charcoal grey, burgundy and camel, and navy blue too, though you're not sure there are any navy ones left on the shelf. All merino wool, $39.99. Ask which color they'd like."
+              : "List the colors: navy blue, charcoal grey, burgundy and camel, all merino wool, $39.99. Ask which color they'd like.",
+            "We have navy, charcoal, burgundy and camel. They're $39.99 each. Which color would you like?",
             { setFlags: { askedColors: true } },
           );
         if (report.intent === "ask_recommendation")
           return stay(
             "info",
             "details",
-            "Recommend the merino wool scarves — soft, warm, a great gift — in navy, charcoal, burgundy or camel. Ask which color they'd like.",
-            "I recommend our merino wool scarves — soft and warm. Which color would you like?",
+            "Recommend the merino wool scarves, soft, warm, a great gift, in navy, charcoal, burgundy or camel. Ask which color they'd like.",
+            "I recommend our merino wool scarves, soft and warm. Which color would you like?",
             { setFlags: { recommended: true } },
           );
         if (report.intent === "ask_price")
@@ -582,15 +582,15 @@ export const store: ScenarioDef = {
           return stay(
             "info",
             "availability",
-            `Say you're not sure — deliveries come in most weeks, but you can't promise navy in time for the birthday. Then briefly repeat the options: ${state.flags.stockChecked ? "another color, or ordering navy online" : "checking the stockroom, another color, or ordering navy online"}.`,
-            "I'm not sure when — maybe next week. But there are other options.",
+            `Say you're not sure, deliveries come in most weeks, but you can't promise navy in time for the birthday. Then briefly repeat the options: ${state.flags.stockChecked ? "another color, or ordering navy online" : "checking the stockroom, another color, or ordering navy online"}.`,
+            "I'm not sure when, maybe next week. But there are other options.",
           );
         if (report.intent === "ask_check_stock") {
           if (state.flags.stockChecked)
-            return stay("info", "availability", "Remind them you already checked the stockroom — no navy left. Offer another color or ordering online.", "I already checked — no navy in the back, sorry. Another color, or order online?");
+            return stay("info", "availability", "Remind them you already checked the stockroom, no navy left. Offer another color or ordering online.", "I already checked: no navy in the back, sorry. Another color, or order online?");
           return advance(
             "stock_wait",
-            "Say sure, you'll run to the stockroom and check — ask them to give you a minute. One or two short sentences.",
+            "Say sure, you'll run to the stockroom and check, ask them to give you a minute. One or two short sentences.",
             "Sure! Let me check in the back. Give me a minute.",
             { setFlags: { stockChecked: true }, events: ["time_skip"] },
           );
@@ -599,8 +599,8 @@ export const store: ScenarioDef = {
           return stay(
             "info",
             "availability",
-            "List the other colors in stock: charcoal grey, burgundy and camel — same merino wool, same $39.99. Ask which one they'd like.",
-            "We have charcoal grey, burgundy and camel — same wool, same price. Which one?",
+            "List the other colors in stock: charcoal grey, burgundy and camel, same merino wool, same $39.99. Ask which one they'd like.",
+            "We have charcoal grey, burgundy and camel. Same wool, same price. Which one?",
             { setFlags: { askedColors: true } },
           );
         if (report.intent === "describe_item" || report.intent === "take_it") {
@@ -609,16 +609,16 @@ export const store: ScenarioDef = {
             return stay(
               "branch",
               "availability",
-              `Say you understand${color === "navy" ? " — navy is a great choice" : ""}. Gently remind them navy is sold out on the floor, and suggest how they could still get it: ${state.flags.stockChecked ? "ordering it online" : "you could check the stockroom, or order it online"} — or pick another color.`,
-              state.flags.stockChecked ? "Navy is sold out here, sorry — but I can order it online for you." : "Navy is sold out here, sorry. I can check the back or order it online.",
+              `Say you understand${color === "navy" ? ", navy is a great choice" : ""}. Gently remind them navy is sold out on the floor, and suggest how they could still get it: ${state.flags.stockChecked ? "ordering it online" : "you could check the stockroom, or order it online"}, or pick another color.`,
+              state.flags.stockChecked ? "Navy is sold out here, sorry, but I can order it online for you." : "Navy is sold out here, sorry. I can check the back or order it online.",
             );
-          return showItem(color, `Say good choice — the ${colorName(color)} looks great.`, `Good choice! Here's the ${colorName(color)} one. It's $39.99. What do you think?`);
+          return showItem(color, `Say good choice, the ${colorName(color)} looks great.`, `Good choice! Here's the ${colorName(color)} one. It's $39.99. What do you think?`);
         }
         if (report.intent === "ask_order" || report.intent === "ask_delivery")
           return advance(
             "decide",
-            "Say yes — you can order navy online for them right here: delivery in 3–5 business days, free shipping, same $39.99. Ask if they'd like to go ahead.",
-            "Yes! I can order it for you — it arrives in 3 to 5 days, free shipping, $39.99. Want to go ahead?",
+            "Say yes, you can order navy online for them right here: delivery in 3–5 business days, free shipping, same $39.99. Ask if they'd like to go ahead.",
+            "Yes! I can order it for you. It arrives in 3 to 5 days with free shipping, for $39.99. Want to go ahead?",
             { setSlots: { color: "navy", fulfilment: "order" }, note: "You found a way to get the exact item you wanted." },
           );
         if (report.intent === "ask_price")
@@ -629,7 +629,7 @@ export const store: ScenarioDef = {
     {
       id: "stock_wait",
       group: "Find it",
-      learnerOpens: "Jordan is back from the stockroom — you speak first.",
+      learnerOpens: "Jordan is back from the stockroom. You speak first.",
       npcGoal: "You're back from the stockroom; tell the customer what you found when they ask.",
       meaning: "",
       situation: "Jordan is back from the stockroom. Find out what happened.",
@@ -659,7 +659,7 @@ export const store: ScenarioDef = {
           fullMeaning: "“If not” = if you didn't find one.",
         }, ["order", "online"], { core: true }),
         card("ask_found", "🤞", "Ask if there's good news", {
-          intent: "Jordan is back — ask hopefully whether there's good news.",
+          intent: "Jordan is back. Ask hopefully whether there's good news.",
           vocab: [
             { term: "You're back!", meaning: "friendly greeting when someone returns" },
             { term: "Good news?", meaning: "short, hopeful question" },
@@ -673,7 +673,7 @@ export const store: ScenarioDef = {
           vocab: [{ term: "Sorry for all the trouble", meaning: "polite apology for making work for someone" }],
           starter: "Sorry for all…",
           full: "Sorry for all the trouble!",
-          fullMeaning: "People say this even when it's the employee's job — it's just polite.",
+          fullMeaning: "People say this even when it's the employee's job. It's just polite.",
         }, ["sorry", "trouble"], { core: true }),
         card("describe_item", "🩶", "Say you'd take charcoal if there's no navy", {
           intent: "Tell Jordan that if there's no navy, you'll take the charcoal grey one instead.",
@@ -694,27 +694,27 @@ export const store: ScenarioDef = {
         const lead = report.intent === "apologize" ? "Say it was no trouble at all. " : report.intent === "thanks" ? "Say you're welcome. " : "";
         if (report.intent === "describe_item" || report.intent === "take_it") {
           if (variant.stockroomHasIt)
-            return showItem("navy", "Say there's no need — you found the very last navy one in the stockroom!", "No need — I found the last navy one! It's $39.99. What do you think?", { setSlots: { color: "navy", fulfilment: "in_store" } });
+            return showItem("navy", "Say there's no need, you found the very last navy one in the stockroom!", "No need! I found the last navy one! It's $39.99. What do you think?", { setSlots: { color: "navy", fulfilment: "in_store" } });
           const color = slot("color") && slot("color") !== "navy" ? slot("color") : "charcoal";
-          return showItem(color, `Apologize: no navy in the stockroom either — but say the ${colorName(color)} is a great choice.`, `No navy in the back, sorry — but here's the ${colorName(color)} one. It's $39.99. What do you think?`);
+          return showItem(color, `Apologize: no navy in the stockroom either, but say the ${colorName(color)} is a great choice.`, `No navy in the back, sorry, but here's the ${colorName(color)} one. It's $39.99. What do you think?`);
         }
         if (["ask_found", "thanks", "greet", "apologize"].includes(report.intent)) {
           if (variant.stockroomHasIt)
-            return showItem("navy", `${lead}Happily say you found the very last navy one in the stockroom!`, "Good news — I found the last navy one! It's $39.99. What do you think?", { setSlots: { color: "navy", fulfilment: "in_store" } });
+            return showItem("navy", `${lead}Happily say you found the very last navy one in the stockroom!`, "Good news! I found the last navy one! It's $39.99. What do you think?", { setSlots: { color: "navy", fulfilment: "in_store" } });
           return advance(
             "availability",
-            `${lead}Apologize: no luck — there were no navy ones in the stockroom either. Offer to order navy online (3–5 days, free shipping) or suggest charcoal, burgundy or camel.`,
-            "Sorry, no luck — no navy in the back either. I could order it online, or you could pick another color.",
+            `${lead}Apologize: no luck, there were no navy ones in the stockroom either. Offer to order navy online (3–5 days, free shipping) or suggest charcoal, burgundy or camel.`,
+            "Sorry, no luck. No navy in the back either. I could order it online, or you could pick another color.",
             { reaction: "neutral" },
           );
         }
         if (report.intent === "ask_order" || report.intent === "ask_delivery") {
           if (variant.stockroomHasIt)
-            return showItem("navy", "Say no need to order — you found the very last navy one in the stockroom!", "No need — I found the last navy one! It's $39.99. What do you think?", { setSlots: { color: "navy", fulfilment: "in_store" } });
+            return showItem("navy", "Say no need to order, you found the very last navy one in the stockroom!", "No need! I found the last navy one! It's $39.99. What do you think?", { setSlots: { color: "navy", fulfilment: "in_store" } });
           return advance(
             "decide",
-            "Say you didn't find any navy in the back, but yes — you can order it online right now: 3–5 business days, free shipping, $39.99. Ask if they'd like to go ahead.",
-            "No navy in the back, but I can order it online — 3 to 5 days, free shipping. Go ahead?",
+            "Say you didn't find any navy in the back, but yes, you can order it online right now: 3–5 business days, free shipping, $39.99. Ask if they'd like to go ahead.",
+            "No navy in the back, but I can order it online: 3 to 5 days, free shipping. Go ahead?",
             { setSlots: { color: "navy", fulfilment: "order" } },
           );
         }
@@ -726,7 +726,7 @@ export const store: ScenarioDef = {
       group: "Decide",
       npcGoal: "Present the scarf (or the online order), mention the price ($39.99), and ask if they'd like it.",
       meaning: "It's $39.99. Would you like it?",
-      situation: "Jordan showed you the option. Decide — or ask a question first.",
+      situation: "Jordan showed you the option. Decide, or ask a question first.",
       extraIntents: ["ask_price", "describe_item", "ask_material", "ask_delivery"],
       aliases: { yes: "take_it", accept_offer: "take_it", looking_for: "describe_item" },
       cards: ({ state, variant }) => [
@@ -801,7 +801,7 @@ export const store: ScenarioDef = {
           ],
           starter: "Can she return it if…",
           full: "Can she return it if she doesn't like it?",
-          fullMeaning: "“If she doesn't like it” — present tense after “if”.",
+          fullMeaning: "“If she doesn't like it”: present tense after “if”.",
         }, ["return", "exchange", "doesn't like"]),
       ],
       resolve: (ctx) => {
@@ -813,16 +813,16 @@ export const store: ScenarioDef = {
             return stay(
               "branch",
               "decide",
-              "Gently remind them navy is sold out on the floor — but you could order it online for them (3–5 business days, free shipping). Ask what they'd like to do.",
+              "Gently remind them navy is sold out on the floor, but you could order it online for them (3–5 business days, free shipping). Ask what they'd like to do.",
               "Navy is sold out here, but I could order it online for you. What would you like?",
             );
-          return showItem(color, `Say sure — here's the ${colorName(color)} one instead.`, `Sure! Here's the ${colorName(color)} one. It's $39.99. What do you think?`);
+          return showItem(color, `Say sure, here's the ${colorName(color)} one instead.`, `Sure! Here's the ${colorName(color)} one. It's $39.99. What do you think?`);
         }
         if (report.intent === "ask_order" && state.slots.fulfilment !== "order")
           return advance(
             "decide",
-            "Say yes — you can order navy online for them right here: 3–5 business days, free shipping, same $39.99. Ask if they'd like to go ahead.",
-            "Yes! I can order navy online — 3 to 5 days, free shipping, $39.99. Want to go ahead?",
+            "Say yes, you can order navy online for them right here: 3–5 business days, free shipping, same $39.99. Ask if they'd like to go ahead.",
+            "Yes! I can order navy online: 3 to 5 days, free shipping, $39.99. Want to go ahead?",
             { setSlots: { color: "navy", fulfilment: "order" } },
           );
         if (report.intent === "take_it") {
@@ -843,14 +843,14 @@ export const store: ScenarioDef = {
               "Not on sale, but you get 20% off if you open a store card today. Interested?",
               { setFlags: { cardOffered: true } },
             );
-          return stay("info", "decide", "Say sorry, no discounts on scarves right now — but it's great quality for the price. Ask if they'd like it.", "Sorry, no discounts on these right now. Would you like it?");
+          return stay("info", "decide", "Say sorry, no discounts on scarves right now, but it's great quality for the price. Ask if they'd like it.", "Sorry, no discounts on these right now. Would you like it?");
         }
         if (report.intent === "ask_returns")
           return stay(
             "info",
             "decide",
-            "Say yes — returns or exchanges within 30 days with the receipt, and you can include a gift receipt so their sister can exchange it. Ask if they'd like to take it.",
-            "Yes — 30 days with a receipt, and I can add a gift receipt. Would you like it?",
+            "Say yes, returns or exchanges within 30 days with the receipt, and you can include a gift receipt so their sister can exchange it. Ask if they'd like to take it.",
+            "Yes, 30 days with a receipt, and I can add a gift receipt. Would you like it?",
             { setFlags: { returnsAsked: true } },
           );
         if (report.intent === "ask_price") return stay("info", "decide", "Say it's $39.99 plus tax. Ask if they'd like it.", "It's $39.99 plus tax. Would you like it?");
@@ -858,8 +858,8 @@ export const store: ScenarioDef = {
           return stay(
             "info",
             "decide",
-            "Answer their question about the scarf: it's 100% merino wool — soft, warm and not itchy; hand-wash it in cold water or dry-clean it (not the washing machine). Then ask if they'd like it.",
-            "It's 100% merino wool — soft and warm. Hand-wash only. Would you like it?",
+            "Answer their question about the scarf: it's 100% merino wool, soft, warm and not itchy; hand-wash it in cold water or dry-clean it (not the washing machine). Then ask if they'd like it.",
+            "It's 100% merino wool, soft and warm. Hand-wash only. Would you like it?",
           );
         if (report.intent === "ask_delivery" || (report.intent === "ask_order" && state.slots.fulfilment === "order"))
           return stay(
@@ -897,7 +897,7 @@ export const store: ScenarioDef = {
             { term: "sign me up", meaning: "register me" },
           ],
           starter: "Sure, why not…",
-          full: "Sure, why not — sign me up.",
+          full: "Sure, why not? Sign me up.",
           fullMeaning: "Informal and friendly.",
         }, ["sure", "sign me up", "yes"], { core: true }),
         card("ask_offer_details", "❓", "Ask what a store card is", {
@@ -908,7 +908,7 @@ export const store: ScenarioDef = {
           fullMeaning: "It's fine to ask when you don't know a word!",
         }, ["what's", "store card", "mean"]),
         card("decline", "🕒", "Say maybe another time", {
-          intent: "Politely say not today — maybe another time.",
+          intent: "Politely say not today, maybe another time.",
           vocab: [{ term: "Maybe next time", meaning: "a soft, friendly “no” for now" }],
           starter: "Maybe next…",
           full: "Maybe next time, thanks!",
@@ -940,21 +940,21 @@ export const store: ScenarioDef = {
       aliases: { yes: "accept_offer", no: "decline", take_it: "decline" },
       resolve: ({ report }) => {
         if (report.intent === "ask_card_fee")
-          return stay("info", "offer", "Say no — there's no annual fee, and the 20% applies to today's purchase. Ask if they'd like to sign up.", "No annual fee! And you get 20% off today. Want to sign up?");
+          return stay("info", "offer", "Say no, there's no annual fee, and the 20% applies to today's purchase. Ask if they'd like to sign up.", "No annual fee! And you get 20% off today. Want to sign up?");
         if (report.intent === "ask_savings")
           return stay(
             "info",
             "offer",
-            "Say 20% off saves them $8 today — the scarf would be $31.99 instead of $39.99, plus tax. Ask if they'd like to sign up.",
-            "You'd save $8 — it would be $31.99 instead of $39.99. Want to sign up?",
+            "Say 20% off saves them $8 today, the scarf would be $31.99 instead of $39.99, plus tax. Ask if they'd like to sign up.",
+            "You'd save $8: it would be $31.99 instead of $39.99. Want to sign up?",
           );
         if (report.intent === "decline")
           return advance("checkout", "Say no problem at all, you'll ring them up, and ask if they'd like it gift-wrapped (it's free).", "No problem! Would you like it gift-wrapped? It's free.");
         if (report.intent === "accept_offer")
           return advance(
             "checkout",
-            "Say great — it only takes a second, and you've applied the 20% discount. Then ask if they'd like it gift-wrapped (it's free).",
-            "Great — done, you get 20% off! Would you like it gift-wrapped?",
+            "Say great, it only takes a second, and you've applied the 20% discount. Then ask if they'd like it gift-wrapped (it's free).",
+            "Great, done! You get 20% off. Would you like it gift-wrapped?",
             { setSlots: { storeCard: "yes" } },
           );
         if (report.intent === "ask_offer_details")
@@ -962,7 +962,7 @@ export const store: ScenarioDef = {
             "info",
             "offer",
             "Explain simply: it's a credit card just for Whitmore's; signing up today gives 20% off this purchase. Ask if they'd like one.",
-            "It's a credit card for our store — you get 20% off today. Would you like one?",
+            "It's a credit card for our store. You get 20% off today. Would you like one?",
           );
         return null;
       },
@@ -1004,8 +1004,8 @@ export const store: ScenarioDef = {
             { term: "a ribbon", meaning: "a decorative band tied around a present" },
             { term: "if you have one", meaning: "makes a request softer" },
           ],
-          starter: "Yes, please — with a…",
-          full: "Yes, please — with a ribbon, if you have one!",
+          starter: "Yes, please, with a…",
+          full: "Yes, please, with a ribbon, if you have one!",
           fullMeaning: "“If you have one” keeps the request light and polite.",
         }, ["ribbon", "yes", "please"], { key: "ribbon", core: true }),
         card("decline", "🏠", "Say you'll wrap it yourself", {
@@ -1042,19 +1042,19 @@ export const store: ScenarioDef = {
           return stay(
             "info",
             "checkout",
-            "Say of course — you'll take the price tag off since it's a gift. Then ask again if they'd like it gift-wrapped (it's free).",
+            "Say of course, you'll take the price tag off since it's a gift. Then ask again if they'd like it gift-wrapped (it's free).",
             "Of course, I'll take the tag off. Would you like it gift-wrapped?",
             { setFlags: { tagRemoved: true } },
           );
         if (report.intent === "gift_wrap")
           return advance(
             "pay",
-            `Say you'll wrap it with a ribbon — it'll look great. Then say the total comes to ${t} with tax and ask how they'd like to pay.`,
+            `Say you'll wrap it with a ribbon, it'll look great. Then say the total comes to ${t} with tax and ask how they'd like to pay.`,
             `I'll wrap it with a ribbon. Your total is ${t} with tax. How would you like to pay?`,
             { events: ["gift_wrapped"], setSlots: { wrap: "yes" } },
           );
         if (report.intent === "decline")
-          return advance("pay", `Say no problem. The total comes to ${t} with tax — ask how they'd like to pay.`, `No problem. Your total is ${t}. How would you like to pay?`);
+          return advance("pay", `Say no problem. The total comes to ${t} with tax, ask how they'd like to pay.`, `No problem. Your total is ${t}. How would you like to pay?`);
         if (report.intent === "ask_gift_receipt")
           return stay("info", "checkout", "Say of course, you'll include a gift receipt. Then ask again if they'd like it gift-wrapped.", "Of course! And would you like it gift-wrapped?", { setFlags: { giftReceipt: true } });
         return null;
@@ -1130,7 +1130,7 @@ export const store: ScenarioDef = {
       resolve: ({ report, slot, variant, state }) => {
         const t = total(state.slots);
         if (report.intent === "ask_price")
-          return stay("info", "pay", `Say yes — ${t} includes the 8.875% New York sales tax. Ask how they'd like to pay.`, `Yes, ${t} includes tax. How would you like to pay?`);
+          return stay("info", "pay", `Say yes, ${t} includes the 8.875% New York sales tax. Ask how they'd like to pay.`, `Yes, ${t} includes tax. How would you like to pay?`);
         // "Yes, card is fine" counts only when it actually names how they'll pay.
         if (report.intent === "pay" || (report.intent === "yes" && slot("payment_method"))) {
           const method = slot("payment_method") || "card";
@@ -1140,7 +1140,7 @@ export const store: ScenarioDef = {
               "pay",
               "Apologize: tap-to-pay isn't working today. They can insert a card or pay cash.",
               "Sorry, phone payments aren't working today. You can insert a card or pay cash.",
-              { setFlags: { tapDown: true }, note: "Tap-to-pay was down — you needed another way to pay." },
+              { setFlags: { tapDown: true }, note: "Tap-to-pay was down, so you needed another way to pay." },
             );
           return advance(
             "farewell",
@@ -1152,7 +1152,7 @@ export const store: ScenarioDef = {
           );
         }
         if (report.intent === "ask_gift_receipt")
-          return stay("info", "pay", `Say of course, you'll include a gift receipt. The total is ${t} — ask how they'd like to pay.`, `Sure! The total is ${t}. How would you like to pay?`, { setFlags: { giftReceipt: true } });
+          return stay("info", "pay", `Say of course, you'll include a gift receipt. The total is ${t}, ask how they'd like to pay.`, `Sure! The total is ${t}. How would you like to pay?`, { setFlags: { giftReceipt: true } });
         return null;
       },
     },
@@ -1184,7 +1184,7 @@ export const store: ScenarioDef = {
           intent: "Tell Jordan they were really helpful.",
           vocab: [{ term: "You've been really helpful", meaning: "a compliment about their service" }],
           starter: "You've been…",
-          full: "You've been really helpful — thank you!",
+          full: "You've been really helpful, thank you!",
           fullMeaning: "Present perfect (“you've been”) for something that just happened.",
         }, ["helpful", "thank you"], { core: true }),
         card("come_again", "🔜", "Say you'll come back again", {
@@ -1220,11 +1220,11 @@ export const store: ScenarioDef = {
         if (report.intent === "ask_location")
           return complete(
             "farewell",
-            "Point them to the exit — down the escalator and straight ahead through the main doors — then wish them a great day.",
+            "Point them to the exit, down the escalator and straight ahead through the main doors, then wish them a great day.",
             "Down the escalator and straight ahead. Have a great day!",
           );
         if (["thanks", "goodbye", "compliment", "greet", "come_again", "yes", "no"].includes(report.intent))
-          return complete("farewell", "Say a warm, short goodbye (e.g. “You're so welcome — have a great day!”).", "You're welcome — have a great day!");
+          return complete("farewell", "Say a warm, short goodbye (e.g. “You're so welcome, have a great day!”).", "You're welcome, have a great day!");
         return null;
       },
     },

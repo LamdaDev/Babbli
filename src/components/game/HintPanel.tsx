@@ -68,7 +68,7 @@ export function HintPanel() {
                         {v.term}
                       </span>
                       {v.reading && <span className="ml-1 text-xs text-ink-soft">{v.reading}</span>}
-                      <span className="ml-1 text-xs text-ink-soft">— {v.meaning}</span>
+                      <span className="text-xs text-ink-soft">: {v.meaning}</span>
                     </span>
                   ))}
                 </div>

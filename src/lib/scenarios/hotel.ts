@@ -13,11 +13,11 @@ const ISSUE_DIRECTIVES: Record<Issue, { directive: string; meaning: string }> = 
   room_type: {
     directive:
       "Find the reservation, but say it shows a SINGLE room (habitación individual) for two nights. Ask if that's correct.",
-    meaning: "I have it — a single room for two nights. Is that right?",
+    meaning: "I have it: a single room for two nights. Is that right?",
   },
   dates: {
-    directive: "Find the reservation, but say it shows only ONE night — tonight. Ask if that's correct.",
-    meaning: "I have it — one night, just tonight. Is that right?",
+    directive: "Find the reservation, but say it shows only ONE night, tonight. Ask if that's correct.",
+    meaning: "I have it: one night, just tonight. Is that right?",
   },
 };
 
@@ -41,7 +41,7 @@ const showEmail: IntentCard = card("show_email", "📧", "Offer to show the conf
   ],
   starter: "Tengo el correo…",
   full: "Tengo el correo de confirmación, ¿quiere verlo?",
-  fullMeaning: "I have the confirmation email — would you like to see it?",
+  fullMeaning: "I have the confirmation email. Would you like to see it?",
 }, ["correo", "confirmación", "email", "tengo"]);
 
 function issueCards(issue: Issue): IntentCard[] {
@@ -176,15 +176,43 @@ export const hotel: ScenarioDef = {
   },
   greetings: {
     beginner: [
-      { text: "¡Buenas tardes! Bienvenido al Hotel Azahar. ¿En qué puedo ayudarle?", meaning: "Good afternoon! Welcome to Hotel Azahar. How can I help you?" },
+      {
+        text: "¡Buenas tardes! Bienvenido al Hotel Azahar. ¿En qué puedo ayudarle?",
+        meaning: "Good afternoon! Welcome to Hotel Azahar. How can I help you?",
+        forms: {
+          feminine: "¡Buenas tardes! Bienvenida al Hotel Azahar. ¿En qué puedo ayudarle?",
+          neutral: "¡Buenas tardes! Le damos la bienvenida al Hotel Azahar. ¿En qué puedo ayudarle?",
+        },
+      },
       { text: "¡Hola, buenas tardes! ¿En qué puedo ayudarle?", meaning: "Hello, good afternoon! How can I help you?" },
     ],
     intermediate: [
-      { text: "¡Buenas tardes! Bienvenido. ¿Viene a hacer el check-in?", meaning: "Good afternoon! Welcome. Are you here to check in?" },
-      { text: "Hola, buenas tardes, bienvenido al Azahar. Dígame, ¿en qué le puedo ayudar?", meaning: "Hello, good afternoon, welcome to the Azahar. Tell me, how can I help?" },
+      {
+        text: "¡Buenas tardes! Bienvenido. ¿Viene a hacer el check-in?",
+        meaning: "Good afternoon! Welcome. Are you here to check in?",
+        forms: {
+          feminine: "¡Buenas tardes! Bienvenida. ¿Viene a hacer el check-in?",
+          neutral: "¡Buenas tardes! Qué gusto recibirle. ¿Viene a hacer el check-in?",
+        },
+      },
+      {
+        text: "Hola, buenas tardes, bienvenido al Azahar. Dígame, ¿en qué le puedo ayudar?",
+        meaning: "Hello, good afternoon, welcome to the Azahar. Tell me, how can I help?",
+        forms: {
+          feminine: "Hola, buenas tardes, bienvenida al Azahar. Dígame, ¿en qué le puedo ayudar?",
+          neutral: "Hola, buenas tardes, le damos la bienvenida al Azahar. Dígame, ¿en qué le puedo ayudar?",
+        },
+      },
     ],
     immersion: [
-      { text: "¡Buenas! Bienvenido, bienvenido. ¿Qué tal el viaje? ¿Tiene reserva con nosotros?", meaning: "Hi! Welcome! How was the trip? Do you have a reservation with us?" },
+      {
+        text: "¡Buenas! Bienvenido, bienvenido. ¿Qué tal el viaje? ¿Tiene reserva con nosotros?",
+        meaning: "Hi! Welcome! How was the trip? Do you have a reservation with us?",
+        forms: {
+          feminine: "¡Buenas! Bienvenida, bienvenida. ¿Qué tal el viaje? ¿Tiene reserva con nosotros?",
+          neutral: "¡Buenas! Qué gusto recibirle. ¿Qué tal el viaje? ¿Tiene reserva con nosotros?",
+        },
+      },
       { text: "Buenas tardes, ¿qué tal? Dígame, ¿en qué le puedo ayudar?", meaning: "Good afternoon, how are you? Tell me, how can I help you?" },
     ],
   },
@@ -230,6 +258,7 @@ export const hotel: ScenarioDef = {
   },
   timeSkipText: "",
   successTitle: "¡Bienvenido a Sevilla!",
+  successTitleForms: { feminine: "¡Bienvenida a Sevilla!", neutral: "¡Que disfrute de Sevilla!" },
   stages: [
     {
       id: "greeting",
@@ -307,7 +336,7 @@ export const hotel: ScenarioDef = {
           if (issue === "not_found" && report.intent === "give_confirmation")
             return advance(
               "details",
-              "Type the number in, then smile: found it — the surname was misspelled in the system. Confirm: double room, two nights, breakfast included. Then ask for their passport (¿Me permite su pasaporte?).",
+              "Type the number in, then smile: found it, the surname was misspelled in the system. Confirm: double room, two nights, breakfast included. Then ask for their passport (¿Me permite su pasaporte?).",
               "Found it! Your name was misspelled. Double room, two nights, breakfast included. May I have your passport?",
               { events: ["issue_found", "issue_resolved"], setSlots: { guest: slot("guest_name") || "given", resolved: "yes" } },
             );
@@ -333,8 +362,8 @@ export const hotel: ScenarioDef = {
           if (["give_confirmation", "spell_name", "show_email", "give_name"].includes(report.intent))
             return advance(
               "details",
-              "Found it now! Apologize — the surname was misspelled in the system (disculpe las molestias). Confirm: double room, two nights, breakfast included. Then ask for their passport.",
-              "Found it — sorry, your name was misspelled. Double room, two nights, breakfast included. May I have your passport?",
+              "Found it now! Apologize, the surname was misspelled in the system (disculpe las molestias). Confirm: double room, two nights, breakfast included. Then ask for their passport.",
+              "Found it! Sorry, your name was misspelled. Double room, two nights, breakfast included. May I have your passport?",
               { events: ["issue_resolved"], setSlots: { resolved: "yes" }, note: "You helped the receptionist find a 'missing' reservation." },
             );
           return null;
@@ -343,17 +372,17 @@ export const hotel: ScenarioDef = {
           return advance(
             "resolution",
             issue === "room_type"
-              ? "Check again and apologize — it's the hotel's mistake. Offer a solution: a double room with a balcony (con balcón) at no extra charge. Ask if that's OK."
-              : "Check again and apologize — it's the hotel's mistake. Say you've extended it to two nights at the same price. Ask if everything is OK now.",
+              ? "Check again and apologize, it's the hotel's mistake. Offer a solution: a double room with a balcony (con balcón) at no extra charge. Ask if that's OK."
+              : "Check again and apologize, it's the hotel's mistake. Say you've extended it to two nights at the same price. Ask if everything is OK now.",
             issue === "room_type"
-              ? "You're right, our mistake — sorry! I can give you a double room with a balcony, no extra charge. Is that OK?"
-              : "You're right, our mistake — sorry! I've extended it to two nights, same price. Is everything OK now?",
+              ? "You're right, our mistake, sorry! I can give you a double room with a balcony, no extra charge. Is that OK?"
+              : "You're right, our mistake, sorry! I've extended it to two nights, same price. Is everything OK now?",
             { note: "You explained the problem clearly and got it fixed." },
           );
         if (report.intent === "ask_price")
-          return stay("info", "issue", "Say normally a double costs 30 euros more per night, but first you'd like to check what they booked. Ask what their booking says.", "Normally it's 30 euros more per night — but what does your booking say?");
+          return stay("info", "issue", "Say normally a double costs 30 euros more per night, but first you'd like to check what they booked. Ask what their booking says.", "Normally it's 30 euros more per night, but what does your booking say?");
         if (report.intent === "ask_availability")
-          return stay("info", "issue", "Say yes, there is availability, but ask what exactly they booked.", "Yes, there's availability — but what exactly did you book?");
+          return stay("info", "issue", "Say yes, there is availability, but ask what exactly they booked.", "Yes, there's availability, but what exactly did you book?");
         return null;
       },
     },
@@ -362,7 +391,7 @@ export const hotel: ScenarioDef = {
       group: "Problem",
       npcGoal: "Offer the fix for the reservation problem and ask if it's OK.",
       meaning: "Is that solution OK for you?",
-      situation: "Lucía offered a fix. Accept it — or ask a question first.",
+      situation: "Lucía offered a fix. Accept it, or ask a question first.",
       cards: () => [
         card("accept", "✅", "Accept the solution", {
           intent: "Say that's perfect and thank her.",
@@ -451,7 +480,7 @@ export const hotel: ScenarioDef = {
           return advance(
             "key",
             `Thank them, hand the passport back with the key card: room ${variant.room}, floor ${String(variant.room)[0]}. Mention breakfast is 7:00–10:30 in the patio. Wish them a pleasant stay.`,
-            `Thank you. Here's your key — room ${variant.room}. Breakfast is 7 to 10:30. Enjoy your stay!`,
+            `Thank you. Here's your key, room ${variant.room}. Breakfast is 7 to 10:30. Enjoy your stay!`,
             { events: ["passport_given", "key_handed"], objectiveComplete: true, setSlots: { passport: "yes" } },
           );
         if (report.intent === "ask_why")
@@ -496,7 +525,7 @@ export const hotel: ScenarioDef = {
         if (report.intent === "ask_elevator")
           return stay("info", "key", "Say the elevator is to the right, past the plants.", "The elevator is to the right, past the plants.");
         if (report.intent === "ask_wifi")
-          return stay("info", "key", "Say the Wi-Fi password is « azahar2024 » — it's also on the key card holder.", "The password is azahar2024 — it's on your key card holder too.");
+          return stay("info", "key", "Say the Wi-Fi password is « azahar2024 », it's also on the key card holder.", "The password is azahar2024. It's on your key card holder too.");
         return null;
       },
     },

@@ -239,6 +239,17 @@ export function cleanTranscript(text: string) {
     .trim();
 }
 
+/** Babbli's copy has no em dashes; AI-written text shows them as the pause they stand for (a comma). */
+export function withoutEmDashes(text: string) {
+  return text
+    .replace(/([.!?…])\s*—+\s*/g, "$1 ")
+    .replace(/([。！？])\s*—+\s*/g, "$1")
+    .replace(/(^|[^\s—])\s*—+\s*/g, (_, prev: string) => (prev ? prev + (/[぀-ヿ一-鿿＀-￯]/.test(prev) ? "、" : ", ") : ""))
+    .replace(/,\s*([,.!?;:…。！？、])/g, "$1")
+    .replace(/[,、]\s*$/, "")
+    .trim();
+}
+
 export function stripAudioTags(text: string) {
   return text.replace(/\[[^\]]{1,30}\]\s*/g, "").trim();
 }

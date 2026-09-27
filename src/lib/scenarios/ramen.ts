@@ -66,9 +66,9 @@ function toConfirm(state: ScenarioState, variant: Variant, slots: Record<string,
   return advance(
     "confirm",
     wrong
-      ? `${ack} Then read the order back to confirm — but you MISHEARD the dish: say "${heard.ja}" (NOT what they ordered). Ask "is that right?" naturally. Do not hint that it might be wrong.`
-      : `${ack} Then read the whole order back — ${heard.ja} — and ask if that's correct.`,
-    `So that's ${heard.en} — is that right?`,
+      ? `${ack} Then read the order back to confirm, but you MISHEARD the dish: say "${heard.ja}" (NOT what they ordered). Ask "is that right?" naturally. Do not hint that it might be wrong.`
+      : `${ack} Then read the whole order back, ${heard.ja}, and ask if that's correct.`,
+    `So that's ${heard.en}, is that right?`,
     {
       setSlots: { ...slots, heard_dish: wrong ?? merged.dish },
       setFlags: { misheard: !!wrong, misheardOnce: state.flags.misheardOnce || !!wrong },
@@ -208,7 +208,7 @@ export const ramen: ScenarioDef = {
     [
       "MENU (prices in yen): " +
         Object.entries(DISHES)
-          .map(([k, d]) => `${d.ja} ${d.price}円${k === v.soldOut ? " — SOLD OUT today (本日売り切れ)" : ""}`)
+          .map(([k, d]) => `${d.ja} ${d.price}円${k === v.soldOut ? ", SOLD OUT today (本日売り切れ)" : ""}`)
           .join(" / "),
       "Sides: 餃子セット +300円 (5 gyoza), ライス 150円, 味玉 150円. Drinks: 生ビール 600円, ウーロン茶 250円, water is free.",
       `Today's recommendation: ${dishJa(String(v.special))}.`,
@@ -256,7 +256,7 @@ export const ramen: ScenarioDef = {
       situation: "Hiroshi welcomed you and is asking how many people are in your group.",
       cards: () => [
         card("party_size", "☝️", "Tell him it's just you", {
-          intent: "Tell Hiroshi how many people are in your group — just you.",
+          intent: "Tell Hiroshi how many people are in your group: just you.",
           vocab: [
             { term: "一人", reading: "hitori", meaning: "one person" },
             { term: "です", reading: "desu", meaning: "is / am (polite)" },
@@ -295,14 +295,14 @@ export const ramen: ScenarioDef = {
           return advance(
             "order",
             "Say 'this way, please' (こちらへどうぞ), seat them at the counter, put a menu in front of them, and ask what they'd like to order.",
-            "Right this way — here's the menu. What would you like to order?",
+            "Right this way, here's the menu. What would you like to order?",
             { setSlots: { party: "1" } },
           );
         if (report.intent === "ask_seat")
           return advance(
             "order",
             "Say yes, the counter is free, invite them to sit, and ask what they'd like to order.",
-            "Sure, the counter's free — have a seat. What would you like?",
+            "Sure, the counter's free, have a seat. What would you like?",
           );
         return null;
       },
@@ -385,13 +385,13 @@ export const ramen: ScenarioDef = {
               {
                 setFlags: { soldOutHit: true },
                 setSlots: extras,
-                note: "That dish was sold out (the 売切 tag on the menu) — you handled an unavailable item.",
+                note: "That dish was sold out (the 売切 tag on the menu), and you handled an unavailable item.",
               },
             );
           return advance(
             "preference",
             `Acknowledge the order of ${dishJa(dish)} briefly (e.g. "${dishJa(dish)}ですね"), then ask how firm they'd like the noodles: regular (普通), firm (かため), or soft (やわらかめ).`,
-            `One ${dishEn(dish)}, got it. How would you like your noodles — regular, firm, or soft?`,
+            `One ${dishEn(dish)}, got it. How would you like your noodles: regular, firm, or soft?`,
             { setSlots: { dish, ...extras } },
           );
         }
@@ -400,15 +400,15 @@ export const ramen: ScenarioDef = {
             "info",
             "order",
             `Recommend today's special, ${dishJa(String(variant.special))}, in one enthusiastic sentence (say why it's good), then ask what they'd like.`,
-            `I recommend the ${dishEn(String(variant.special))} — it's really good today! What would you like?`,
+            `I recommend the ${dishEn(String(variant.special))}, it's really good today! What would you like?`,
             { setFlags: { recommended: true } },
           );
         if (report.intent === "ask_time")
           return stay(
             "info",
             "order",
-            'Say warmly "of course, take your time" (はい、ごゆっくりどうぞ) — one short phrase only — then wait silently.',
-            "Of course — take your time.",
+            'Say warmly "of course, take your time" (はい、ごゆっくりどうぞ), one short phrase only, then wait silently.',
+            "Of course, take your time.",
             { setFlags: { askedTime: true } },
           );
         if (report.intent === "ask_price")
@@ -429,7 +429,7 @@ export const ramen: ScenarioDef = {
       id: "preference",
       group: "Noodles",
       npcGoal: "Ask how firm they want their noodles: regular (普通), firm (かため) or soft (やわらかめ).",
-      meaning: "How would you like your noodles — regular, firm, or soft?",
+      meaning: "How would you like your noodles: regular, firm, or soft?",
       situation: "Hiroshi is asking how firm you want your noodles: firm, regular, or soft.",
       cards: () => [
         card("set_firmness", "💪", "Ask for firm noodles", {
@@ -537,13 +537,13 @@ export const ramen: ScenarioDef = {
       id: "confirm",
       group: "Confirm",
       npcGoal: "Read the order back and ask the customer to confirm it.",
-      meaning: "Let me confirm your order — is that right?",
+      meaning: "Let me confirm your order. Is that right?",
       situation: "Hiroshi is reading your order back. Listen carefully: is it what you ordered?",
       cards: ({ state }) => {
         const dish = (state.slots.dish || "shoyu") as Dish;
         return [
           card("confirm", "✅", "Confirm the order", {
-            intent: "Tell him yes, that's correct — but only if it really IS what you ordered!",
+            intent: "Tell him yes, that's correct, but only if it really IS what you ordered!",
             vocab: [
               { term: "はい", reading: "hai", meaning: "yes" },
               { term: "そうです", reading: "sō desu", meaning: "that's right" },
@@ -594,7 +594,7 @@ export const ramen: ScenarioDef = {
                 events: [...placed],
                 setSlots: { served: wrong },
                 setFlags: { wrongOrder: true, misheard: false },
-                note: `Hiroshi read back ${dishJa(wrong)} (${dishEn(wrong)}) — not what you ordered! Listen closely when an order is repeated back.`,
+                note: `Hiroshi read back ${dishJa(wrong)} (${dishEn(wrong)}), not what you ordered! Listen closely when an order is repeated back.`,
               },
             );
           }
@@ -613,12 +613,12 @@ export const ramen: ScenarioDef = {
             return advance(
               "payment",
               `Apologize for mishearing (失礼しました！), correct it to ${dishJa(wanted)}, and say it'll be ready soon.`,
-              `Oh, my apologies — ${dishEn(wanted)}. Coming right up!`,
+              `Oh, my apologies, ${dishEn(wanted)}. Coming right up!`,
               {
                 events: [...placed],
                 setSlots: { dish: wanted, served: wanted },
                 setFlags: { corrected: true, misheard: false },
-                note: "You caught the waiter's mistake and corrected it — great listening!",
+                note: "You caught the waiter's mistake and corrected it. Great listening!",
               },
             );
           if (wanted !== state.slots.dish)
@@ -629,7 +629,7 @@ export const ramen: ScenarioDef = {
               `Ah, ${dishEn(wanted)} then. Is that right?`,
               { setSlots: { dish: wanted, heard_dish: wanted } },
             );
-          return stay("info", "confirm", "Politely say that's what you have, read the order back once more, and ask if it's OK.", "That's what I have — is that OK?");
+          return stay("info", "confirm", "Politely say that's what you have, read the order back once more, and ask if it's OK.", "That's what I have, is that OK?");
         }
         if (report.intent === "order_drink" || report.intent === "order_side") {
           const extra: Record<string, string> = {};
@@ -640,8 +640,8 @@ export const ramen: ScenarioDef = {
           return stay(
             "info",
             "confirm",
-            `Add it, then read the full order back again — ${summary.ja} — and ask to confirm.`,
-            `Sure. So that's ${summary.en} — right?`,
+            `Add it, then read the full order back again, ${summary.ja}, and ask to confirm.`,
+            `Sure. So that's ${summary.en}, right?`,
             { setSlots: extra },
           );
         }
@@ -651,7 +651,7 @@ export const ramen: ScenarioDef = {
     {
       id: "payment",
       group: "Payment",
-      learnerOpens: "You've finished eating. Walk up to the register — you speak first.",
+      learnerOpens: "You've finished eating. Walk up to the register: you speak first.",
       npcGoal: "Stand at the register ready to take payment; when asked, tell the customer the total.",
       meaning: "",
       situation: "You've finished your ramen. Get Hiroshi's attention and ask to pay.",
@@ -712,7 +712,7 @@ export const ramen: ScenarioDef = {
               ),
               kind: "branch",
               reaction: "neutral",
-              note: "Many small ramen shops are cash only — you found out by asking.",
+              note: "Many small ramen shops are cash only, and you found out by asking.",
             };
           return advance("pay", `Say yes, cards are fine, and tell them the total: ${t}円.`, `Yes, cards are fine. That'll be ${t} yen.`, { events: ["bill_shown"] });
         }

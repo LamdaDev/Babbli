@@ -43,7 +43,7 @@ npm run setup                     # designs voices, creates agents + tools, gene
 npm run dev                       # http://localhost:3000
 ```
 
-`npm run setup` is optional: everything is also provisioned lazily the first time it's needed. It's much faster to do it up front before a demo. The **ElevenLabs Studio** page (`/studio`) shows every provisioned resource with previews, links to the agents in the ElevenLabs dashboard, and buttons to (re)generate them.
+`npm run setup` is optional: everything is also provisioned lazily the first time it's needed. It's much faster to do it up front before a demo.
 
 Other scripts: `npm run simulate` (plays all scenarios × difficulties × 60 seeds through the state machine offline), `npm run typecheck`, `npm run lint`, `npm run build`.
 
@@ -72,8 +72,7 @@ Browser (Next.js, React, Tailwind, Framer Motion)
 Server (Next.js route handlers)
  ├─ /api/agent/session   provision agent/tool/voice once → signed URL
  ├─ /api/tts, /api/stt, /api/assets/[id]   ElevenLabs TTS / Scribe / SFX + Music (disk-cached)
- ├─ /api/sessions/...    session JSON, per-turn recordings, post-call analysis
- └─ /api/studio          provisioning status + actions
+ └─ /api/sessions/...    session JSON, per-turn recordings, post-call analysis
 Storage: .babbli/ (registry of ElevenLabs resources, generated audio, sessions + recordings)
 ```
 
@@ -106,7 +105,7 @@ Scenes are data. Copy `src/lib/scenarios/cafe.ts`, then define stages (each with
 
 ## Configuration
 
-See `.env.example`. The defaults are `claude-haiku-4-5` for the NPC LLM inside ElevenAgents (low latency matters in voice), ElevenLabs' default model for post-call analysis (only some LLMs are allowed there), `eleven_v3_conversational` for agent voices, `eleven_v3` (with the language pinned) for replays, hint audio and native references, and `scribe_v2` for STT. If ElevenLabs rejects part of the agent config for your account, provisioning adjusts only the rejected field (for example switching to `eleven_flash_v2_5`), and the Studio page shows what was adjusted.
+See `.env.example`. The defaults are `claude-haiku-4-5` for the NPC LLM inside ElevenAgents (low latency matters in voice), ElevenLabs' default model for post-call analysis (only some LLMs are allowed there), `eleven_v3_conversational` for agent voices, `eleven_v3` (with the language pinned) for replays, hint audio and native references, and `scribe_v2` for STT. If ElevenLabs rejects part of the agent config for your account, provisioning adjusts only the rejected field (for example switching to `eleven_flash_v2_5`), and logs what was adjusted in the server console.
 
 ## Notes and limitations
 

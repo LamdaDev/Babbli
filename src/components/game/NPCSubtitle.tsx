@@ -2,6 +2,8 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Avatar } from "@/components/profile/Avatar";
+import { useProfile } from "@/lib/client/profileStore";
 import { useController, useGame } from "./GameContext";
 import type { Subtitle } from "./store";
 
@@ -40,13 +42,25 @@ function isLong(text: string, lang: string) {
   return text.split(/\s+/).filter(Boolean).length > 35;
 }
 
-function CaptionLabel({ children, color }: { children: React.ReactNode; color: string }) {
+function CaptionLabel({ children, color, avatar }: { children: React.ReactNode; color: string; avatar?: React.ReactNode }) {
   return (
     <div className="mb-1.5">
-      <span className={`inline-block rounded-full bg-black/60 px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-[0.2em] ${color}`}>
+      <span className={`inline-flex items-center gap-1.5 rounded-full bg-black/60 py-0.5 pr-2.5 text-[11px] font-extrabold uppercase tracking-[0.2em] ${avatar ? "pl-0.5" : "pl-2.5"} ${color}`}>
+        {avatar}
         {children}
       </span>
     </div>
+  );
+}
+
+/** The learner's caption label: their avatar and nickname from the Traveler Profile. */
+function YouLabel() {
+  const profile = useProfile();
+  const name = profile.nickname.trim();
+  return (
+    <CaptionLabel color="text-[#5fe0c6]" avatar={<Avatar look={profile.avatar} size={20} label="" />}>
+      {name ? `${name} (you)` : "You"}
+    </CaptionLabel>
   );
 }
 
@@ -101,7 +115,7 @@ function UserCaption({ text, final, lang, speaking }: { text: string; final: boo
             </motion.div>
           )}
         </AnimatePresence>
-        <CaptionLabel color="text-[#5fe0c6]">You</CaptionLabel>
+        <YouLabel />
         <p ref={textRef} lang={lang} className="leading-[1.55]" style={{ fontSize: MAX_FONT }}>
           <span className={`${CAPTION_BASE} transition-colors duration-500 ${long ? "bg-[#7a4512]/80" : "bg-black/65"} ${final ? "" : "text-white/90"}`}>
             {text ? (

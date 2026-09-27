@@ -14,12 +14,15 @@ import {
   resolveTurn,
   seededRandom,
 } from "@/lib/engine/engine";
-import { cleanTranscript, stripAudioTags } from "@/lib/evaluation/text";
+import { cleanTranscript, stripAudioTags, withoutEmDashes } from "@/lib/evaluation/text";
 import { api, assetUrl, type TtsResult } from "@/lib/client/api";
 import { audioEngine } from "@/lib/client/audioEngine";
+import { getProfile, recordScene } from "@/lib/client/profileStore";
 import { LiveCaptions } from "@/lib/client/liveCaptions";
 import { MicRecorder, type Recording } from "@/lib/client/recorder";
-import type { Difficulty, InputMode, IntentCard, ResponseMode, ScenarioDef, SceneEventId, TurnReport } from "@/lib/scenarios/types";
+import type { BadgeId } from "@/lib/profile/badges";
+import { addressForm, coachVoiceKey, learnerPromptNote } from "@/lib/profile/profile";
+import { inAddressForm, type Difficulty, type InputMode, type IntentCard, type ResponseMode, type ScenarioDef, type SceneEventId, type TurnReport } from "@/lib/scenarios/types";
 import type { LearnerTurn, NpcLine, SessionRecord } from "@/lib/session/types";
 import { createGameStore, type GameStore, type GameUI, type Phase, type Subtitle } from "./store";
 
@@ -323,14 +326,22 @@ export class GameController {
 
     const rand = seededRandom(this.session.seed + 7);
     const greeting = pick(this.scenario.greetings[this.difficulty], rand);
+    // The Traveler Profile: greet the learner in their address form, and tell the NPC their pronouns.
+    const profile = getProfile();
+    const firstMessage = inAddressForm(greeting.text, greeting.forms, addressForm(profile));
     this.pendingMeaning = greeting.meaning;
-    const prompt = buildNpcPrompt({ scenario: this.scenario, difficulty: this.difficulty, variant: this.session.variant });
+    const prompt = buildNpcPrompt({
+      scenario: this.scenario,
+      difficulty: this.difficulty,
+      variant: this.session.variant,
+      learner: learnerPromptNote(profile, this.scenario.language),
+    });
 
     const options: HookOptions = {
       signedUrl: agent.signedUrl,
       connectionType: "websocket",
       overrides: {
-        agent: { prompt: { prompt }, firstMessage: greeting.text, language: this.scenario.language },
+        agent: { prompt: { prompt }, firstMessage, language: this.scenario.language },
         // Text Mode: the same agent, tool and engine over a text-only conversation (no mic, no audio
         // stream) — the NPC's lines are voiced locally with ElevenLabs TTS (see voiceNpcLine).
         ...(this.textMode
@@ -386,7 +397,8 @@ export class GameController {
   /* agent events                                                        */
   /* ------------------------------------------------------------------ */
 
-  private handleAgentLine(raw: string) {
+  private handleAgentLine(message: string) {
+    const raw = withoutEmDashes(message);
     const text = stripAudioTags(raw);
     if (!text) return;
     const stage = getStage(this.scenario, this.session.state.stageId);
@@ -637,7 +649,7 @@ export class GameController {
       flags: { ...state.flags },
       progress: progressGroups(this.scenario, state),
     });
-    if (outcome.kind === "clarify") this.toast("They didn't quite get that — try again.", "warn");
+    if (outcome.kind === "clarify") this.toast("They didn't quite get that. Try again.", "warn");
     this.startWatchdog(15000, () => this.recoverFromSilence());
     this.scheduleSave(200);
     return formatDirective(this.scenario, outcome, state, this.difficulty);
@@ -666,7 +678,7 @@ export class GameController {
   private recoverFromSilence() {
     if (this.ui.phase !== "processing") return;
     this.awaitingTool = null;
-    this.toast(`${this.scenario.npc.name} didn't respond — try saying it again.`, "warn");
+    this.toast(`${this.scenario.npc.name} didn't respond. Try saying it again.`, "warn");
     this.set({ userCaption: null });
     if (this.activeTurn && !this.activeTurn.outcome) this.cancelTurn(false);
     this.refreshStageUI();
@@ -832,7 +844,7 @@ export class GameController {
       if (!stt.transcript.trim() || stt.words.length === 0) {
         this.cancelTurn();
         this.set({ busyLabel: null, userCaption: null });
-        this.toast("I didn't catch anything — try again, a little closer to the mic.", "warn");
+        this.toast("I didn't catch anything. Try again, a little closer to the mic.", "warn");
         this.setPhase("choose");
         return;
       }
@@ -964,7 +976,8 @@ export class GameController {
     if (!card || this.ui.npcSpeaking || this.ui.hintBusy) return;
     this.set({ hintBusy: true });
     try {
-      const tts = await api.tts(card.hints.full, `coach_${this.scenario.language}`, this.difficulty === "beginner" ? 0.9 : 1);
+      const coach = coachVoiceKey(this.scenario.language, getProfile().coachVoice);
+      const tts = await api.tts(card.hints.full, coach, this.difficulty === "beginner" ? 0.9 : 1);
       const wasMuted = this.ui.micMuted;
       this.set({ voiceOwner: "coach", micMuted: true });
       this.audio.duck(true);
@@ -1067,11 +1080,27 @@ export class GameController {
     this.set({ npcSpeaking: false, recording: false, micMuted: true, busyLabel: "Saving your session…" });
     if (status === "completed") void this.audio.playSfx(assetUrl("ui-complete"), 0.6);
     this.session.status = status;
+    // Passport pins (cosmetic, this device only) — never part of the session or its scores.
+    let badges: BadgeId[] = [];
+    try {
+      badges = recordScene({
+        sessionId: this.session.id,
+        scenarioId: this.scenario.id,
+        language: this.scenario.language,
+        difficulty: this.difficulty,
+        responseMode: this.responseMode,
+        completed: this.session.state.objectiveComplete,
+        hints: this.session.assistance.hints.length,
+        at: Date.now(),
+      });
+    } catch (e) {
+      console.warn("[babbli] passport not updated", e);
+    }
     this.session.endedAt = Date.now();
     this.log("session_end", { status });
     await Promise.race([Promise.allSettled(this.background), sleep(9000)]);
     await this.saveNow();
-    this.set({ busyLabel: null, completion: { objectiveComplete: this.session.state.objectiveComplete } });
+    this.set({ busyLabel: null, completion: { objectiveComplete: this.session.state.objectiveComplete, badges } });
     this.setPhase("done");
   }
 

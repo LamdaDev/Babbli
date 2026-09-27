@@ -1,9 +1,14 @@
 "use client";
 
+import { Pin } from "@/components/profile/Pin";
 import { Flag } from "@/components/ui/Flag";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useProfile } from "@/lib/client/profileStore";
+import { badgeDef } from "@/lib/profile/badges";
+import { addressForm } from "@/lib/profile/profile";
+import { inAddressForm } from "@/lib/scenarios/types";
 import { useController, useGame } from "./GameContext";
 
 /**
@@ -112,7 +117,9 @@ export function CompletionOverlay() {
   const completion = useGame((s) => s.completion);
   const busyLabel = useGame((s) => s.busyLabel);
   const sessionId = useGame((s) => s.sessionId);
+  const profile = useProfile();
   const { scenario } = controller;
+  const badges = completion?.badges ?? [];
   return (
     <AnimatePresence>
       {(phase === "ending" || phase === "done") && (
@@ -130,14 +137,32 @@ export function CompletionOverlay() {
               {completion?.objectiveComplete ? (
                 <>
                   <div className="mt-3 font-jp text-3xl font-black" lang={scenario.language}>
-                    {scenario.successTitle}
+                    {inAddressForm(scenario.successTitle, scenario.successTitleForms, addressForm(profile))}
                   </div>
                   <div className="mt-1 font-display text-lg text-teal">Objective complete</div>
                 </>
               ) : (
                 <div className="mt-3 font-display text-2xl">Scene ended</div>
               )}
-              <p className="mt-2 text-sm text-ink-soft">Your recordings, transcripts and hints are saved. See how you did — comprehension, speaking, fluency, vocabulary and independence.</p>
+              {badges.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.35, type: "spring", stiffness: 160, damping: 14 }}
+                  className="mt-4 rounded-2xl bg-gold/15 px-4 py-3 ring-1 ring-gold/40"
+                >
+                  <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[#8a5a00]">New in your passport</div>
+                  <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-2">
+                    {badges.map((id) => (
+                      <div key={id} className="flex items-center gap-2 text-sm font-bold">
+                        <Pin id={id} size={34} />
+                        {badgeDef(id).name}
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+              <p className="mt-2 text-sm text-ink-soft">Your recordings, transcripts and hints are saved. See how you did on comprehension, speaking, fluency, vocabulary and independence.</p>
               <div className="mt-5 flex flex-col gap-2">
                 <Link href={`/session/${sessionId}`} className="rounded-2xl bg-brand px-5 py-3 font-display text-lg text-white transition-colors hover:bg-brand-dark">
                   See your feedback →
@@ -190,8 +215,8 @@ export function ErrorOverlay() {
             Try again
           </button>
           {!action && (
-            <Link href="/studio" className="flex-1 rounded-2xl border-2 border-ink/15 py-2.5 text-center font-bold">
-              Open Studio
+            <Link href="/" className="flex-1 rounded-2xl border-2 border-ink/15 py-2.5 text-center font-bold">
+              Back home
             </Link>
           )}
         </div>

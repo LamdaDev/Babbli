@@ -12,14 +12,12 @@ export const FLUENCY_SOURCE = {
   url: "https://research.lancaster-university.uk/en/publications/exploring-measures-and-perceptions-of-fluency-in-the-speech-of-se/",
   /** The established measure Babbli uses, as that study defines it. */
   speechRate: {
-    formula: "speech rate = total syllables ÷ total length of the speech sample in seconds (pauses included) × 60",
-    finding: "Speech rate was among the best predictors of native and non-native teachers' fluency ratings in the study.",
-    babbliProcess:
-      "Per spoken reply, the sample runs from the first to the last word ElevenLabs Scribe recognised (so pauses inside the reply count, the wait before speaking doesn't). Syllables are estimated from spelling (Japanese: characters), filler words aren't counted as syllables, and the session rate pools all replies: total syllables ÷ total speaking time × 60.",
+    formula: "syllables ÷ speaking time in seconds (pauses included) × 60",
+    finding: "It was among the best predictors of teachers' fluency ratings.",
+    babbliProcess: "Timed from your first to your last recognised word; fillers don't count as syllables.",
   },
   /** What the same study found about the things Babbli counts but doesn't treat as validated. */
-  caveat:
-    "The same study found that the number of filled and unfilled pauses did not influence raters' perceptions of fluency — so filler and pause counts are shown as descriptive feedback, not as a validated fluency measure.",
+  caveat: "The same study found pause counts didn't change fluency ratings.",
 } as const;
 
 /** Babbli-specific choices (not from the source). */

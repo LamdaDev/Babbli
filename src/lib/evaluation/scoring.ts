@@ -196,8 +196,6 @@ interface MetricDef {
   method: (c: EvalContext) => string;
 }
 
-const reply = (c: EvalContext) => (c.speech ? "spoken reply" : "written reply");
-
 const METRICS: Record<MetricId, MetricDef> = {
   comprehension: {
     label: "Comprehension",
@@ -221,7 +219,7 @@ const METRICS: Record<MetricId, MetricDef> = {
       };
     },
     method: (c) =>
-      `Each ${reply(c)} is judged by whether it answered what ${c.npc} asked and moved the scene on: 100% if it did, 75% for a relevant reply that didn't answer the question, 25% if it was understood but missed the detail needed, 0% if ${c.npc} couldn't understand it. Asking for clarification isn't counted against you. The score is the average over your replies.`,
+      `Averaged over your replies: 100% if a reply answered ${c.npc}, 75% if relevant but off the question, 25% if it missed a needed detail, 0% if not understood. Asking for clarification never counts against you.`,
   },
 
   clarity: {
@@ -237,8 +235,7 @@ const METRICS: Record<MetricId, MetricDef> = {
         detail: [],
       };
     },
-    method: () =>
-      "The average ElevenLabs Scribe recognition confidence across your words (filler words excluded), rescaled so 35% confidence scores 0 and 95% scores 100. It shows how easily speech recognition understood you — it is not a phoneme-level pronunciation score.",
+    method: () => "How confidently ElevenLabs Scribe recognised your words (fillers excluded), scaled so 35% confidence is 0 and 95% is 100. Not a pronunciation grade.",
   },
 
   fluency: {
@@ -262,7 +259,7 @@ const METRICS: Record<MetricId, MetricDef> = {
       };
     },
     method: () =>
-      `Speaking rate uses an established second-language fluency measure: syllables ÷ total speaking time, pauses included, × 60 (Kormos & Dénes, 2004). The 0–100 Fluency score itself is a Babbli heuristic, not a standardized test: per spoken reply, your rate compared with a native speaker saying the model phrase (35%), long pauses over ${SPEECH_HEURISTICS.longPauseSeconds} s (35%), how long you took to start (15%) and filler words (15%), averaged over your replies. Timings come from ElevenLabs Scribe; the native rate from ElevenLabs TTS.`,
+      `Per reply: your pace against a native speaker (35%), long pauses over ${SPEECH_HEURISTICS.longPauseSeconds} s (35%), time to start (15%) and fillers (15%). Pace is syllables per minute (Kormos & Dénes, 2004); the score itself is a Babbli heuristic.`,
   },
 
   accuracy: {
@@ -290,7 +287,7 @@ const METRICS: Record<MetricId, MetricDef> = {
       };
     },
     method: (c) =>
-      `50% — replies written in ${c.scenario.languageEnglish} (a reply mixing languages counts half); 50% — replies understood the way you meant them (the ElevenAgents NPC recognised the intention on the card you picked, or your own reply worked in the scene). Grammar and wording corrections from ${c.npc}'s post-call review are listed in the review below; they don't change this number.`,
+      `Half for writing in ${c.scenario.languageEnglish} (mixed replies count half), half for replies understood the way you meant them. Corrections in ${c.npc}'s review don't change it.`,
   },
 
   vocabulary: {
@@ -313,7 +310,7 @@ const METRICS: Record<MetricId, MetricDef> = {
       };
     },
     method: (c) =>
-      `70% — replies that used at least one key word for what you set out to say; 30% — replies in an appropriately polite register, as judged by the ElevenAgents NPC. Key words are matched in ${c.speech ? "the ElevenLabs Scribe transcript of what you said" : "what you wrote"}.`,
+      `70% for replies that used a key word for what you meant, 30% for a polite register. Key words are checked in ${c.speech ? "what Scribe heard" : "what you wrote"}.`,
   },
 
   independence: {
@@ -324,7 +321,7 @@ const METRICS: Record<MetricId, MetricDef> = {
       const totalHints = Object.values(c.hints).reduce((a, b) => a + b, 0);
       return {
         value: c.turns.length ? Math.round(clamp(100 - penalty)) : null,
-        headline: penalty === 0 ? "You didn't use any assistance — fully independent!" : `Assistance cost you ${Math.round(Math.min(100, penalty))} points`,
+        headline: penalty === 0 ? "You didn't use any assistance. Fully independent!" : `Assistance cost you ${Math.round(Math.min(100, penalty))} points`,
         detail: [
           `Hints: ${totalHints} (${plural(c.fullReveals, "full-answer reveal")})`,
           `Translations: ${c.translations} · Repeats: ${c.repeats} · Slow replays: ${c.slows}`,
@@ -334,7 +331,7 @@ const METRICS: Record<MetricId, MetricDef> = {
       };
     },
     method: (c) =>
-      `Starts at 100 and subtracts for help used: hints cost 2 / 4 / 6 / 10 / 12 points by level, each repeat, slow replay or translation costs 3, and each reply outside ${c.scenario.languageEnglish} costs 5${c.speech ? "; in Voice Mode each reply typed instead of spoken costs 6" : ". Typing is how Text Mode works, so it's never counted as help"}.`,
+      `Starts at 100. Hints cost 2 to 12 points by level; each repeat, slow replay or translation costs 3; each reply outside ${c.scenario.languageEnglish} costs 5${c.speech ? "; each typed reply costs 6" : ""}.`,
   },
 
   task: {
@@ -354,8 +351,7 @@ const METRICS: Record<MetricId, MetricDef> = {
         ],
       };
     },
-    method: () =>
-      "70% — how much of the scene you completed (100% once the objective is done, otherwise the share of steps reached); 30% — replies that worked without a misunderstanding, where recovering after a miss earns half of it back.",
+    method: () => "70% for how much of the scene you completed, 30% for replies that worked first time (recovering after a miss earns half back).",
   },
 };
 
@@ -435,7 +431,7 @@ export function buildReport(
   const flags = session.state.flags;
   const unaided = c.turns.filter((t) => t.outcome?.success && t.hints.length === 0 && t.repeats === 0 && t.slows === 0).length;
   if (unaided) handledWell.push(`${plural(unaided, "reply", "replies")} landed with no help at all.`);
-  if (flags.corrected) handledWell.push("You noticed the NPC repeated your order wrong — and corrected it.");
+  if (flags.corrected) handledWell.push("You noticed the NPC repeated your order wrong and corrected it.");
   if (flags.soldOutHit || flags.croissantOut || flags.cardRefused || flags.terminalRefused) handledWell.push("You adapted when something wasn't available.");
   if (session.state.recoveries) handledWell.push(`You recovered ${session.state.recoveries}× after being misunderstood.`);
   if (c.learnerClarify) handledWell.push(`You asked for clarification in ${scenario.languageEnglish} instead of switching languages.`);
@@ -451,11 +447,11 @@ export function buildReport(
     if (clearWords.length) handledWell.push(`Very clearly recognised: ${clearWords.join(" · ")}`);
     if ((value("fluency") ?? 0) >= 75) handledWell.push("Your pace was close to natural conversation speed.");
     const unclear = Array.from(new Set(c.voiced.flatMap((t) => c.metrics[t.id].lowConfidenceWords))).slice(0, 6);
-    if (unclear.length) struggledWith.push(`Hard to recognise: ${unclear.join(" · ")} — practise these with the native reference.`);
+    if (unclear.length) struggledWith.push(`Hard to recognise: ${unclear.join(" · ")}. Practise these with the native reference.`);
     const latency = avg(c.voiced.map((t) => c.metrics[t.id].latency ?? 0));
     if (latency > 3.5) struggledWith.push(`Long pauses before speaking (≈${latency.toFixed(1)}s on average).`);
   }
-  if (c.fullReveals) struggledWith.push(`Needed the full answer ${c.fullReveals}× — try stopping at the sentence-starter hint next time.`);
+  if (c.fullReveals) struggledWith.push(`Needed the full answer ${c.fullReveals}×. Try stopping at the sentence-starter hint next time.`);
   if (c.offLanguage) struggledWith.push(`Switched out of ${scenario.languageEnglish} ${c.offLanguage}×.`);
 
   const missedStages = Array.from(new Set(c.judged.filter((t) => t.outcome!.kind === "clarify").map((t) => t.stageId)));
@@ -464,7 +460,7 @@ export function buildReport(
     const stage = getStage(scenario, stageId);
     if (t?.expected) nextTime.push(`${stage.group}: practise ${c.speech ? "saying" : "writing"} “${t.expected.reference}” (${t.expected.referenceMeaning})`);
   }
-  if (!session.state.objectiveComplete) nextTime.push("Finish the scene next time — the objective wasn't completed.");
+  if (!session.state.objectiveComplete) nextTime.push("The objective wasn't completed. Try to finish the scene next time.");
   if (c.speech && (value("fluency") ?? 100) < 60) nextTime.push("Shadow the native reference: play it, then say it right after, matching the rhythm.");
   if (!c.speech && (value("accuracy") ?? 100) < 60)
     nextTime.push(`Before sending, check your reply is all in ${scenario.languageEnglish} and says what the card asks for.`);

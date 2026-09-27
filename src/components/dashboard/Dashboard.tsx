@@ -1,12 +1,18 @@
 "use client";
 
+import { Avatar } from "@/components/profile/Avatar";
+import { Pin } from "@/components/profile/Pin";
 import { Flag } from "@/components/ui/Flag";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getStage } from "@/lib/engine/engine";
 import { api, turnAudioUrl, type TtsResult } from "@/lib/client/api";
+import { useProfile, useProgress } from "@/lib/client/profileStore";
 import { buildReport } from "@/lib/evaluation/scoring";
 import { referenceTiming, type ReferenceTiming } from "@/lib/evaluation/speech";
+import { withoutEmDashes } from "@/lib/evaluation/text";
+import { badgeDef } from "@/lib/profile/badges";
+import { coachVoiceKey, displayName, pronounsOf } from "@/lib/profile/profile";
 import { getScenario } from "@/lib/scenarios";
 import { DIFFICULTIES, type Difficulty } from "@/lib/scenarios/types";
 import { responseModeOf, type AgentAnalysis, type SessionRecord } from "@/lib/session/types";
@@ -15,6 +21,8 @@ import { PlayButton } from "./PlayButton";
 import { ScoreTile } from "./ScoreTile";
 import { SpeechAnalytics } from "./SpeechAnalytics";
 import { TurnCard } from "./TurnCard";
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const NEXT: Record<Difficulty, Difficulty | null> = { beginner: "intermediate", intermediate: "immersion", immersion: null };
 
@@ -35,6 +43,8 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
   const [analysis, setAnalysis] = useState<AgentAnalysis | null>(null);
   const [sttStatus, setSttStatus] = useState<{ done: number; total: number } | null>(null);
   const refsStarted = useRef(new Set<string>());
+  const profile = useProfile();
+  const progress = useProgress();
 
   useEffect(() => {
     api
@@ -149,6 +159,12 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
     `/play/${scenario.id}?difficulty=${difficulty}&respond=${mode}${text ? "" : `&mode=${session.inputMode}`}`;
   const turns = session.turns.filter((t) => report.metrics[t.id]);
   const reached = getStage(scenario, session.state.stageId).group;
+  // Native playback uses the coach voice chosen in the profile; the scores keep the standard coach's timing.
+  const coach = coachVoiceKey(scenario.language, profile.coachVoice);
+  // Only a session played on this device shows the traveler and the pins it unlocked.
+  const mine = progress.stamps.some((s) => s.sessionId === session.id);
+  const unlocked = progress.unlocked.filter((u) => u.sessionId === session.id);
+  const name = displayName(profile);
   const mins = Math.floor(report.completion.durationSec / 60);
   const secs = report.completion.durationSec % 60;
 
@@ -165,21 +181,31 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
             </span>
           </div>
           <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <div className="text-xs font-black tracking-[0.2em] text-gold">
-                  <Flag code={scenario.language} /> {scenario.locationLabel} · {diff.label.toUpperCase()}
+            <div className="flex items-center gap-4">
+              {mine && (
+                <Link href="/profile" title="Your Traveler Profile" className="hidden shrink-0 rounded-full ring-4 ring-white/10 sm:block">
+                  <Avatar look={profile.avatar} size={84} label={`${name}'s avatar`} />
+                </Link>
+              )}
+              <div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <div className="text-xs font-black tracking-[0.2em] text-gold">
+                    <Flag code={scenario.language} /> {scenario.locationLabel} · {diff.label.toUpperCase()}
+                  </div>
+                  <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-bold text-cream">{text ? "⌨ Text Session" : "🎙 Voice Session"}</span>
                 </div>
-                <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-bold text-cream">{text ? "⌨ Text Session" : "🎙 Voice Session"}</span>
+                <h1 className="mt-1 font-display text-4xl">{scenario.title}</h1>
+                <p className="mt-1 text-cream/70">
+                  {mine ? `${name}'s visit · ` : ""}
+                  {scenario.objective}
+                </p>
               </div>
-              <h1 className="mt-1 font-display text-4xl">{scenario.title}</h1>
-              <p className="mt-1 text-cream/70">{scenario.objective}</p>
             </div>
             <div
               className={`rounded-2xl px-5 py-3 text-lg font-bold ${report.completion.objectiveComplete ? "bg-[#0ca30c] text-white" : "bg-gold text-ink"}`}
               role="status"
             >
-              {report.completion.objectiveComplete ? "✓ Objective complete" : `○ Not completed — reached “${reached}”`}
+              {report.completion.objectiveComplete ? "✓ Objective complete" : `○ Not completed (reached “${reached}”)`}
             </div>
           </div>
           <div className="mt-4 text-sm text-cream/70">
@@ -196,30 +222,77 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
           </div>
         )}
 
+        {mine && unlocked.length > 0 && (
+          <div className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl bg-gold/15 px-5 py-4 ring-1 ring-gold/40">
+            <div className="flex -space-x-2">
+              {unlocked.map((u) => (
+                <Pin key={u.id} id={u.id} size={44} />
+              ))}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="font-display text-lg">
+                New in {name}&apos;s passport: {unlocked.map((u) => badgeDef(u.id).name).join(", ")}
+              </div>
+              <p className="text-sm text-ink-soft">
+                {capitalize(pronounsOf(profile).subject)} can wear {unlocked.length === 1 ? "it" : "them"} on {name === "Traveler" ? "the" : `${name}'s`} avatar. Pins are just for
+                fun: they never change a score.
+              </p>
+            </div>
+            <Link href="/profile" className="rounded-full bg-paper px-4 py-2 text-sm font-bold ring-1 ring-ink/10 transition hover:ring-brand/40">
+              See your pins →
+            </Link>
+          </div>
+        )}
+
         <Section
           title="How you did"
           subtitle={
-            text
-              ? "Five signals measured from your written replies. Understanding the scene is scored separately from how accurately you wrote."
-              : "Five separate signals — understanding what was said is scored separately from how clearly you said it."
+            !report.completion.objectiveComplete
+              ? undefined
+              : text
+                ? "Five signals measured from your written replies. Understanding the scene is scored separately from how accurately you wrote."
+                : "Five separate signals. Understanding what was said is scored separately from how clearly you said it."
           }
         >
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {report.scores.map((s) => (
-              <ScoreTile key={s.id} label={s.label} score={s} method={s.method} />
-            ))}
-          </div>
-          {/* Voice Mode only: the report has no speech stats for text sessions. */}
-          {report.speech && (
-            <div className="mt-4">
-              <SpeechAnalytics stats={report.speech} />
+          {/* Scores only mean something for a finished scene. */}
+          {!report.completion.objectiveComplete ? (
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-paper p-6 shadow-sm ring-1 ring-ink/5" role="status">
+              <div className="flex items-start gap-4">
+                <span className="text-3xl" aria-hidden>
+                  🔒
+                </span>
+                <div>
+                  <div className="font-display text-xl">Session incomplete</div>
+                  <p className="mt-0.5 text-ink-soft">
+                    Full results will appear when you complete the session. You reached “{reached}” (step {report.completion.stagesDone} of{" "}
+                    {report.completion.stagesTotal}).
+                  </p>
+                </div>
+              </div>
+              <Link href={playHref(session.difficulty)} className="rounded-2xl bg-brand px-5 py-3 font-display text-lg text-white transition-colors hover:bg-brand-dark">
+                Try again →
+              </Link>
             </div>
-          )}
-          {report.notApplicable.length > 0 && (
-            <p className="mt-3 rounded-xl bg-ink/5 px-4 py-2.5 text-sm text-ink-soft">
-              <span className="font-bold text-ink">Not measured in Text Mode:</span> {report.notApplicable.map((m) => m.label).join(" · ")} (pace, pauses,
-              filler words, response time). These need a voice recording, so they aren&apos;t scored and don&apos;t count toward anything here.
-            </p>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                {report.scores.map((s) => (
+                  <ScoreTile key={s.id} label={s.label} score={s} method={s.method} />
+                ))}
+              </div>
+              {/* Voice Mode only: the report has no speech stats for text sessions. */}
+              {report.speech && (
+                <div className="mt-4">
+                  <SpeechAnalytics stats={report.speech} />
+                </div>
+              )}
+              {report.notApplicable.length > 0 && (
+                <p className="mt-3 rounded-xl bg-ink/5 px-4 py-2.5 text-sm text-ink-soft">
+                  <span className="font-bold text-ink">Not measured in Text Mode:</span> {report.notApplicable.map((m) => m.label).join(" · ")} (pace, pauses,
+                  filler words, response time). These need a voice recording, so they aren&apos;t scored and don&apos;t count toward anything here.
+                </p>
+              )}
+            </>
           )}
         </Section>
 
@@ -227,19 +300,19 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
           <div className="rounded-2xl bg-paper p-5 shadow-sm ring-1 ring-ink/5">
             <h3 className="font-display text-lg">✓ Handled well</h3>
             <ul className="mt-2 space-y-1.5 text-sm">
-              {report.handledWell.length ? report.handledWell.map((x) => <li key={x}>{x}</li>) : <li className="text-ink-soft">Keep going — every attempt counts.</li>}
+              {report.handledWell.length ? report.handledWell.map((x) => <li key={x}>{withoutEmDashes(x)}</li>) : <li className="text-ink-soft">Keep going. Every attempt counts.</li>}
             </ul>
           </div>
           <div className="rounded-2xl bg-paper p-5 shadow-sm ring-1 ring-ink/5">
             <h3 className="font-display text-lg">! Struggled with</h3>
             <ul className="mt-2 space-y-1.5 text-sm">
-              {report.struggledWith.length ? report.struggledWith.map((x) => <li key={x}>{x}</li>) : <li className="text-ink-soft">Nothing major — nice.</li>}
+              {report.struggledWith.length ? report.struggledWith.map((x) => <li key={x}>{withoutEmDashes(x)}</li>) : <li className="text-ink-soft">Nothing major. Nice work!</li>}
             </ul>
           </div>
           <div className="rounded-2xl bg-paper p-5 shadow-sm ring-1 ring-ink/5">
             <h3 className="font-display text-lg">→ Next time</h3>
             <ul className="mt-2 space-y-1.5 text-sm">
-              {report.nextTime.length ? report.nextTime.map((x) => <li key={x}>{x}</li>) : <li className="text-ink-soft">Try a harder difficulty or another city.</li>}
+              {report.nextTime.length ? report.nextTime.map((x) => <li key={x}>{withoutEmDashes(x)}</li>) : <li className="text-ink-soft">Try a harder difficulty or another city.</li>}
             </ul>
           </div>
         </div>
@@ -274,7 +347,7 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
                     referenceState={!t.expected ? "none" : ref === undefined ? "loading" : ref === null || !ref.timing ? "unavailable" : "ready"}
                     referenceUrl={
                       t.expected
-                        ? async () => ref?.tts.url ?? (await api.tts(t.expected!.reference, `coach_${scenario.language}`, 1)).url
+                        ? async () => (profile.coachVoice === "standard" ? ref?.tts.url : undefined) ?? (await api.tts(t.expected!.reference, coach, 1)).url
                         : undefined
                     }
                   />
@@ -299,43 +372,9 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
                     {v.meaning}
                   </div>
                 </div>
-                <PlayButton label="Hear" getSrc={async () => (await api.tts(v.term.split(" / ")[0], `coach_${scenario.language}`, 0.95)).url} />
+                <PlayButton label="Hear" getSrc={async () => (await api.tts(v.term.split(" / ")[0], coach, 0.95)).url} />
               </div>
             ))}
-          </div>
-        </Section>
-
-        <Section title="Session details">
-          <div className="grid gap-3 text-sm sm:grid-cols-2">
-            <div className="rounded-xl bg-paper p-4 ring-1 ring-ink/5">
-              <div className="font-bold">Assistance used</div>
-              <ul className="mt-1 text-ink-soft">
-                <li>
-                  Hints by level: {Object.entries(report.counts.hints).map(([k, v]) => `L${k}×${v}`).join(" · ")} ({report.counts.fullReveals} full-answer reveals)
-                </li>
-                <li>
-                  Repeats {report.counts.repeats} · Slow replays {report.counts.slows} · Translations {report.counts.translations}
-                  {text ? "" : ` · Typed replies ${report.counts.typed}`}
-                </li>
-                <li>Clarification requests: {report.counts.clarificationRequests}</li>
-              </ul>
-            </div>
-            <div className="rounded-xl bg-paper p-4 ring-1 ring-ink/5">
-              <div className="font-bold">Behind the scenes</div>
-              <ul className="mt-1 break-all text-ink-soft">
-                <li>ElevenLabs conversation: {session.conversationId ?? "—"}</li>
-                <li>Agent: {session.agentId ?? "—"}</li>
-                <li>
-                  Input:{" "}
-                  {text
-                    ? "Text Mode (typed → ElevenAgents text conversation; NPC voiced with ElevenLabs TTS)"
-                    : session.inputMode === "live"
-                      ? "Voice Mode · Live (agent ASR)"
-                      : "Voice Mode · Push-to-talk (Scribe → agent)"}{" "}
-                  · Seed {session.seed}
-                </li>
-              </ul>
-            </div>
           </div>
         </Section>
 

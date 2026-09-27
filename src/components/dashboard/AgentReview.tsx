@@ -1,3 +1,4 @@
+import { withoutEmDashes } from "@/lib/evaluation/text";
 import type { AgentAnalysis } from "@/lib/session/types";
 import { statusFor } from "./ScoreTile";
 
@@ -9,7 +10,7 @@ function items(value: unknown): { a: string; b?: string }[] {
     .filter(Boolean)
     .map((s) => {
       const [a, ...rest] = s.split("=>");
-      return { a: a.trim(), b: rest.join("=>").trim() || undefined };
+      return { a: withoutEmDashes(a), b: withoutEmDashes(rest.join("=>")) || undefined };
     });
 }
 
@@ -46,7 +47,7 @@ export function AgentReview({ analysis, npcName, pending }: { analysis: AgentAna
 
   return (
     <div className="space-y-5">
-      {analysis.summary && <p className="text-[15px] leading-relaxed text-ink">{analysis.summary}</p>}
+      {analysis.summary && <p className="text-[15px] leading-relaxed text-ink">{withoutEmDashes(analysis.summary)}</p>}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {analysis.criteria.map((c) => {
           const numeric = c.score != null && c.maxScore;
@@ -71,7 +72,7 @@ export function AgentReview({ analysis, npcName, pending }: { analysis: AgentAna
                   {ok ? "✓ Yes" : c.result === "failure" ? "✗ No" : "? Unknown"}
                 </div>
               )}
-              <p className="mt-1 text-xs leading-snug text-ink-soft">{c.rationale}</p>
+              <p className="mt-1 text-xs leading-snug text-ink-soft">{c.rationale && withoutEmDashes(c.rationale)}</p>
             </div>
           );
         })}
@@ -117,7 +118,7 @@ export function AgentReview({ analysis, npcName, pending }: { analysis: AgentAna
               {expressions.map((s, i) => (
                 <li key={i}>
                   <span className="font-jp font-bold">{s.a}</span>
-                  {s.b && <span className="text-ink-soft"> — {s.b}</span>}
+                  {s.b && <span className="text-ink-soft">: {s.b}</span>}
                 </li>
               ))}
             </ul>
