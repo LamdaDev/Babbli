@@ -1,6 +1,15 @@
 # Babbli
 
-**Walk in. Figure out what to say.** A HackTheHill III submission.
+**Walk in. Figure out what to say.** Built at [HackTheHill III](https://hackthehill.com/) and won four awards.
+
+## 🏆 Awards at HackTheHill III
+
+- 🥉 **Winner of General Challenge: Third Place**
+- 🎙️ **Best Project Built with ElevenLabs** (Best Use of ElevenLabs)
+- 📚 **Best Educational Project** — MathemaTech: Education for Everyone
+- 🎨 **Best UI/UX**
+
+## What is Babbli?
 
 Babbli is a first-person language-practice simulator. You don't chat with an AI: you walk into a real-feeling place and have to *get something done* by talking to a character who only speaks the local language. Find a gift, order dinner, answer a follow-up question, pay, or fix a broken hotel booking.
 
@@ -94,12 +103,10 @@ src/lib/server/       everything that talks to ElevenLabs
 scripts/              setup (create everything up front) and the scene simulator
 ```
 
-## Adding a scene
-
-Scenes are data. Copy `src/lib/scenarios/cafe.ts`, describe the steps of the conversation, the intention cards and hints, what can go wrong, and the character, then register it in `src/lib/scenarios/index.ts`. Add its voices and sounds to the lists in `src/lib/server/`, and its art in `src/components/art/scenes` (or point it at illustrated images instead). The character and its tool are created from the scene automatically.
-
 ## Good to know
 
 - Scores are feedback, not a certification. "Speaking clarity" measures how easily speech recognition understood you, not a detailed pronunciation grade. Speaking pace follows published research (Kormos & Dénes, 2004); the other speech measures are Babbli's own feedback.
 - Scores only appear for completed scenes.
 - The public version has no login, so anyone with the link uses the same ElevenLabs credits.
+
+**Thank you for reading! We hope you enjoy Babbli!**
