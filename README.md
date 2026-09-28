@@ -1,8 +1,6 @@
 # Babbli
 
-**Walk in. Figure out what to say.** Built at [HackTheHill III](https://hackthehill.com/) and won four awards.
-
-## 🏆 Awards at HackTheHill III
+Built at [HackTheHill III](https://hackthehill.com/) and **won four awards**.
 
 - 🥉 **Winner of General Challenge: Third Place**
 - 🎙️ **Best Project Built with ElevenLabs** (Best Use of ElevenLabs)
@@ -10,6 +8,8 @@
 - 🎨 **Best UI/UX**
 
 ## What is Babbli?
+
+**Walk in. Figure out what to say.** 
 
 Babbli is a first-person language-practice simulator. You don't chat with an AI: you walk into a real-feeling place and have to *get something done* by talking to a character who only speaks the local language. Find a gift, order dinner, answer a follow-up question, pay, or fix a broken hotel booking.
 
@@ -82,26 +82,6 @@ npm run dev                       # open http://localhost:3000
 `npm run setup` is optional because everything is created automatically the first time it's needed. Running it before a demo means nobody has to wait.
 
 Other commands: `npm run simulate` (plays every scene offline to check nothing gets stuck), `npm run typecheck`, `npm run lint`, `npm run build` and `npm start`.
-
-## Where things are saved
-
-- **On the server, in the `.babbli/` folder:** your sessions and recordings, the generated sounds, a cache of generated speech, and a list of the ElevenLabs voices and characters already created, so nothing is generated (or paid for) twice.
-- **In your browser:** your Traveler Profile and pins.
-- **Your API key** stays on the server. The browser only ever receives short-lived access links and finished audio or transcripts.
-
-When deploying (we use Railway), attach a persistent volume and point `BABBLI_DATA_DIR` at it. Otherwise every redeploy wipes saved sessions and the sounds have to be generated again.
-
-## Project layout
-
-```
-src/app/              pages (home, scene, results, profile) and the API routes
-src/components/       the game screen, scene art and characters, results dashboard, profile
-src/lib/scenarios/    the four scenes, written as data
-src/lib/engine/       the scenario engine and the character's instructions
-src/lib/evaluation/   scoring and speech analysis
-src/lib/server/       everything that talks to ElevenLabs
-scripts/              setup (create everything up front) and the scene simulator
-```
 
 ## Good to know
 
