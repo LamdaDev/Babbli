@@ -2,6 +2,7 @@
 
 import { Pin } from "@/components/profile/Pin";
 import { Flag } from "@/components/ui/Flag";
+import { InAppNotice } from "@/components/ui/InAppNotice";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
@@ -41,10 +42,28 @@ export function TapToEnter() {
   );
 }
 
+/** Voice Mode opened inside an app's built-in browser (LinkedIn…): a real browser or Text Mode first. */
+export function InAppGate() {
+  const controller = useController();
+  const inApp = useGame((s) => s.inApp);
+  const phase = useGame((s) => s.phase);
+  return (
+    <AnimatePresence>
+      {inApp && phase === "briefing" && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-center justify-center bg-night/60 p-4 backdrop-blur-sm">
+          <InAppNotice info={inApp} variant="card" textHref={controller.textModeHref} onVoiceAnyway={() => controller.enterAnyway()} />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export function EntryCurtain() {
+  const { scenario } = useController();
   const phase = useGame((s) => s.phase);
   const busyLabel = useGame((s) => s.busyLabel);
   const loadProgress = useGame((s) => s.loadProgress);
+  const micPrompt = useGame((s) => s.micPrompt);
   const connecting = phase === "connecting";
   return (
     <>
@@ -73,7 +92,37 @@ export function EntryCurtain() {
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {connecting && (
+        {connecting && micPrompt && (
+          // Shown as the browser asks for the microphone: why it matters, before anyone clicks Block.
+          <motion.div
+            key="mic"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            role="alertdialog"
+            aria-labelledby="mic-title"
+            aria-describedby="mic-desc"
+            className="absolute left-1/2 top-1/2 z-50 w-[min(26rem,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-3xl bg-paper p-6 text-center text-ink shadow-2xl"
+          >
+            <div className="relative mx-auto grid h-16 w-16 place-items-center">
+              <span className="mic-ring absolute inset-0 rounded-full bg-brand/30" aria-hidden />
+              <span className="relative grid h-16 w-16 place-items-center rounded-full bg-brand text-3xl" aria-hidden>
+                🎙️
+              </span>
+            </div>
+            <h2 id="mic-title" className="mt-4 font-display text-2xl">
+              Please allow your microphone
+            </h2>
+            <p id="mic-desc" className="mt-1 text-sm leading-relaxed text-ink-soft">
+              Your browser is asking now. Allow it so {scenario.npc.name} can hear you and Babbli can give you feedback on your speaking: that&apos;s the
+              best way to enjoy Babbli. It only listens during your turn.
+            </p>
+            <p className="mt-3 text-xs text-ink-soft">Don&apos;t see the question? Look near the address bar.</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {connecting && !micPrompt && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

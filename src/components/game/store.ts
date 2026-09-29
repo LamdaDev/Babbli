@@ -1,6 +1,7 @@
 "use client";
 
 import { createStore } from "zustand/vanilla";
+import type { InAppBrowser } from "@/lib/client/inAppBrowser";
 import type { BadgeId } from "@/lib/profile/badges";
 import type { IntentCard, NpcExpression, ResponseMode, SceneEventId } from "@/lib/scenarios/types";
 
@@ -84,6 +85,10 @@ export interface GameUI {
   sessionId: string;
   /** The page was opened without a prior click, so one tap is needed before audio + mic. */
   needsTap: boolean;
+  /** Voice Mode inside an app's built-in browser (LinkedIn…): offer a real browser or Text Mode before the mic. */
+  inApp: InAppBrowser | null;
+  /** The browser is asking for the microphone: say why it matters. */
+  micPrompt: boolean;
 }
 
 export type GameStore = ReturnType<typeof createGameStore>;

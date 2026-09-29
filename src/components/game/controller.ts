@@ -18,6 +18,7 @@ import { cleanTranscript, stripAudioTags, withoutEmDashes } from "@/lib/evaluati
 import { AgentAudioTape, type ChunkAlignment } from "@/lib/client/agentAudio";
 import { api, ApiError, assetUrl, type TtsResult } from "@/lib/client/api";
 import { audioEngine } from "@/lib/client/audioEngine";
+import { detectInAppBrowser } from "@/lib/client/inAppBrowser";
 import { getProfile, recordScene } from "@/lib/client/profileStore";
 import { LiveCaptions } from "@/lib/client/liveCaptions";
 import { MicRecorder, type Recording } from "@/lib/client/recorder";
@@ -45,6 +46,15 @@ const DEFERRED: SceneEventId[] = ["order_placed", "time_skip", "served"];
 
 const rid = (n = 8) => crypto.randomUUID().replace(/-/g, "").slice(0, n);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** The microphone permission, without asking for it ("unknown" where the browser can't tell). */
+async function micPermission(): Promise<PermissionState | "unknown"> {
+  try {
+    return (await navigator.permissions.query({ name: "microphone" as PermissionName })).state;
+  } catch {
+    return "unknown";
+  }
+}
 const AUDIO_TAG = /\[[^\]]{1,30}\]\s*/g;
 
 /** The raw ElevenAgents events the controller reads (onIncomingEvent). */
@@ -195,6 +205,8 @@ export class GameController {
       endReason: null,
       sessionId: this.session.id,
       needsTap: false,
+      inApp: null,
+      micPrompt: false,
     };
     this.store = createGameStore(initial);
   }
@@ -400,11 +412,25 @@ export class GameController {
 
   /** Start the scene immediately; if the browser has seen no click on this page yet, wait for one tap. */
   autoEnter() {
+    // Voice inside an app's built-in browser (LinkedIn…): the microphone often fails there, so offer
+    // a real browser or Text Mode first. The choice is a click, so no tap is needed after it.
+    const inApp = this.textMode ? null : detectInAppBrowser();
+    if (inApp) {
+      this.set({ inApp });
+      this.log("in_app_browser", { app: inApp.app, os: inApp.os });
+      return;
+    }
     const activation = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
     if (activation && !activation.hasBeenActive) {
       this.set({ needsTap: true });
       return;
     }
+    void this.enter();
+  }
+
+  /** "Try voice here anyway" on the in-app browser notice. */
+  enterAnyway() {
+    this.set({ inApp: null });
     void this.enter();
   }
 
@@ -426,9 +452,17 @@ export class GameController {
     // Text Mode never touches the microphone. Voice Mode needs it — and never falls back to typing.
     if (!this.textMode) {
       this.set({ busyLabel: "Checking your microphone…", loadProgress: 0.25 });
+      // First visit: the browser is about to ask for the microphone. Say why, just before it does.
+      const permission = this.recorder.ready ? "granted" : await micPermission();
+      const asking = permission === "prompt" || permission === "unknown";
+      if (asking) {
+        this.set({ micPrompt: true });
+        await sleep(500);
+      }
       try {
         await this.recorder.init();
       } catch {
+        this.set({ micPrompt: false });
         this.set({ micAvailable: false });
         this.fail("mic", "Voice Mode needs your microphone, and the browser didn't allow it. Allow microphone access and try again, or switch to Text Mode to type your replies.", {
           label: "Switch to Text Mode",
@@ -436,6 +470,7 @@ export class GameController {
         });
         return;
       }
+      this.set({ micPrompt: false });
     }
 
     // The session exists on the server before the NPC speaks: its lines are only voiced (and replies
@@ -529,7 +564,7 @@ export class GameController {
     });
   }
 
-  private get textModeHref() {
+  get textModeHref() {
     return `/play/${this.scenario.id}?difficulty=${this.difficulty}&respond=text`;
   }
 

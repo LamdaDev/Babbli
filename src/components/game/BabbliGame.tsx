@@ -12,7 +12,7 @@ import { ExitConfirmation } from "./ExitConfirmation";
 import { GameContext, useController, useGame } from "./GameContext";
 import { HintPanel } from "./HintPanel";
 import { NPCSubtitle } from "./NPCSubtitle";
-import { CompletionOverlay, EntryCurtain, ErrorOverlay, StillThere, TapToEnter, Toast, TransitionOverlay } from "./Overlays";
+import { CompletionOverlay, EntryCurtain, ErrorOverlay, InAppGate, StillThere, TapToEnter, Toast, TransitionOverlay } from "./Overlays";
 import { ScenarioHUD } from "./ScenarioHUD";
 import { SceneRenderer } from "./SceneRenderer";
 import { SpeakingInterface } from "./SpeakingInterface";
@@ -100,6 +100,7 @@ function GameScreen() {
       <EntryCurtain />
       <TransitionOverlay />
       <TapToEnter />
+      <InAppGate />
       <StillThere />
       <CompletionOverlay />
       <ErrorOverlay />

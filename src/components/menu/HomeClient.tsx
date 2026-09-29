@@ -6,8 +6,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ProfileChip, TravelerStrip } from "@/components/profile/TravelerStrip";
+import { InAppNotice } from "@/components/ui/InAppNotice";
 import { assetUrl } from "@/lib/client/api";
 import { audioEngine } from "@/lib/client/audioEngine";
+import { useInAppBrowser } from "@/lib/client/inAppBrowser";
 import { useProfile, useProgress } from "@/lib/client/profileStore";
 import { LANGUAGES, SCENARIOS, getScenario, scenariosForLanguage } from "@/lib/scenarios";
 import { DIFFICULTIES, type Difficulty, type InputMode, type LanguageCode, type ResponseMode } from "@/lib/scenarios/types";
@@ -88,6 +90,7 @@ export function HomeClient() {
   const defaultMode: InputMode = difficulty === "beginner" ? "ptt" : "live";
   const mode = modeChoice ?? defaultMode;
   const music = useMenuMusic();
+  const inApp = useInAppBrowser();
   // Sessions played in this browser only (the passport keeps them), newest first.
   const progress = useProgress();
   const recent = useMemo(() => progress.stamps.filter((s) => s.replies !== 0).reverse().slice(0, 12), [progress.stamps]);
@@ -121,6 +124,7 @@ export function HomeClient() {
         <p className="mt-4 max-w-2xl text-lg text-ink-soft">
           We simulate the situations you&apos;re actually going to encounter, before you encounter them. Real characters, real voices, a real goal, and no script to memorise.
         </p>
+        {inApp && <InAppNotice info={inApp} variant="banner" onTextMode={() => setRespond("text")} textModeOn={respond === "text"} />}
         <TravelerStrip onGo={pickLanguage} />
 
         <AnimatePresence mode="wait">
