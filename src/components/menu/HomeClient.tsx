@@ -13,6 +13,7 @@ import { useInAppBrowser } from "@/lib/client/inAppBrowser";
 import { useProfile, useProgress } from "@/lib/client/profileStore";
 import { LANGUAGES, SCENARIOS, getScenario, scenariosForLanguage } from "@/lib/scenarios";
 import { DIFFICULTIES, type Difficulty, type InputMode, type LanguageCode, type ResponseMode } from "@/lib/scenarios/types";
+import { Intro, useIntroRevealed } from "./Intro";
 import { Logo } from "./Logo";
 import { ScenePreview } from "./ScenePreview";
 
@@ -91,6 +92,8 @@ export function HomeClient() {
   const mode = modeChoice ?? defaultMode;
   const music = useMenuMusic();
   const inApp = useInAppBrowser();
+  // The page animates in as the intro lifts, rather than behind it.
+  const revealed = useIntroRevealed();
   // Sessions played in this browser only (the passport keeps them), newest first.
   const progress = useProgress();
   const recent = useMemo(() => progress.stamps.filter((s) => s.replies !== 0).reverse().slice(0, 12), [progress.stamps]);
@@ -103,6 +106,7 @@ export function HomeClient() {
 
   return (
     <main className="relative min-h-dvh overflow-hidden bg-page text-ink">
+      <Intro />
       <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-5 pt-6">
         <Logo />
         <div className="flex flex-wrap items-center justify-end gap-2 text-sm">
@@ -116,7 +120,7 @@ export function HomeClient() {
       <section className="relative z-10 mx-auto max-w-6xl px-5 pb-16 pt-10">
         <motion.h1
           initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
+          animate={revealed ? { opacity: 1, y: 0 } : undefined}
           className="font-display text-5xl leading-[1.05] lg:whitespace-nowrap lg:text-[56px]"
         >
           Walk in. <span className="text-brand">Figure out what to say.</span>
@@ -129,7 +133,13 @@ export function HomeClient() {
 
         <AnimatePresence mode="wait">
           {!language || !scenario ? (
-            <motion.div key="lang" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mt-10">
+            <motion.div
+              key="lang"
+              initial={{ opacity: 0, y: 16 }}
+              animate={revealed ? { opacity: 1, y: 0 } : undefined}
+              exit={{ opacity: 0, y: -10 }}
+              className="mt-10"
+            >
               <div className={`mb-4 ${LABEL}`}>Where are you going?</div>
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
                 {LANGUAGES.map((l, i) => {
@@ -139,7 +149,7 @@ export function HomeClient() {
                       key={l.code}
                       onClick={() => pickLanguage(l.code)}
                       initial={{ opacity: 0, y: 30, rotate: (i - 1.5) * 2 }}
-                      animate={{ opacity: 1, y: 0, rotate: (i - 1.5) * 1.5, transition: { delay: 0.1 + i * 0.08 } }}
+                      animate={revealed ? { opacity: 1, y: 0, rotate: (i - 1.5) * 1.5, transition: { delay: 0.1 + i * 0.08 } } : undefined}
                       whileHover={{ y: -8, rotate: 0, scale: 1.02 }}
                       className={`group overflow-hidden rounded-3xl text-left outline-none focus-visible:ring-4 focus-visible:ring-brand/40 ${CARD}`}
                     >

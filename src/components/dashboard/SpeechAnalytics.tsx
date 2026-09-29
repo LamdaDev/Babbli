@@ -79,17 +79,20 @@ function FillerChart({ stats }: { stats: SpeechStats }) {
           {layer}
         </div>
       )}
-      <table className="sr-only">
-        <caption>Filler words by count</caption>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.label}>
-              <th scope="row">{r.label}</th>
-              <td>{r.count}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* A table ignores sr-only's 1px width (and widens the page on phones), so a div hides it. */}
+      <div className="sr-only">
+        <table>
+          <caption>Filler words by count</caption>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.label}>
+                <th scope="row">{r.label}</th>
+                <td>{r.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <p className="mt-3 text-xs leading-snug text-ink-soft">
         Hesitation sounds (um, uh, euh, えっと…) always count. Words that are also ordinary words (like, so, este, あの) count only when they stand
         alone between pauses.
@@ -201,16 +204,18 @@ function FluencyBreakdown({ stats }: { stats: SpeechStats }) {
         {layer}
       </div>
 
-      <table className="sr-only">
-        <caption>Fluency breakdown</caption>
-        <tbody>
-          <tr><th scope="row">Speaking rate ({unit})</th><td>{fmt(stats.speechRate, 0)}{stats.nativeRate !== null ? ` (native model phrases ${fmt(stats.nativeRate, 0)})` : ""}</td></tr>
-          <tr><th scope="row">Pauses per minute</th><td>{fmt(stats.pausesPerMin)}</td></tr>
-          <tr><th scope="row">Average pause (s)</th><td>{fmt(stats.avgPause, 2)}</td></tr>
-          <tr><th scope="row">Longest pause (s)</th><td>{fmt(stats.longestPause, 2)}</td></tr>
-          <tr><th scope="row">Average response time (s)</th><td>{fmt(stats.avgLatency)}</td></tr>
-        </tbody>
-      </table>
+      <div className="sr-only">
+        <table>
+          <caption>Fluency breakdown</caption>
+          <tbody>
+            <tr><th scope="row">Speaking rate ({unit})</th><td>{fmt(stats.speechRate, 0)}{stats.nativeRate !== null ? ` (native model phrases ${fmt(stats.nativeRate, 0)})` : ""}</td></tr>
+            <tr><th scope="row">Pauses per minute</th><td>{fmt(stats.pausesPerMin)}</td></tr>
+            <tr><th scope="row">Average pause (s)</th><td>{fmt(stats.avgPause, 2)}</td></tr>
+            <tr><th scope="row">Longest pause (s)</th><td>{fmt(stats.longestPause, 2)}</td></tr>
+            <tr><th scope="row">Average response time (s)</th><td>{fmt(stats.avgLatency)}</td></tr>
+          </tbody>
+        </table>
+      </div>
 
       <details className="mt-4 text-xs">
         <summary className="cursor-pointer font-bold text-brand">How this is calculated</summary>

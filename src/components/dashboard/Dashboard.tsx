@@ -285,22 +285,25 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
         <FeedbackProgress tasks={tasks} />
 
         {mine && unlocked.length > 0 && (
-          <div className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl bg-gold/15 px-5 py-4 ring-1 ring-gold/40">
-            <div className="flex -space-x-2">
+          // Phones: pins, then the text, then the button, stacked. From sm up: one row.
+          <div className="mt-6 flex flex-col gap-3 rounded-2xl bg-gold/15 p-4 ring-1 ring-gold/40 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
+            <div className="flex shrink-0 -space-x-2">
               {unlocked.map((u) => (
                 <Pin key={u.id} id={u.id} size={44} />
               ))}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="font-display text-lg">
-                New in {name}&apos;s passport: {unlocked.map((u) => badgeDef(u.id).name).join(", ")}
-              </div>
-              <p className="text-sm text-ink-soft">
+              <div className="break-words font-display text-lg leading-snug">New in {name}&apos;s passport</div>
+              <div className="text-sm font-bold">{unlocked.map((u) => badgeDef(u.id).name).join(" · ")}</div>
+              <p className="mt-1 text-sm text-ink-soft">
                 {capitalize(pronounsOf(profile).subject)} can wear {unlocked.length === 1 ? "it" : "them"} on {name === "Traveler" ? "the" : `${name}'s`} avatar. Pins are just for
                 fun: they never change a score.
               </p>
             </div>
-            <Link href="/profile" className="rounded-full bg-paper px-4 py-2 text-sm font-bold ring-1 ring-ink/10 transition hover:ring-brand/40">
+            <Link
+              href="/profile"
+              className="shrink-0 rounded-full bg-paper px-4 py-2.5 text-center text-sm font-bold ring-1 ring-ink/10 transition hover:ring-brand/40 sm:py-2"
+            >
               See your pins →
             </Link>
           </div>
