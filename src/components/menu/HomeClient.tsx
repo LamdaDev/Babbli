@@ -4,14 +4,13 @@ import { Flag } from "@/components/ui/Flag";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ProfileChip, TravelerStrip } from "@/components/profile/TravelerStrip";
-import { api, assetUrl } from "@/lib/client/api";
+import { assetUrl } from "@/lib/client/api";
 import { audioEngine } from "@/lib/client/audioEngine";
-import { useProfile } from "@/lib/client/profileStore";
+import { useProfile, useProgress } from "@/lib/client/profileStore";
 import { LANGUAGES, SCENARIOS, getScenario, scenariosForLanguage } from "@/lib/scenarios";
 import { DIFFICULTIES, type Difficulty, type InputMode, type LanguageCode, type ResponseMode } from "@/lib/scenarios/types";
-import type { SessionSummary } from "@/lib/session/types";
 import { Logo } from "./Logo";
 import { ScenePreview } from "./ScenePreview";
 
@@ -88,15 +87,10 @@ export function HomeClient() {
   const [modeChoice, setModeChoice] = useState<InputMode | null>(null);
   const defaultMode: InputMode = difficulty === "beginner" ? "ptt" : "live";
   const mode = modeChoice ?? defaultMode;
-  const [recent, setRecent] = useState<SessionSummary[]>([]);
   const music = useMenuMusic();
-
-  useEffect(() => {
-    api
-      .sessions()
-      .then((r) => setRecent(r.sessions))
-      .catch(() => undefined);
-  }, []);
+  // Sessions played in this browser only (the passport keeps them), newest first.
+  const progress = useProgress();
+  const recent = useMemo(() => progress.stamps.filter((s) => s.replies !== 0).reverse().slice(0, 12), [progress.stamps]);
 
   const pickLanguage = (code: LanguageCode) => {
     setLanguage(code);
@@ -288,15 +282,16 @@ export function HomeClient() {
               {recent.map((r) => {
                 const s = SCENARIOS.find((x) => x.id === r.scenarioId);
                 return (
-                  <Link key={r.id} href={`/session/${r.id}`} className="min-w-56 rounded-2xl bg-paper p-4 ring-1 ring-ink/10 transition hover:ring-brand/40">
+                  <Link key={r.sessionId} href={`/session/${r.sessionId}`} className="min-w-56 rounded-2xl bg-paper p-4 ring-1 ring-ink/10 transition hover:ring-brand/40">
                     <div className="text-sm font-bold">
                       {s && <Flag code={s.language} />} {s?.title}
                     </div>
                     <div className="text-xs text-ink-soft">
-                      <span className="capitalize">{r.difficulty}</span> · {r.responseMode === "text" ? "Text" : "Voice"} · {new Date(r.startedAt).toLocaleDateString()} · {r.turns} {r.turns === 1 ? "reply" : "replies"}
+                      <span className="capitalize">{r.difficulty}</span> · {r.responseMode === "text" ? "Text" : "Voice"} · {new Date(r.at).toLocaleDateString()}
+                      {r.replies !== undefined && ` · ${r.replies} ${r.replies === 1 ? "reply" : "replies"}`}
                     </div>
-                    <div className={`mt-2 text-xs font-bold ${r.objectiveComplete ? "text-[#0a7a0a]" : "text-ink-soft"}`}>
-                      {r.objectiveComplete ? "✓ Objective complete" : "○ Incomplete"}
+                    <div className={`mt-2 text-xs font-bold ${r.completed ? "text-[#0a7a0a]" : "text-ink-soft"}`}>
+                      {r.completed ? "✓ Objective complete" : "○ Incomplete"}
                     </div>
                   </Link>
                 );

@@ -173,6 +173,20 @@ body {
 }
 .float-card { animation: float-card 6s ease-in-out infinite; }
 
+/* Progress bars with no known end (e.g. waiting for ElevenLabs): a sweep, and a still bar without motion. */
+@keyframes progress-sweep {
+  0% { left: -35%; }
+  100% { left: 100%; }
+}
+.progress-sweep { left: -35%; animation: progress-sweep 1.4s ease-in-out infinite; }
+
+/* Loading placeholders. */
+@keyframes shimmer {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.shimmer { animation: shimmer 1.6s ease-in-out infinite; }
+
 .paper-grain {
   background-image:
     radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.5), transparent 40%),
@@ -184,7 +198,9 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .steam, .sway, .noren, .flicker, .flicker-slow, .walk, .walk-rev, .drive, .drive-rev, .chef, .stir, .wave,
-  .slurp, .drip, .escalator, .lift-left, .lift-right, .npc-blink, .think-dot, .float-q, .sparkle path, .mic-ring, .float-card, .leg-a, .leg-b {
+  .slurp, .drip, .escalator, .lift-left, .lift-right, .npc-blink, .think-dot, .float-q, .sparkle path, .mic-ring, .float-card, .leg-a, .leg-b,
+  .progress-sweep, .shimmer {
     animation: none !important;
   }
+  .progress-sweep { left: 0; width: 60%; }
 }

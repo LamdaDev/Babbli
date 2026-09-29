@@ -20,8 +20,9 @@ export async function PUT(request: Request, ctx: RouteContext<"/api/sessions/[id
   }
   try {
     const existing = await loadSession(id);
-    // Keep analysis fetched server-side if the client's copy doesn't have it yet.
-    await saveSession({ ...record, analysis: record.analysis ?? existing?.analysis });
+    // Keep analysis fetched server-side if the client's copy doesn't have it yet, and when the
+    // session was first seen (server clock: see liveSession).
+    await saveSession({ ...record, analysis: record.analysis ?? existing?.analysis, firstSavedAt: existing?.firstSavedAt ?? Date.now() });
     return Response.json({ ok: true });
   } catch (e) {
     return errorResponse(e);

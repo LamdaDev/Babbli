@@ -53,6 +53,9 @@ export function agentName(scenario: ScenarioDef) {
   return `Babbli · ${scenario.title} (${scenario.languageEnglish})`;
 }
 
+/** Longest an NPC conversation may run (finished scenes take 3 to 7 minutes). */
+export const MAX_CONVERSATION_SECONDS = 900;
+
 const CLIENT_EVENTS = [
   "conversation_initiation_metadata",
   "asr_initiation_metadata",
@@ -130,7 +133,7 @@ function buildAgentBody(scenario: ScenarioDef, o: BodyOptions) {
       },
       asr: { quality: "high", user_input_audio_format: "pcm_16000", keywords: scenario.asrKeywords },
       turn: { turn_timeout: 30, turn_eagerness: "patient", mode: "turn" },
-      conversation: { max_duration_seconds: 1200, client_events: CLIENT_EVENTS },
+      conversation: { max_duration_seconds: MAX_CONVERSATION_SECONDS, client_events: CLIENT_EVENTS },
     },
     platform_settings: platform,
   };

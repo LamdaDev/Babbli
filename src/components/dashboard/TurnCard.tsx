@@ -35,6 +35,7 @@ export function TurnCard({
   reference,
   referenceState,
   referenceUrl,
+  transcribing = false,
 }: {
   mode: ResponseMode;
   turn: LearnerTurn;
@@ -44,6 +45,8 @@ export function TurnCard({
   reference: ReferenceTiming | null | undefined;
   referenceState: "none" | "loading" | "unavailable" | "ready";
   referenceUrl?: () => Promise<string>;
+  /** ElevenLabs Scribe is transcribing this reply right now (results page). */
+  transcribing?: boolean;
 }) {
   const lang = scenario.language;
   const o = turn.outcome ? OUTCOME[turn.outcome.kind] : null;
@@ -132,6 +135,13 @@ export function TurnCard({
           </div>
         </div>
       </div>
+
+      {transcribing && (
+        <div className="shimmer mt-3 flex items-center gap-2 rounded-lg bg-ink/5 px-3 py-2 text-xs font-bold text-ink-soft" role="status">
+          <span className="h-3 w-3 animate-spin rounded-full border-2 border-ink/40 border-t-transparent" aria-hidden />
+          Transcribing with ElevenLabs Scribe: pace, pauses and clarity for this reply are on their way…
+        </div>
+      )}
 
       {/* Speech analytics: Voice Mode only (Text Mode has no audio to measure). */}
       {!text && metrics.hasSpeech && (

@@ -1,5 +1,7 @@
+import { ProgressBar } from "@/components/ui/ProgressBar";
 import { withoutEmDashes } from "@/lib/evaluation/text";
 import type { AgentAnalysis } from "@/lib/session/types";
+import { clock, useElapsed } from "./FeedbackProgress";
 import { statusFor } from "./ScoreTile";
 
 function items(value: unknown): { a: string; b?: string }[] {
@@ -21,23 +23,51 @@ const CRITERIA_NAMES: Record<string, string> = {
   register: "Politeness & register",
 };
 
-/** ElevenAgents post-call analysis: evaluation criteria + data collection, written from the NPC's side. */
-export function AgentReview({ analysis, npcName, pending }: { analysis: AgentAnalysis | null; npcName: string; pending: boolean }) {
-  if (!analysis || analysis.status === "unavailable") {
+/** While ElevenLabs Agents writes the review: what is happening, for how long, and a placeholder of what's coming. */
+function ReviewWaiting({ npcName, wait }: { npcName: string; wait?: { since: number; gaveUp: boolean } | null }) {
+  const elapsed = useElapsed(wait?.since, !!wait);
+  if (wait?.gaveUp) {
     return (
-      <p className="text-sm text-ink-soft">
-        {pending ? "Waiting for ElevenLabs to finish analysing the conversation…" : "No agent analysis for this session."}
+      <p className="text-sm text-ink-soft" role="status">
+        <span className="font-bold text-ink">The review is taking longer than usual.</span> Open this page again in a minute or two to see it.
       </p>
     );
   }
-  if (analysis.status !== "done") {
-    return (
-      <div className="flex items-center gap-2 text-sm text-ink-soft">
-        <span className="h-3 w-3 animate-spin rounded-full border-2 border-ink/40 border-t-transparent" />
-        ElevenLabs Agents is analysing the conversation (status: {analysis.status}). This usually takes under a minute…
+  return (
+    <div role="status" aria-live="polite">
+      <div className="flex items-baseline justify-between gap-3 text-sm">
+        <span className="font-bold">{npcName} is reading back your conversation to write the review…</span>
+        {wait && <span className="text-xs font-bold tabular-nums text-ink-soft">{clock(elapsed)}</span>}
       </div>
-    );
+      <ProgressBar label={`${npcName}'s review`} className="mt-2" />
+      <p className="mt-2 text-xs text-ink-soft">ElevenLabs Agents analyses the real conversation once it has ended. It usually takes under a minute; the rest of your results are already here.</p>
+      <div className="mt-4 space-y-2" aria-hidden>
+        <div className="shimmer h-3 w-11/12 rounded-full bg-ink/10" />
+        <div className="shimmer h-3 w-4/5 rounded-full bg-ink/10" />
+        <div className="shimmer h-3 w-2/3 rounded-full bg-ink/10" />
+      </div>
+    </div>
+  );
+}
+
+/** ElevenAgents post-call analysis: evaluation criteria + data collection, written from the NPC's side. */
+export function AgentReview({
+  analysis,
+  npcName,
+  pending,
+  wait,
+}: {
+  analysis: AgentAnalysis | null;
+  npcName: string;
+  /** The session has a conversation to analyse. */
+  pending: boolean;
+  wait?: { since: number; gaveUp: boolean } | null;
+}) {
+  if (!pending) return <p className="text-sm text-ink-soft">No agent analysis for this session.</p>;
+  if (analysis?.status === "failed") {
+    return <p className="text-sm text-ink-soft">ElevenLabs couldn&apos;t analyse this conversation, so there&apos;s no review this time.</p>;
   }
+  if (!analysis || analysis.status !== "done") return <ReviewWaiting npcName={npcName} wait={wait} />;
   const d = analysis.data;
   const strengths = items(d.strengths?.value);
   const improvements = items(d.improvements?.value);

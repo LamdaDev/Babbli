@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentAnalysis, SessionRecord, SessionSummary, SpeechCapture } from "@/lib/session/types";
+import type { AgentAnalysis, SessionRecord, SpeechCapture } from "@/lib/session/types";
 
 export class ApiError extends Error {
   constructor(
@@ -35,18 +35,28 @@ export interface TtsResult {
 export const api = {
   agentSession: (scenarioId: string) => fetch(`/api/agent/session?scenario=${scenarioId}`).then((r) => json<AgentSession>(r)),
 
-  tts: (text: string, voiceKey: string, speed = 1) =>
+  /** sessionId: needed for an NPC line (voiced only while its scene is being played). */
+  tts: (text: string, voiceKey: string, speed = 1, sessionId?: string) =>
     fetch("/api/tts", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, voiceKey, speed }),
+      body: JSON.stringify({ text, voiceKey, speed, sessionId }),
     }).then((r) => json<TtsResult>(r)),
 
-  stt: (blob: Blob, language: string, keyterms: string[] = []) => {
+  /** A push-to-talk reply, while its scene is being played (transcribed in the scene's language). */
+  stt: (blob: Blob, sessionId: string, keyterms: string[] = []) => {
     const form = new FormData();
     form.set("file", blob, "turn.webm");
-    form.set("language", language);
+    form.set("sessionId", sessionId);
     form.set("keyterms", JSON.stringify(keyterms));
+    return fetch("/api/stt", { method: "POST", body: form }).then((r) => json<SpeechCapture>(r));
+  },
+
+  /** A stored recording that has no Scribe analysis yet (results page). */
+  sttTurn: (sessionId: string, turnId: string) => {
+    const form = new FormData();
+    form.set("sessionId", sessionId);
+    form.set("turnId", turnId);
     return fetch("/api/stt", { method: "POST", body: form }).then((r) => json<SpeechCapture>(r));
   },
 
@@ -68,7 +78,6 @@ export const api = {
     }).then((r) => json<{ ok: true }>(r)),
 
   session: (id: string) => fetch(`/api/sessions/${id}`).then((r) => json<SessionRecord>(r)),
-  sessions: () => fetch(`/api/sessions`).then((r) => json<{ sessions: SessionSummary[] }>(r)),
   analysis: (id: string) => fetch(`/api/sessions/${id}/analysis`).then((r) => json<AgentAnalysis>(r)),
 };
 

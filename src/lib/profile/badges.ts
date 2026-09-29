@@ -41,6 +41,8 @@ export interface SceneStamp {
   completed: boolean;
   /** Hint levels opened during the scene. */
   hints: number;
+  /** Replies so far (stamps saved before this was recorded don't have it). */
+  replies?: number;
   at: number;
 }
 

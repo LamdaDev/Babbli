@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { responseModeOf, type SessionRecord, type SessionSummary } from "@/lib/session/types";
+import type { SessionRecord } from "@/lib/session/types";
+import { MAX_CONVERSATION_SECONDS } from "./agents";
 import { env } from "./env";
 
 const ID = /^[a-z0-9-]{6,64}$/i;
@@ -29,6 +30,17 @@ export async function loadSession(id: string): Promise<SessionRecord | null> {
   }
 }
 
+/**
+ * A session being played right now: saved within the longest possible conversation (server clock)
+ * and not finished. Only these may voice NPC lines or transcribe new recordings.
+ */
+export async function liveSession(id: unknown): Promise<SessionRecord | null> {
+  if (typeof id !== "string" || !validId(id)) return null;
+  const s = await loadSession(id);
+  const age = Date.now() - (s?.firstSavedAt ?? 0);
+  return s && s.status === "active" && age < (MAX_CONVERSATION_SECONDS + 300) * 1000 ? s : null;
+}
+
 export async function saveTurnAudio(id: string, turnId: string, bytes: Buffer, mime: string) {
   if (!validId(turnId)) throw new Error("Invalid turn id");
   const d = sessionDir(id);
@@ -54,26 +66,3 @@ export async function loadTurnAudio(id: string, turnId: string): Promise<{ bytes
   return null;
 }
 
-export async function listSessions(limit = 12): Promise<SessionSummary[]> {
-  let ids: string[] = [];
-  try {
-    ids = await fs.readdir(dir());
-  } catch {
-    return [];
-  }
-  const records = await Promise.all(ids.filter(validId).map((id) => loadSession(id)));
-  return records
-    .filter((r): r is SessionRecord => !!r && r.turns.length > 0)
-    .sort((a, b) => b.startedAt - a.startedAt)
-    .slice(0, limit)
-    .map((r) => ({
-      id: r.id,
-      scenarioId: r.scenarioId,
-      difficulty: r.difficulty,
-      responseMode: responseModeOf(r),
-      startedAt: r.startedAt,
-      status: r.status,
-      objectiveComplete: r.state.objectiveComplete,
-      turns: r.turns.length,
-    }));
-}

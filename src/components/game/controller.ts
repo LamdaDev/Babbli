@@ -16,7 +16,7 @@ import {
 } from "@/lib/engine/engine";
 import { cleanTranscript, stripAudioTags, withoutEmDashes } from "@/lib/evaluation/text";
 import { AgentAudioTape, type ChunkAlignment } from "@/lib/client/agentAudio";
-import { api, assetUrl, type TtsResult } from "@/lib/client/api";
+import { api, ApiError, assetUrl, type TtsResult } from "@/lib/client/api";
 import { audioEngine } from "@/lib/client/audioEngine";
 import { getProfile, recordScene } from "@/lib/client/profileStore";
 import { LiveCaptions } from "@/lib/client/liveCaptions";
@@ -101,7 +101,10 @@ export class GameController {
   private turnTimer: ReturnType<typeof setTimeout> | null = null;
   /** Time left on the turn while it's on hold (exit dialog open). */
   private heldTurnMs: number | null = null;
-  private background: Promise<unknown>[] = [];
+  /** Learner recordings being uploaded (finish waits for them, showing progress). */
+  private uploads: Promise<unknown>[] = [];
+  private uploadsDone = 0;
+  private showingUploads = false;
   private replayHandle: { stop: () => void } | null = null;
   /** Voice Mode: the agent's own audio for the latest lines, so Repeat and Slow cost no new speech. */
   private tape = new AgentAudioTape((url) => this.audio.forget(url));
@@ -114,6 +117,11 @@ export class GameController {
   private idleTick = 0;
   private idleTimer: ReturnType<typeof setInterval> | null = null;
   private hiddenTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The session's first save (see enter): NPC voicing waits for it. */
+  private firstSave: Promise<unknown> = Promise.resolve();
+  private firstSaveAt = 0;
+  /** startSession was called and neither onConnect nor onError has answered yet. */
+  private starting = false;
   private narrationPending = false;
   private disposed = false;
 
@@ -149,6 +157,7 @@ export class GameController {
       phase: "briefing",
       error: null,
       errorAction: null,
+      errorKind: null,
       busyLabel: null,
       toast: null,
       npcSpeaking: false,
@@ -180,6 +189,8 @@ export class GameController {
       flags: {},
       transitionText: null,
       completion: null,
+      loadProgress: null,
+      saveProgress: null,
       idle: null,
       endReason: null,
       sessionId: this.session.id,
@@ -261,13 +272,15 @@ export class GameController {
     this.saveTimer = setTimeout(() => void this.saveNow(), delay);
   }
 
-  private async saveNow() {
+  private async saveNow(): Promise<boolean> {
     if (this.saveTimer) clearTimeout(this.saveTimer);
     this.saveTimer = null;
     try {
       await api.saveSession(this.session);
+      return true;
     } catch (e) {
       console.warn("[babbli] save failed", e);
+      return false;
     }
   }
 
@@ -398,7 +411,8 @@ export class GameController {
   async enter() {
     if (this.ui.phase !== "briefing" || !this.controls) return;
     this.setPhase("connecting");
-    this.set({ busyLabel: "Stepping inside…", needsTap: false });
+    const npc = this.scenario.npc.name;
+    this.set({ busyLabel: "Stepping inside…", needsTap: false, loadProgress: 0.1 });
     await this.audio.unlock();
     void this.audio.playSfx(assetUrl(this.scenario.sfx.enter), 0.8);
     // Decode the feedback and scene sounds now, so the first success chime isn't late (or missed).
@@ -411,23 +425,31 @@ export class GameController {
 
     // Text Mode never touches the microphone. Voice Mode needs it — and never falls back to typing.
     if (!this.textMode) {
+      this.set({ busyLabel: "Checking your microphone…", loadProgress: 0.25 });
       try {
         await this.recorder.init();
       } catch {
         this.set({ micAvailable: false });
-        this.fail("Voice Mode needs your microphone, and the browser didn't allow it. Allow microphone access and try again, or switch to Text Mode to type your replies.", {
+        this.fail("mic", "Voice Mode needs your microphone, and the browser didn't allow it. Allow microphone access and try again, or switch to Text Mode to type your replies.", {
           label: "Switch to Text Mode",
-          href: `/play/${this.scenario.id}?difficulty=${this.difficulty}&respond=text`,
+          href: this.textModeHref,
         });
         return;
       }
     }
 
+    // The session exists on the server before the NPC speaks: its lines are only voiced (and replies
+    // only transcribed) for a scene being played.
+    if (!this.firstSaveAt) {
+      this.firstSaveAt = Date.now();
+      this.firstSave = this.saveNow();
+    }
+    this.set({ busyLabel: `Getting ${npc} ready…`, loadProgress: 0.45 });
     let agent;
     try {
       agent = await api.agentSession(this.scenario.id);
     } catch (e) {
-      this.fail(e instanceof Error ? e.message : String(e));
+      this.fail(e instanceof ApiError && e.code === "missing_key" ? "setup" : "busy", e instanceof Error ? e.message : String(e));
       return;
     }
     this.session.agentId = agent.agentId;
@@ -459,14 +481,21 @@ export class GameController {
       },
       clientTools: { [agent.toolName]: (params: Record<string, unknown>) => this.handleTool(params) },
       onConnect: ({ conversationId }) => {
+        this.starting = false;
         this.session.conversationId = conversationId;
         this.log("connected", { conversationId });
         this.scheduleSave(100);
+        if (this.ui.phase === "connecting") this.set({ busyLabel: `${npc} is about to greet you…`, loadProgress: 0.9 });
       },
       onDisconnect: (details) => this.handleDisconnect(details.reason, "message" in details ? details.message : undefined),
       onError: (message) => {
         console.warn("[babbli] agent error", message);
         this.log("agent_error", { message });
+        // Before onConnect, an error means the conversation couldn't start (e.g. every conversation
+        // slot on the ElevenLabs plan is taken).
+        const failedStart = this.starting;
+        this.starting = false;
+        if (failedStart && this.ui.phase === "connecting") this.fail("busy", message);
       },
       onMessage: ({ message, role }) => (role === "agent" ? this.handleAgentLine(message) : this.handleUserTranscript(message)),
       onIncomingEvent: (event: AgentEvent) => {
@@ -490,26 +519,54 @@ export class GameController {
         if (!this.textMode) this.handleMode(mode);
       },
     };
+    this.set({ busyLabel: `Connecting to ${npc}…`, loadProgress: 0.7 });
+    this.starting = true;
     this.controls.startSession(options);
     this.startIdleWatch();
     this.log("session_start", { difficulty: this.difficulty, responseMode: this.responseMode, inputMode: this.session.inputMode, variant: this.session.variant });
     this.startWatchdog(25000, () => {
-      if (this.ui.phase === "connecting") this.fail("The NPC didn't answer. Check your ElevenLabs key and network, then try again.");
+      if (this.ui.phase === "connecting") this.fail("busy", "The NPC didn't answer within 25 seconds.");
     });
   }
 
-  private fail(message: string, action: GameUI["errorAction"] = null) {
+  private get textModeHref() {
+    return `/play/${this.scenario.id}?difficulty=${this.difficulty}&respond=text`;
+  }
+
+  /** kind picks what the learner is shown; message is the technical detail (tucked away, and logged). */
+  private fail(kind: NonNullable<GameUI["errorKind"]>, message: string, action: GameUI["errorAction"] = null) {
     this.clearWatchdog();
-    this.set({ error: message, errorAction: action, busyLabel: null });
+    this.log("error", { kind, message });
+    const offerText = (kind === "busy" || kind === "lost") && !this.textMode;
+    this.set({ error: message, errorKind: kind, errorAction: action ?? (offerText ? { label: "Try Text Mode", href: this.textModeHref } : null), busyLabel: null });
     this.setPhase("error");
     this.audio.stopAmbient(1);
+  }
+
+  /**
+   * "Try again" after the scene couldn't start: the same scene again, in place when the failed start
+   * is over (a start that never answered may still be pending in the SDK, so that one reloads).
+   */
+  retry() {
+    if (this.ui.phase !== "error") return;
+    if (this.ui.errorKind !== "busy" || this.starting || Date.now() - this.firstSaveAt > 10 * 60_000) {
+      window.location.reload();
+      return;
+    }
+    this.stopIdleWatch();
+    this.log("retry");
+    this.set({ error: null, errorKind: null, errorAction: null });
+    this.setPhase("briefing");
+    void this.enter();
   }
 
   private handleDisconnect(reason: string, message?: string) {
     this.log("disconnected", { reason, message });
     const phase = this.ui.phase;
-    if (phase === "ending" || phase === "done" || phase === "briefing") return;
-    if (reason === "error") this.fail(`Connection lost${message ? `: ${message}` : ""}`);
+    const starting = this.starting;
+    this.starting = false;
+    if (phase === "ending" || phase === "done" || phase === "briefing" || phase === "error") return;
+    if (reason === "error") this.fail(phase === "connecting" || starting ? "busy" : "lost", `Connection lost${message ? `: ${message}` : ""}`);
     else if (reason === "agent") void this.finish(this.session.state.objectiveComplete ? "completed" : "abandoned");
   }
 
@@ -559,7 +616,8 @@ export class GameController {
       const rate = AGENT_SPEED[this.difficulty];
       this.handleMode("speaking");
       try {
-        const tts = await api.tts(raw, this.scenario.npc.voiceKey, 1);
+        await this.firstSave;
+        const tts = await api.tts(raw, this.scenario.npc.voiceKey, 1, this.session.id);
         if (this.disposed) return;
         this.voiced.set(line.id, tts);
         const handle = await this.audio.playVoice(tts.url, rate);
@@ -775,6 +833,7 @@ export class GameController {
     if (outcome.kind === "clarify") this.toast("They didn't quite get that. Try again.", "warn");
     this.startWatchdog(15000, () => this.recoverFromSilence());
     this.scheduleSave(200);
+    this.stampScene(false);
     return formatDirective(this.scenario, outcome, state, this.difficulty);
   }
 
@@ -961,8 +1020,13 @@ export class GameController {
     }
     turn.endedAt = Date.now();
     this.attachAudio(turn, rec);
+    // Scribe answers in a second or two, but can stall now and then (the server tries again): say so.
+    const slow = [
+      setTimeout(() => this.ui.phase === "processing" && this.set({ busyLabel: "Still listening…" }), 5000),
+      setTimeout(() => this.ui.phase === "processing" && this.set({ busyLabel: "ElevenLabs is slower than usual, one moment…" }), 12000),
+    ];
     try {
-      const stt = await api.stt(rec.blob, this.scenario.language, this.keyterms(turn));
+      const stt = await api.stt(rec.blob, this.session.id, this.keyterms(turn)).finally(() => slow.forEach(clearTimeout));
       turn.stt = stt;
       if (!stt.transcript.trim() || stt.words.length === 0) {
         this.cancelTurn();
@@ -1014,8 +1078,19 @@ export class GameController {
         turn.audio!.uploaded = true;
         this.scheduleSave();
       })
-      .catch((e) => console.warn("[babbli] audio upload failed", e));
-    this.background.push(upload);
+      .catch((e) => console.warn("[babbli] audio upload failed", e))
+      .finally(() => {
+        this.uploadsDone++;
+        this.showUploadProgress();
+      });
+    this.uploads.push(upload);
+  }
+
+  /** On the completion card while the scene is saved: how many recordings have reached the server. */
+  private showUploadProgress() {
+    if (!this.showingUploads) return;
+    const total = this.uploads.length;
+    this.set({ saveProgress: { label: `Uploading your recordings (${this.uploadsDone} of ${total})`, value: 0.1 + (0.75 * this.uploadsDone) / total } });
   }
 
   /** Text Mode only: the typed reply goes to the same ElevenAgents NPC (and engine) as speech would. */
@@ -1166,7 +1241,7 @@ export class GameController {
     // No audio kept (e.g. the stream was cut): voice the line again. Same audio for Repeat and Slow
     // (v3 ignores the TTS speed setting); the rate is applied on playback.
     this.log("replay_source", { source: "tts" });
-    const tts = await api.tts(line.text, this.scenario.npc.voiceKey, 1);
+    const tts = await api.tts(line.text, this.scenario.npc.voiceKey, 1, this.session.id);
     return { url: tts.url, alignment: tts.alignment, rate: slow ? SLOW_SPEED : REPLAY_SPEED[this.difficulty] };
   }
 
@@ -1216,31 +1291,50 @@ export class GameController {
     }
     this.audio.stopVoice();
     this.audio.stopAmbient(2.5);
-    this.set({ npcSpeaking: false, recording: false, micMuted: true, busyLabel: "Saving your session…" });
+    this.set({ npcSpeaking: false, recording: false, micMuted: true });
     if (status === "completed") void this.audio.playSfx(assetUrl("ui-complete"), 0.6);
     this.session.status = status;
-    // Passport pins (cosmetic, this device only) — never part of the session or its scores.
-    let badges: BadgeId[] = [];
+    const badges = this.stampScene(true);
+    this.session.endedAt = Date.now();
+    this.log("session_end", { status });
+    // The card shows straight away; the session is saved underneath it, with its progress on the card.
+    const objectiveComplete = this.session.state.objectiveComplete;
+    this.set({ busyLabel: null, completion: { objectiveComplete, badges }, saveProgress: { label: "Ending the conversation", value: 0.05 } });
+    if (this.uploadsDone < this.uploads.length) {
+      // At most 9 s: a slower upload still lands later, and marks its reply as uploaded then.
+      this.showingUploads = true;
+      this.showUploadProgress();
+      await Promise.race([Promise.allSettled(this.uploads), sleep(9000)]);
+      this.showingUploads = false;
+    }
+    this.set({ saveProgress: { label: "Saving your session", value: 0.92 } });
+    const saved = (await this.saveNow()) || (await sleep(1500).then(() => this.saveNow()));
+    this.set({ saveProgress: null, completion: { objectiveComplete, badges, saveFailed: !saved } });
+    this.setPhase("done");
+  }
+
+  /**
+   * This browser's record of the scene: passport pins (cosmetic, never part of the session or its
+   * scores) and the home page's recent sessions. Kept up to date after every reply, so a scene left by
+   * closing the tab is listed too; only the final stamp can complete it and unlock pins.
+   */
+  private stampScene(final: boolean): BadgeId[] {
     try {
-      badges = recordScene({
+      return recordScene({
         sessionId: this.session.id,
         scenarioId: this.scenario.id,
         language: this.scenario.language,
         difficulty: this.difficulty,
         responseMode: this.responseMode,
-        completed: this.session.state.objectiveComplete,
+        completed: final && this.session.state.objectiveComplete,
         hints: this.session.assistance.hints.length,
+        replies: this.session.turns.length,
         at: Date.now(),
       });
     } catch (e) {
       console.warn("[babbli] passport not updated", e);
+      return [];
     }
-    this.session.endedAt = Date.now();
-    this.log("session_end", { status });
-    await Promise.race([Promise.allSettled(this.background), sleep(9000)]);
-    await this.saveNow();
-    this.set({ busyLabel: null, completion: { objectiveComplete: this.session.state.objectiveComplete, badges } });
-    this.setPhase("done");
   }
 
   /** Re-arm after a StrictMode dev unmount/remount cycle (nothing has started yet at that point). */
