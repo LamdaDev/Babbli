@@ -77,6 +77,11 @@ class AudioEngine {
     return p;
   }
 
+  /** Drop a decoded buffer (e.g. a replay clip whose object URL was revoked). */
+  forget(url: string) {
+    this.buffers.delete(url);
+  }
+
   /* ---------- ambience ---------- */
 
   async startAmbient(url: string, base: number) {

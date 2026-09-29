@@ -115,6 +115,7 @@ export function CompletionOverlay() {
   const controller = useController();
   const phase = useGame((s) => s.phase);
   const completion = useGame((s) => s.completion);
+  const endReason = useGame((s) => s.endReason);
   const busyLabel = useGame((s) => s.busyLabel);
   const sessionId = useGame((s) => s.sessionId);
   const profile = useProfile();
@@ -142,7 +143,14 @@ export function CompletionOverlay() {
                   <div className="mt-1 font-display text-lg text-teal">Objective complete</div>
                 </>
               ) : (
-                <div className="mt-3 font-display text-2xl">Scene ended</div>
+                <>
+                  <div className="mt-3 font-display text-2xl">Scene ended</div>
+                  {endReason && (
+                    <p className="mt-1 text-sm font-bold text-ink-soft">
+                      {endReason === "hidden" ? "The tab was in the background for a minute, so the scene ended by itself." : "Nobody was there for a while, so the scene ended by itself."}
+                    </p>
+                  )}
+                </>
               )}
               {badges.length > 0 && (
                 <motion.div
@@ -181,6 +189,62 @@ export function CompletionOverlay() {
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+/** "Still there?": shown after a while with nobody doing anything; the scene ends by itself when the countdown runs out. */
+export function StillThere() {
+  const controller = useController();
+  const idle = useGame((s) => s.idle);
+  const phase = useGame((s) => s.phase);
+  const open = !!idle && phase !== "ending" && phase !== "done";
+  return <AnimatePresence>{open && idle && <StillThereCard endsAt={idle.endsAt} onHere={controller.markActive} />}</AnimatePresence>;
+}
+
+const secondsUntil = (t: number) => Math.max(0, Math.ceil((t - Date.now()) / 1000));
+
+function StillThereCard({ endsAt, onHere }: { endsAt: number; onHere: () => void }) {
+  const [left, setLeft] = useState(() => secondsUntil(endsAt));
+  useEffect(() => {
+    const t = setInterval(() => setLeft(secondsUntil(endsAt)), 250);
+    return () => clearInterval(t);
+  }, [endsAt]);
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      className="absolute inset-0 z-[55] flex items-center justify-center bg-night/50 p-4 backdrop-blur-[2px]"
+    >
+      <motion.div
+        role="alertdialog"
+        aria-labelledby="idle-title"
+        aria-describedby="idle-desc"
+        initial={{ scale: 0.92, y: 16 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 10, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 260, damping: 22 }}
+        className="paper-grain w-full max-w-sm rounded-3xl bg-paper p-6 text-center text-ink shadow-[0_30px_80px_rgba(0,0,0,0.5)]"
+      >
+        <div className="text-4xl" aria-hidden>
+          👋
+        </div>
+        <h2 id="idle-title" className="mt-2 font-display text-2xl">
+          Still there?
+        </h2>
+        <p id="idle-desc" className="mt-1 text-sm leading-relaxed text-ink-soft">
+          The scene ends by itself in <span className="font-bold tabular-nums text-ink">{left} s</span>. Your progress so far is saved.
+        </p>
+        <button
+          autoFocus
+          onClick={onHere}
+          className="mt-5 w-full rounded-2xl bg-brand py-3 font-display text-lg text-white outline-none ring-brand/40 transition-colors hover:bg-brand-dark focus-visible:ring-4"
+        >
+          I&apos;m here
+        </button>
+      </motion.div>
+    </motion.div>
   );
 }
 

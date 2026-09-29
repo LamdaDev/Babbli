@@ -71,6 +71,10 @@ export interface GameUI {
   transitionText: string | null;
   /** badges: passport pins this scene unlocked (cosmetic). */
   completion: { objectiveComplete: boolean; badges?: BadgeId[] } | null;
+  /** "Still there?": nobody has done anything for a while; the scene ends by itself at endsAt. */
+  idle: { endsAt: number } | null;
+  /** Why the scene ended by itself (nobody there, or the tab left in the background). */
+  endReason: "idle" | "hidden" | null;
   sessionId: string;
   /** The page was opened without a prior click, so one tap is needed before audio + mic. */
   needsTap: boolean;

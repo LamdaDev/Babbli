@@ -58,7 +58,8 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
 
   const scenario = session ? getScenario(session.scenarioId) : undefined;
 
-  // Backfill ElevenLabs Scribe analysis for recordings that finished after the scene ended.
+  // ElevenLabs Scribe analysis for recordings not transcribed yet: Live mode leaves it to this page,
+  // so scenes nobody looks at never pay for it. Saved afterwards, so it only runs once per session.
   useEffect(() => {
     if (!session || !scenario) return;
     const missing = session.turns.filter((t) => t.audio?.uploaded && !t.stt && t.inputMethod === "voice");
@@ -68,18 +69,25 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
       setSttStatus({ done: 0, total: missing.length });
       const updated: SessionRecord = { ...session, turns: session.turns.map((t) => ({ ...t })) };
       let done = 0;
-      for (const t of missing) {
-        try {
-          const blob = await fetch(turnAudioUrl(session.id, t.id)).then((r) => r.blob());
-          const stt = await api.stt(blob, scenario.language, t.expected?.keywords ?? []);
-          const target = updated.turns.find((x) => x.id === t.id);
-          if (target) target.stt = stt;
-        } catch (e) {
-          console.warn("[babbli] backfill STT failed", e);
+      const queue = [...missing];
+      const worker = async () => {
+        while (queue.length && !cancelled) {
+          const t = queue.shift()!;
+          try {
+            const blob = await fetch(turnAudioUrl(session.id, t.id)).then((r) => r.blob());
+            // Same keyterms the scene used for this reply.
+            const keyterms = Array.from(new Set([...(t.expected?.keywords ?? []), ...scenario.asrKeywords])).slice(0, 40);
+            const stt = await api.stt(blob, scenario.language, keyterms);
+            const target = updated.turns.find((x) => x.id === t.id);
+            if (target) target.stt = stt;
+          } catch (e) {
+            console.warn("[babbli] backfill STT failed", e);
+          }
+          done++;
+          if (!cancelled) setSttStatus({ done, total: missing.length });
         }
-        done++;
-        if (!cancelled) setSttStatus({ done, total: missing.length });
-      }
+      };
+      await Promise.all([worker(), worker(), worker()]);
       if (cancelled) return;
       setSession(updated);
       setSttStatus(null);

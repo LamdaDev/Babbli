@@ -15,6 +15,7 @@ import {
   seededRandom,
 } from "@/lib/engine/engine";
 import { cleanTranscript, stripAudioTags, withoutEmDashes } from "@/lib/evaluation/text";
+import { AgentAudioTape, type ChunkAlignment } from "@/lib/client/agentAudio";
 import { api, assetUrl, type TtsResult } from "@/lib/client/api";
 import { audioEngine } from "@/lib/client/audioEngine";
 import { getProfile, recordScene } from "@/lib/client/profileStore";
@@ -27,9 +28,15 @@ import type { LearnerTurn, NpcLine, SessionRecord } from "@/lib/session/types";
 import { createGameStore, type GameStore, type GameUI, type Phase, type Subtitle } from "./store";
 
 const AGENT_SPEED: Record<Difficulty, number> = { beginner: 0.85, intermediate: 1, immersion: 1.08 };
-/** Playback rates for Repeat and Slow (applied in the browser, pitch kept). */
+/** Playback rates for Repeat and Slow when the line has to be voiced again with TTS (applied in the browser, pitch kept). */
 const REPLAY_SPEED: Record<Difficulty, number> = { beginner: 0.9, intermediate: 1, immersion: 1.05 };
+/** Slow replays play at this share of the native pace. */
 const SLOW_SPEED = 0.72;
+/** Idle auto-end: "Still there?" after 90 s with nobody doing anything, the scene ends at 2 min (or after 1 min in a background tab). */
+const IDLE_PROMPT_MS = 90_000;
+const IDLE_END_MS = 120_000;
+const HIDDEN_END_MS = 60_000;
+const ACTIVITY_EVENTS = ["pointerdown", "pointermove", "keydown", "wheel", "touchstart"] as const;
 /** Max speaking time per turn — nobody talks at a shop assistant for two minutes. */
 const TURN_LIMIT_MS: Record<Difficulty, number> = { beginner: 20000, intermediate: 30000, immersion: 30000 };
 const AMBIENT_BASE: Record<Difficulty, number> = { beginner: 0.18, intermediate: 0.22, immersion: 0.32 };
@@ -40,16 +47,25 @@ const rid = (n = 8) => crypto.randomUUID().replace(/-/g, "").slice(0, n);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const AUDIO_TAG = /\[[^\]]{1,30}\]\s*/g;
 
+/** The raw ElevenAgents events the controller reads (onIncomingEvent). */
+type AgentEvent = {
+  type?: string;
+  tentative_user_transcription_event?: { user_transcript?: string };
+  agent_response_event?: { event_id?: number };
+  audio_event?: { audio_base_64?: string; event_id?: number; alignment?: ChunkAlignment };
+};
+
 /**
- * Karaoke timings for an NPC line voiced with TTS in Text Mode. The audio was generated from the raw
- * line (audio tags like [cheerful] included, for expressive delivery) but the subtitle shows it
- * without them, so the tags' characters are dropped from the alignment. No karaoke if it doesn't line up.
+ * Karaoke timings for an NPC line: voiced with TTS in Text Mode, or the agent's own audio on a replay.
+ * The audio may carry audio tags like [cheerful] (expressive delivery) that the subtitle doesn't
+ * show, so the tags' characters are dropped from the alignment. No karaoke if it doesn't line up.
  */
-function karaokeFor(raw: string, shown: string, alignment: TtsResult["alignment"], rate: number, t0: number): Subtitle["karaoke"] {
+function karaokeFor(shown: string, alignment: TtsResult["alignment"], rate: number, t0: number): Subtitle["karaoke"] {
   if (!alignment) return undefined;
   const { characters: chars, character_start_times_seconds: starts } = alignment;
   const keep = chars.map(() => true);
-  if (chars.join("") === raw) for (const m of raw.matchAll(AUDIO_TAG)) for (let i = m.index; i < m.index + m[0].length; i++) keep[i] = false;
+  const owner = chars.flatMap((c, i) => Array.from({ length: c.length }, () => i));
+  for (const m of chars.join("").matchAll(AUDIO_TAG)) for (let p = m.index; p < m.index + m[0].length; p++) keep[owner[p]] = false;
   let idx = chars.map((_, i) => i).filter((i) => keep[i]);
   while (idx.length && /\s/.test(chars[idx[0]])) idx = idx.slice(1);
   while (idx.length && /\s/.test(chars[idx[idx.length - 1]])) idx = idx.slice(0, -1);
@@ -87,6 +103,17 @@ export class GameController {
   private heldTurnMs: number | null = null;
   private background: Promise<unknown>[] = [];
   private replayHandle: { stop: () => void } | null = null;
+  /** Voice Mode: the agent's own audio for the latest lines, so Repeat and Slow cost no new speech. */
+  private tape = new AgentAudioTape((url) => this.audio.forget(url));
+  /** Event id of the agent response being delivered (it arrives just before onMessage). */
+  private agentEventId: number | null = null;
+  /** Text Mode: the TTS each NPC line was voiced with, replayed as is. */
+  private voiced = new Map<string, TtsResult>();
+  /** Idle auto-end: time spent waiting on the learner since they last did anything. */
+  private idleMs = 0;
+  private idleTick = 0;
+  private idleTimer: ReturnType<typeof setInterval> | null = null;
+  private hiddenTimer: ReturnType<typeof setTimeout> | null = null;
   private narrationPending = false;
   private disposed = false;
 
@@ -153,6 +180,8 @@ export class GameController {
       flags: {},
       transitionText: null,
       completion: null,
+      idle: null,
+      endReason: null,
       sessionId: this.session.id,
       needsTap: false,
     };
@@ -273,6 +302,86 @@ export class GameController {
   }
 
   /* ------------------------------------------------------------------ */
+  /* idle auto-end                                                       */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * A forgotten tab keeps the ElevenAgents conversation (and its minutes) running. Only time spent
+   * waiting on the learner counts: the NPC talking, thinking or a scene transition pauses the clock.
+   */
+  private startIdleWatch() {
+    if (this.idleTimer) return;
+    this.idleMs = 0;
+    this.idleTick = Date.now();
+    // Capture phase: the key that answers "Still there?" is swallowed before the game shortcuts see it.
+    for (const type of ACTIVITY_EVENTS) window.addEventListener(type, this.markActive, { capture: true, passive: true });
+    document.addEventListener("visibilitychange", this.onVisibility);
+    this.idleTimer = setInterval(() => this.checkIdle(), 1000);
+    if (document.hidden) this.onVisibility();
+  }
+
+  private stopIdleWatch() {
+    if (this.idleTimer) clearInterval(this.idleTimer);
+    this.idleTimer = null;
+    if (this.hiddenTimer) clearTimeout(this.hiddenTimer);
+    this.hiddenTimer = null;
+    for (const type of ACTIVITY_EVENTS) window.removeEventListener(type, this.markActive, { capture: true });
+    document.removeEventListener("visibilitychange", this.onVisibility);
+    if (this.ui.idle) this.set({ idle: null });
+  }
+
+  /** Any click, key, touch or pointer move means someone is there (and answers "Still there?"). */
+  readonly markActive = (e?: { type: string; stopImmediatePropagation?: () => void }) => {
+    this.idleMs = 0;
+    if (this.ui.idle) {
+      if (e?.type === "keydown") e.stopImmediatePropagation?.();
+      this.set({ idle: null });
+      this.log("idle_dismissed");
+    }
+  };
+
+  private checkIdle() {
+    const now = Date.now();
+    const dt = now - this.idleTick;
+    this.idleTick = now;
+    const s = this.ui;
+    const waiting = (s.phase === "choose" || (s.phase === "speak" && this.textMode)) && !s.npcSpeaking && !s.voiceOwner;
+    if (!waiting) {
+      if (s.idle) this.set({ idle: { endsAt: s.idle.endsAt + dt } });
+      return;
+    }
+    this.idleMs += dt;
+    if (this.idleMs >= IDLE_END_MS) void this.endForInactivity("idle");
+    else if (this.idleMs >= IDLE_PROMPT_MS && !s.idle) {
+      this.set({ idle: { endsAt: now + IDLE_END_MS - this.idleMs } });
+      this.log("idle_prompt");
+      void this.audio.playSfx(assetUrl("ui-hint"), 0.35);
+    }
+  }
+
+  private readonly onVisibility = () => {
+    if (this.hiddenTimer) clearTimeout(this.hiddenTimer);
+    this.hiddenTimer = null;
+    if (!document.hidden) {
+      this.markActive();
+      return;
+    }
+    this.log("tab_hidden");
+    this.hiddenTimer = setTimeout(() => {
+      this.hiddenTimer = null;
+      if (document.hidden) void this.endForInactivity("hidden");
+    }, HIDDEN_END_MS);
+  };
+
+  private async endForInactivity(reason: "idle" | "hidden") {
+    const phase = this.ui.phase;
+    if (phase === "briefing" || phase === "ending" || phase === "done" || phase === "error") return;
+    this.log("auto_end", { reason });
+    this.set({ endReason: reason });
+    await this.finish(this.session.state.objectiveComplete ? "completed" : "abandoned");
+  }
+
+  /* ------------------------------------------------------------------ */
   /* session start                                                       */
   /* ------------------------------------------------------------------ */
 
@@ -360,8 +469,18 @@ export class GameController {
         this.log("agent_error", { message });
       },
       onMessage: ({ message, role }) => (role === "agent" ? this.handleAgentLine(message) : this.handleUserTranscript(message)),
-      // Live mode: what the agent is hearing so far, for the learner's own captions.
-      onIncomingEvent: (event: { type?: string; tentative_user_transcription_event?: { user_transcript?: string } }) => {
+      onIncomingEvent: (event: AgentEvent) => {
+        // Keep the NPC's streamed voice for Repeat and Slow (see replay).
+        const audio = event?.type === "audio" ? event.audio_event : undefined;
+        if (audio?.audio_base_64 && typeof audio.event_id === "number") {
+          this.tape.add(audio.event_id, audio.audio_base_64, audio.alignment);
+          return;
+        }
+        if (event?.type === "agent_response") {
+          this.agentEventId = event.agent_response_event?.event_id ?? null;
+          return;
+        }
+        // Live mode: what the agent is hearing so far, for the learner's own captions.
         if (event?.type !== "tentative_user_transcript" || !this.liveVoice || this.ui.phase !== "speak") return;
         const text = cleanTranscript(event.tentative_user_transcription_event?.user_transcript ?? "");
         if (text) this.set({ userCaption: { text, final: false } });
@@ -372,6 +491,7 @@ export class GameController {
       },
     };
     this.controls.startSession(options);
+    this.startIdleWatch();
     this.log("session_start", { difficulty: this.difficulty, responseMode: this.responseMode, inputMode: this.session.inputMode, variant: this.session.variant });
     this.startWatchdog(25000, () => {
       if (this.ui.phase === "connecting") this.fail("The NPC didn't answer. Check your ElevenLabs key and network, then try again.");
@@ -414,6 +534,8 @@ export class GameController {
     this.pendingMeaning = null;
     this.session.npcLines.push(line);
     this.lastNpcLine = line;
+    if (this.agentEventId !== null) this.tape.bind(line.id, this.agentEventId);
+    this.agentEventId = null;
     if (this.ui.showTranslation && this.ui.translationAllowed) this.recordAssist("translations");
     this.set({ subtitle: { id: line.id, text: line.text, meaning: line.meaning, speaker: line.speaker }, busyLabel: null });
     // The NPC's reply replaces the learner's caption (unless it's a nudge while they're still talking).
@@ -439,8 +561,9 @@ export class GameController {
       try {
         const tts = await api.tts(raw, this.scenario.npc.voiceKey, 1);
         if (this.disposed) return;
+        this.voiced.set(line.id, tts);
         const handle = await this.audio.playVoice(tts.url, rate);
-        const karaoke = karaokeFor(raw, line.text, tts.alignment, rate, handle.startedAt);
+        const karaoke = karaokeFor(line.text, tts.alignment, rate, handle.startedAt);
         if (karaoke && this.ui.subtitle?.id === line.id) this.set({ subtitle: { ...this.ui.subtitle, karaoke } });
         await handle.done;
       } catch (e) {
@@ -837,7 +960,7 @@ export class GameController {
       return;
     }
     turn.endedAt = Date.now();
-    this.attachAudio(turn, rec, false);
+    this.attachAudio(turn, rec);
     try {
       const stt = await api.stt(rec.blob, this.scenario.language, this.keyterms(turn));
       turn.stt = stt;
@@ -872,7 +995,9 @@ export class GameController {
     const rec = await this.recorder.stop();
     if (turn) {
       turn.endedAt = Date.now();
-      if (rec) this.attachAudio(turn, rec, true);
+      // The agent heard the learner directly; Scribe's word timings are only needed for the
+      // results page, which transcribes the uploaded recording when someone opens it.
+      if (rec) this.attachAudio(turn, rec);
     }
   }
 
@@ -880,8 +1005,8 @@ export class GameController {
     return Array.from(new Set([...(turn.expected?.keywords ?? []), ...this.scenario.asrKeywords])).slice(0, 40);
   }
 
-  /** Store raw audio server-side and (in live mode) run Scribe for word timings in the background. */
-  private attachAudio(turn: LearnerTurn, rec: Recording, transcribe: boolean) {
+  /** Store the raw recording server-side, for playback and scoring on the results page. */
+  private attachAudio(turn: LearnerTurn, rec: Recording) {
     turn.audio = { mimeType: rec.mimeType, durationMs: Math.round(rec.durationMs), uploaded: false };
     const upload = api
       .uploadTurnAudio(this.session.id, turn.id, rec.blob)
@@ -891,16 +1016,6 @@ export class GameController {
       })
       .catch((e) => console.warn("[babbli] audio upload failed", e));
     this.background.push(upload);
-    if (transcribe) {
-      const stt = api
-        .stt(rec.blob, this.scenario.language, this.keyterms(turn))
-        .then((r) => {
-          turn.stt = r;
-          this.scheduleSave();
-        })
-        .catch((e) => console.warn("[babbli] scribe failed", e));
-      this.background.push(stt);
-    }
   }
 
   /** Text Mode only: the typed reply goes to the same ElevenAgents NPC (and engine) as speech would. */
@@ -977,11 +1092,13 @@ export class GameController {
     this.set({ hintBusy: true });
     try {
       const coach = coachVoiceKey(this.scenario.language, getProfile().coachVoice);
-      const tts = await api.tts(card.hints.full, coach, this.difficulty === "beginner" ? 0.9 : 1);
+      // Native-pace audio (v3 ignores the TTS speed setting), slowed on playback for Beginner: the same
+      // cached clip as the native reference on the results page (pre-generated by npm run setup).
+      const tts = await api.tts(card.hints.full, coach, 1);
       const wasMuted = this.ui.micMuted;
       this.set({ voiceOwner: "coach", micMuted: true });
       this.audio.duck(true);
-      const handle = await this.audio.playVoice(tts.url);
+      const handle = await this.audio.playVoice(tts.url, this.difficulty === "beginner" ? 0.9 : 1);
       await handle.done;
       this.set({ voiceOwner: null, micMuted: wasMuted });
       this.audio.duck(this.ui.phase === "speak");
@@ -992,7 +1109,10 @@ export class GameController {
     }
   }
 
-  /** Repeat / slow: the NPC's own voice re-speaks the last line via ElevenLabs TTS (with karaoke timings). */
+  /**
+   * Repeat / slow: the NPC's last line again, with karaoke timings. Voice Mode replays the agent's own
+   * streamed audio and Text Mode the TTS the line was voiced with, so neither costs new speech.
+   */
   async replay(slow: boolean) {
     const line = this.lastNpcLine;
     const phase = this.ui.phase;
@@ -1000,14 +1120,12 @@ export class GameController {
     this.recordAssist(slow ? "slows" : "repeats");
     this.set({ busyLabel: slow ? "Slowing down…" : null });
     try {
-      // Same audio for Repeat and Slow (v3 ignores the TTS speed setting); the rate is applied on playback.
-      const tts = await api.tts(line.text, this.scenario.npc.voiceKey, 1);
-      const rate = slow ? SLOW_SPEED : REPLAY_SPEED[this.difficulty];
+      const { url, alignment, rate } = await this.replaySource(line, slow);
       if (this.ui.npcSpeaking) return;
       const wasMuted = this.ui.micMuted;
       this.set({ micMuted: true, npcSpeaking: true, voiceOwner: "npc", busyLabel: null });
       this.audio.duck(true);
-      const handle = await this.audio.playVoice(tts.url, rate);
+      const handle = await this.audio.playVoice(url, rate);
       this.replayHandle = handle;
       this.set({
         subtitle: {
@@ -1015,9 +1133,7 @@ export class GameController {
           text: line.text,
           meaning: line.meaning,
           speaker: line.speaker,
-          karaoke: tts.alignment
-            ? { chars: tts.alignment.characters, starts: tts.alignment.character_start_times_seconds.map((s) => s / rate), t0: handle.startedAt }
-            : undefined,
+          karaoke: karaokeFor(line.text, alignment, rate, handle.startedAt),
         },
       });
       await handle.done;
@@ -1030,6 +1146,28 @@ export class GameController {
       this.set({ busyLabel: null, npcSpeaking: false, voiceOwner: null });
       this.toast(`Replay failed: ${e instanceof Error ? e.message : e}`, "warn");
     }
+  }
+
+  /** Audio and playback rate for a replay: Repeat plays the line as it was heard, Slow at SLOW_SPEED of the native pace. */
+  private async replaySource(line: NpcLine, slow: boolean): Promise<{ url: string; alignment: TtsResult["alignment"]; rate: number }> {
+    const pace = AGENT_SPEED[this.difficulty];
+    // Voice Mode: the agent already spoke at the level's pace.
+    const clip = this.tape.clip(line.id);
+    if (clip) {
+      this.log("replay_source", { source: "agent" });
+      return { ...clip, rate: slow ? Math.min(0.8, SLOW_SPEED / pace) : 1 };
+    }
+    // Text Mode: native-pace TTS, played at the level's pace (see voiceNpcLine).
+    const voiced = this.voiced.get(line.id);
+    if (voiced) {
+      this.log("replay_source", { source: "voiced" });
+      return { url: voiced.url, alignment: voiced.alignment, rate: slow ? SLOW_SPEED : pace };
+    }
+    // No audio kept (e.g. the stream was cut): voice the line again. Same audio for Repeat and Slow
+    // (v3 ignores the TTS speed setting); the rate is applied on playback.
+    this.log("replay_source", { source: "tts" });
+    const tts = await api.tts(line.text, this.scenario.npc.voiceKey, 1);
+    return { url: tts.url, alignment: tts.alignment, rate: slow ? SLOW_SPEED : REPLAY_SPEED[this.difficulty] };
   }
 
   toggleSubtitles() {
@@ -1063,6 +1201,7 @@ export class GameController {
     const phase = this.ui.phase;
     if (phase === "ending" || phase === "done") return;
     this.setPhase("ending");
+    this.stopIdleWatch();
     this.clearWatchdog();
     this.captions.stop();
     if (this.listeningTimer) clearTimeout(this.listeningTimer);
@@ -1111,6 +1250,8 @@ export class GameController {
 
   dispose() {
     this.disposed = true;
+    this.stopIdleWatch();
+    this.tape.clear();
     this.clearWatchdog();
     if (this.turnTimer) clearTimeout(this.turnTimer);
     this.captions.stop();
