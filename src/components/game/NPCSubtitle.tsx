@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/profile/Avatar";
 import { useProfile } from "@/lib/client/profileStore";
+import { unspaced } from "@/lib/evaluation/text";
 import { useController, useGame } from "./GameContext";
 import type { Subtitle } from "./store";
 
@@ -38,7 +39,7 @@ const CAPTION = `${CAPTION_BASE} bg-black/65`;
 
 /** Past this much speech in one turn, gently nudge the learner to keep it short. */
 function isLong(text: string, lang: string) {
-  if (lang === "ja") return [...text.replace(/[\s、。！？]/g, "")].length > 70;
+  if (unspaced(lang)) return [...text.replace(/[\s、。！？，]/g, "")].length > 70;
   return text.split(/\s+/).filter(Boolean).length > 35;
 }
 

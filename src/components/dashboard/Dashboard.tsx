@@ -3,6 +3,7 @@
 import { Avatar } from "@/components/profile/Avatar";
 import { Pin } from "@/components/profile/Pin";
 import { Flag } from "@/components/ui/Flag";
+import { Pinyin, ToneLegend } from "@/components/ui/Pinyin";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getStage } from "@/lib/engine/engine";
@@ -360,7 +361,7 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
               ) : (
                 report.speech && (
                   <div className="mt-4">
-                    <SpeechAnalytics stats={report.speech} />
+                    <SpeechAnalytics stats={report.speech} lang={scenario.language} />
                   </div>
                 )
               )}
@@ -397,7 +398,7 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
 
         <Section title={`${scenario.npc.name}'s review`} subtitle="Written by ElevenLabs Agents' post-call analysis of the real conversation.">
           <div className="rounded-2xl bg-paper p-5 shadow-sm ring-1 ring-ink/5">
-            <AgentReview analysis={analysis} npcName={scenario.npc.name} pending={!!session.conversationId} wait={reviewWait} />
+            <AgentReview analysis={analysis} npcName={scenario.npc.name} pending={!!session.conversationId} wait={reviewWait} lang={scenario.language} />
           </div>
         </Section>
 
@@ -439,6 +440,7 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
         </Section>
 
         <Section title="Vocabulary & expressions" subtitle="What came up in this scene. ✓ marks the ones you used yourself.">
+          {scenario.language === "zh" && <ToneLegend className="mb-2" />}
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {report.vocabulary.map((v) => (
               <div key={v.term} className="flex items-center justify-between gap-3 rounded-xl bg-paper px-3 py-2 shadow-sm ring-1 ring-ink/5">
@@ -447,7 +449,12 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
                     {v.term} {v.used && <span className="align-middle text-xs font-bold text-[#0a7a0a]">✓ used</span>}
                   </div>
                   <div className="text-xs text-ink-soft">
-                    {v.reading ? `${v.reading} · ` : ""}
+                    {v.reading && (
+                      <>
+                        <Pinyin text={v.reading} lang={scenario.language} />
+                        {" · "}
+                      </>
+                    )}
                     {v.meaning}
                   </div>
                 </div>

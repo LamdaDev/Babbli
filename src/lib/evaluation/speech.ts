@@ -1,7 +1,7 @@
 import type { LanguageCode } from "@/lib/scenarios/types";
 import type { LearnerTurn, WordTiming } from "@/lib/session/types";
 import { SPEECH_HEURISTICS } from "./sources";
-import { NATIVE_RATE, containsTerm, detectFillers, languageMatches, normalize, similarity, syllableCount } from "./text";
+import { NATIVE_RATE, containsTerm, detectFillers, languageMatches, normalize, similarity, syllableCount, unspaced } from "./text";
 
 export interface ReferenceTiming {
   duration: number;
@@ -58,7 +58,7 @@ export function referenceTiming(
   let cur: { start: number; end: number; text: string } | null = null;
   for (let i = 0; i < chars.length; i++) {
     const ch = chars[i];
-    const isBreak = lang === "ja" ? /[\s、。！？!?,.]/.test(ch) : /\s/.test(ch);
+    const isBreak = unspaced(lang) ? /[\s、。！？!?,.，]/.test(ch) : /\s/.test(ch);
     if (isBreak) {
       if (cur) segments.push(cur);
       cur = null;
@@ -139,7 +139,7 @@ export function analyzeTurn(turn: LearnerTurn, lang: LanguageCode, reference?: R
   const scored = spoken.filter((w) => w.confidence !== null && normalize(w.text, lang) !== "");
   const clarity = scored.length ? scored.reduce((s, w) => s + (w.confidence ?? 0), 0) / scored.length : null;
   // Speech rate (Kormos & Dénes, 2004 — see sources.ts): syllables over the whole sample, pauses included.
-  const units = syllableCount(spoken.map((w) => w.text).join(lang === "ja" ? "" : " "), lang);
+  const units = syllableCount(spoken.map((w) => w.text).join(unspaced(lang) ? "" : " "), lang);
   const rate = units / speakingTime;
   const nativeRate = reference?.rate ?? NATIVE_RATE[lang] ?? 3.3;
   const rateRatio = rate / nativeRate;

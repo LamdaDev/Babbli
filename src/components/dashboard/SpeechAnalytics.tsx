@@ -46,7 +46,7 @@ function useTooltip() {
 /* 1. Filler words                                                     */
 /* ------------------------------------------------------------------ */
 
-function FillerChart({ stats }: { stats: SpeechStats }) {
+function FillerChart({ stats, lang }: { stats: SpeechStats; lang?: string }) {
   const { box, bind, layer } = useTooltip();
   const top = stats.fillers.slice(0, 5);
   const rest = stats.fillers.slice(5).reduce((s, f) => s + f.count, 0);
@@ -69,7 +69,9 @@ function FillerChart({ stats }: { stats: SpeechStats }) {
         <div ref={box} className="relative mt-3 space-y-2">
           {rows.map((r) => (
             <div key={r.label} className="flex items-center gap-3 rounded-md outline-none ring-brand/40 focus-visible:ring-2" {...bind(`“${r.label}”: ${r.count} ${r.count === 1 ? "time" : "times"}`)}>
-              <span className="w-20 shrink-0 truncate text-right font-jp text-sm font-bold text-ink">{r.label}</span>
+              <span className="w-20 shrink-0 truncate text-right font-jp text-sm font-bold text-ink" lang={lang}>
+                {r.label}
+              </span>
               <span className="h-3 flex-1">
                 <span className="block h-3 rounded-r-[4px]" style={{ width: `${(r.count / max) * 100}%`, background: LEARNER }} />
               </span>
@@ -238,10 +240,10 @@ function FluencyBreakdown({ stats }: { stats: SpeechStats }) {
   );
 }
 
-export function SpeechAnalytics({ stats }: { stats: SpeechStats }) {
+export function SpeechAnalytics({ stats, lang }: { stats: SpeechStats; lang?: string }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <FillerChart stats={stats} />
+      <FillerChart stats={stats} lang={lang} />
       <FluencyBreakdown stats={stats} />
     </div>
   );

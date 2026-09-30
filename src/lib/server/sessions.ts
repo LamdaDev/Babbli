@@ -23,11 +23,18 @@ export async function saveSession(record: SessionRecord) {
 }
 
 export async function loadSession(id: string): Promise<SessionRecord | null> {
-  try {
-    return JSON.parse(await fs.readFile(path.join(sessionDir(id), "session.json"), "utf8")) as SessionRecord;
-  } catch {
-    return null;
+  if (!validId(id)) return null;
+  // A save may be rewriting the file at this very moment (the scene saves after every reply, and a
+  // read mid-write sees half a file): read it again a moment later rather than report it missing.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      return JSON.parse(await fs.readFile(path.join(sessionDir(id), "session.json"), "utf8")) as SessionRecord;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+      await new Promise((r) => setTimeout(r, 50));
+    }
   }
+  return null;
 }
 
 /**

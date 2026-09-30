@@ -1,3 +1,4 @@
+import type { LanguageCode } from "@/lib/scenarios/types";
 import { requireApiKey } from "./env";
 import { ElevenLabsError, xiJson } from "./elevenlabs";
 import { once, readRegistry, updateRegistry } from "./registry";
@@ -9,9 +10,10 @@ import { once, readRegistry, updateRegistry } from "./registry";
  */
 export interface VoiceDef {
   name: string;
-  language: "en" | "ja" | "fr" | "es";
+  language: LanguageCode;
   role: string;
   description: string;
+  /** Voice Design sample text: 100 to 1000 characters (it refuses anything shorter). */
   sample: string;
   fallback: string;
 }
@@ -96,6 +98,36 @@ export const VOICE_DEFS: Record<string, VoiceDef> = {
       "¡Buenas! Yo le subo las maletas, no se preocupe. El ascensor está a la derecha. Si necesita cualquier cosa, estoy aquí en la entrada. ¡Bienvenido a Sevilla, que lo pase genial!",
     fallback: "TX3LPaxmHKxFdv7VOQHJ",
   },
+  xiaoyu: {
+    name: "Babbli · Xiaoyu (boba shop cashier)",
+    language: "zh",
+    role: "NPC · Shanghai boba shop",
+    description:
+      "A bright, friendly young Chinese woman in her early twenties, the cashier at a trendy bubble tea shop in Shanghai. Native Mandarin speaker with a clear, standard mainland Putonghua accent (not Taiwanese, not Cantonese). Light, sweet and upbeat customer-service voice, quick and natural, warm but not childish.",
+    sample:
+      "欢迎光临！您好，想喝点什么？我们家的招牌奶茶很受欢迎哦。小料有珍珠、荔枝冻和仙草冻，珍珠特别Q弹。甜度和冰量要怎么调？七分糖少冰是吧，好嘞！一共十七块，扫这个码就可以了。这是您的小票，好了叫号，请稍等。慢走哦，欢迎下次光临！",
+    fallback: "EXAVITQu4vr4xnSDxMaL",
+  },
+  ahao: {
+    name: "Babbli · Ahao (boba bar)",
+    language: "zh",
+    role: "Background · drink callouts",
+    description:
+      "A cheerful young Chinese man in his twenties making drinks at the bar of a busy bubble tea shop, calling out orders over the noise. Loud, quick and energetic, native standard mainland Mandarin.",
+    sample:
+      "好嘞！珍珠奶茶一杯，七分糖少冰！荔枝冻奶茶一杯，去冰！仙草冻奶茶热的，马上好！原味奶茶一杯，半糖正常冰！A幺二八号封好了，放取餐台了啊！下一杯，常温！今天人好多啊，大家稍等一下，很快就好！来来来，摇起来，冰块多放一点！",
+    fallback: "TX3LPaxmHKxFdv7VOQHJ",
+  },
+  caller_zh: {
+    name: "Babbli · Pickup call system (Mandarin)",
+    language: "zh",
+    role: "Background · number calls",
+    description:
+      "An automated order-calling system in a Chinese tea shop: a clear, even, slightly synthetic young female voice in standard mainland Mandarin, calm and neutral, like a public announcement.",
+    sample:
+      "请A幺二八号顾客到取餐台取餐。请A幺二九号顾客到取餐台取餐。您的饮品已制作完成，请尽快取用。外卖订单请到右侧取餐区领取。温馨提示，热饮请小心烫口。请保管好您的小票。感谢您的耐心等待，祝您生活愉快，欢迎下次光临。",
+    fallback: "21m00Tcm4TlvDq8ikWAM",
+  },
   coach_en: {
     name: "Babbli · Coach (English)",
     language: "en",
@@ -135,6 +167,16 @@ export const VOICE_DEFS: Record<string, VoiceDef> = {
     sample:
       "Hola. Voy a leer algunas expresiones útiles, despacio y con claridad. Escuche con atención y repita después de mí. Tengo una reserva a nombre de Alex Morgan. Muchas gracias.",
     fallback: "FGY2WhTYpPnrIDTdsKH5",
+  },
+  coach_zh: {
+    name: "Babbli · Coach (Mandarin)",
+    language: "zh",
+    role: "Hints & native reference audio",
+    description:
+      "A calm, clear native Mandarin woman in her 30s with standard, broadcast-clear Putonghua and a neutral mainland accent, speaking slowly and precisely like a language teacher recording reference audio, with very clear tones.",
+    sample:
+      "你好。接下来，我会慢慢地、清楚地读一些常用的句子。请仔细听，然后跟我说。每句话我会读两遍，注意听声调的变化。你好，我要一杯奶茶。加珍珠。七分糖，少冰。可以扫码吗？谢谢，再见！说错了也没关系，我们一起慢慢练习吧，加油！",
+    fallback: "XrExE9yKIg1WjnnlVkGX",
   },
   // Alternate coaches, picked in the Traveler Profile. Only playback uses them: the standard coach
   // stays the native timing reference for scores. Designed the first time someone chooses one.
@@ -177,6 +219,16 @@ export const VOICE_DEFS: Record<string, VoiceDef> = {
     sample:
       "Hola. Vamos a practicar juntos algunas expresiones útiles, despacio. Primero escuche y luego repita conmigo. Tengo una reserva a nombre de Morgan. ¿A qué hora es el desayuno?",
     fallback: "TX3LPaxmHKxFdv7VOQHJ",
+  },
+  coach_zh_alt: {
+    name: "Babbli · Coach 2 (Mandarin)",
+    language: "zh",
+    role: "Hints & native reference audio (alternate)",
+    description:
+      "A warm, clear native Mandarin man in his 30s with standard, broadcast-clear Putonghua and a neutral mainland accent, speaking slowly and precisely like a friendly language teacher recording reference audio, with very clear tones.",
+    sample:
+      "你好！我们一起来练习几个常用的句子吧。先仔细听我说，然后跟着我说一遍，注意每个字的声调。你好，我要一杯珍珠奶茶。半糖，去冰。我扫你吧。在这儿喝。谢谢，拜拜！慢慢来，别着急，多练几次就好了。说得越多，就说得越自然。",
+    fallback: "JBFqnCBsd6RMkjVDRZzb",
   },
 };
 

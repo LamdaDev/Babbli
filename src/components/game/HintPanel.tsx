@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import { Pinyin, ToneLegend } from "@/components/ui/Pinyin";
 import { defaultHintCard, getStage } from "@/lib/engine/engine";
 import { useController, useGame } from "./GameContext";
 
@@ -67,11 +68,16 @@ export function HintPanel() {
                       <span className="font-jp font-bold" lang={controller.scenario.language}>
                         {v.term}
                       </span>
-                      {v.reading && <span className="ml-1 text-xs text-ink-soft">{v.reading}</span>}
+                      {v.reading && (
+                        <span className="ml-1 text-xs text-ink-soft">
+                          <Pinyin text={v.reading} lang={controller.scenario.language} />
+                        </span>
+                      )}
                       <span className="text-xs text-ink-soft">: {v.meaning}</span>
                     </span>
                   ))}
                 </div>
+                {controller.scenario.language === "zh" && <ToneLegend className="mt-1.5" />}
               </li>
             )}
             {level >= 3 && (
@@ -88,7 +94,11 @@ export function HintPanel() {
                 <p className="font-jp text-xl font-bold" lang={controller.scenario.language}>
                   {card.hints.full}
                 </p>
-                {card.hints.fullReading && <p className="text-sm text-ink-soft">{card.hints.fullReading}</p>}
+                {card.hints.fullReading && (
+                  <p className="text-sm text-ink-soft">
+                    <Pinyin text={card.hints.fullReading} lang={controller.scenario.language} />
+                  </p>
+                )}
                 <p className="text-sm italic text-ink-soft">{card.hints.fullMeaning}</p>
               </li>
             )}

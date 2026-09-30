@@ -610,7 +610,7 @@ export class GameController {
   /* ------------------------------------------------------------------ */
 
   private handleAgentLine(message: string) {
-    const raw = withoutEmDashes(message);
+    const raw = withoutEmDashes(message, this.scenario.language);
     const text = stripAudioTags(raw);
     if (!text) return;
     const stage = getStage(this.scenario, this.session.state.stageId);

@@ -34,5 +34,31 @@ export function Flag({ code, className = "h-[0.9em] w-[1.35em]" }: { code: strin
         <rect y="5" width="30" height="10" fill="#f1bf00" />
       </svg>
     );
+  if (code === "zh")
+    return (
+      <svg {...common}>
+        <rect width="30" height="20" fill="#ee1c25" />
+        <path d={star(5, 5, 3, -90)} fill="#ffff00" />
+        {/* the four small stars each point at the big one */}
+        {[
+          [10, 2],
+          [12, 4],
+          [12, 7],
+          [10, 9],
+        ].map(([x, y]) => (
+          <path key={`${x}-${y}`} d={star(x, y, 1, (Math.atan2(5 - y, 5 - x) * 180) / Math.PI)} fill="#ffff00" />
+        ))}
+      </svg>
+    );
   return null;
+}
+
+/** A five-point star centred at x,y with its first point towards `angle` degrees (rounded so server and client match). */
+function star(x: number, y: number, r: number, angle: number) {
+  const points = Array.from({ length: 10 }, (_, i) => {
+    const a = ((angle + i * 36) * Math.PI) / 180;
+    const d = i % 2 ? r * 0.382 : r;
+    return `${Math.round((x + Math.cos(a) * d) * 100) / 100} ${Math.round((y + Math.sin(a) * d) * 100) / 100}`;
+  });
+  return `M${points.join(" L")} Z`;
 }

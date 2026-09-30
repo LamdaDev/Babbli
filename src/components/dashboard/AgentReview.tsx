@@ -56,12 +56,15 @@ export function AgentReview({
   npcName,
   pending,
   wait,
+  lang,
 }: {
   analysis: AgentAnalysis | null;
   npcName: string;
   /** The session has a conversation to analyse. */
   pending: boolean;
   wait?: { since: number; gaveUp: boolean } | null;
+  /** The scene's language, for quoted target-language text. */
+  lang?: string;
 }) {
   if (!pending) return <p className="text-sm text-ink-soft">No agent analysis for this session.</p>;
   if (analysis?.status === "failed") {
@@ -133,7 +136,7 @@ export function AgentReview({
             <h4 className="mb-1 font-bold">Corrections</h4>
             <ul className="space-y-1 text-sm">
               {errors.map((s, i) => (
-                <li key={i} className="font-jp">
+                <li key={i} className="font-jp" lang={lang}>
                   <span className="text-[#a52b2b] line-through decoration-1">{s.a}</span>
                   {s.b && <span> → {s.b}</span>}
                 </li>
@@ -147,7 +150,9 @@ export function AgentReview({
             <ul className="space-y-1 text-sm">
               {expressions.map((s, i) => (
                 <li key={i}>
-                  <span className="font-jp font-bold">{s.a}</span>
+                  <span className="font-jp font-bold" lang={lang}>
+                    {s.a}
+                  </span>
                   {s.b && <span className="text-ink-soft">: {s.b}</span>}
                 </li>
               ))}
@@ -161,7 +166,9 @@ export function AgentReview({
           <ol className="mt-2 space-y-1.5 text-sm">
             {translations.map((t, i) => (
               <li key={i}>
-                <span className="font-jp">{t.a}</span>
+                <span className="font-jp" lang={lang}>
+                  {t.a}
+                </span>
                 {t.b && <span className="block text-ink-soft italic">{t.b}</span>}
               </li>
             ))}

@@ -49,6 +49,24 @@ function Glyph({ glyph, fg, bg }: { glyph: PinGlyph; fg: string; bg: string }) {
           <path d="M0 0 L11 0 M7.5 0 L7.5 4.5 M10.5 0 L10.5 3.5" {...line} strokeWidth={2.8} />
         </>
       );
+    case "boba":
+      // A clear cup of milk tea (the pin's own colour) with a dome lid, a fat straw and dark pearls at the bottom.
+      return (
+        <>
+          <path d="M1.5 -8 L5 -12.5" {...line} strokeWidth={2.8} />
+          <path d="M-8 -5 Q0 -12.5 8 -5 Z" fill={fg} />
+          <path d="M-7.5 -3.5 L7.5 -3.5 L5.8 10 L-5.8 10 Z" fill="none" stroke={fg} strokeWidth={1.8} strokeLinejoin="round" />
+          {[
+            [-3.2, 7.6],
+            [0, 7.6],
+            [3.2, 7.6],
+            [-1.6, 4.8],
+            [1.6, 4.8],
+          ].map(([cx, cy]) => (
+            <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={1.5} fill={fg} />
+          ))}
+        </>
+      );
     case "star":
       return <path d={`M${STAR} Z`} fill={fg} />;
     case "globe":

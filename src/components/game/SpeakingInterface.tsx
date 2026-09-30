@@ -101,7 +101,7 @@ function TextComposer() {
         onChange={(e) => setText(e.target.value)}
         lang={scenario.language}
         aria-label={`Your reply in ${scenario.languageEnglish}`}
-        placeholder={`Write your reply in ${scenario.languageEnglish}…`}
+        placeholder={scenario.language === "zh" ? "Type in Chinese or pinyin…" : `Write your reply in ${scenario.languageEnglish}…`}
         className="min-w-0 flex-1 rounded-xl border-2 border-transparent bg-paper px-3 py-2.5 font-jp text-lg text-ink outline-none focus:border-brand"
       />
       <button disabled={!text.trim()} className="rounded-xl bg-brand px-5 font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-50">

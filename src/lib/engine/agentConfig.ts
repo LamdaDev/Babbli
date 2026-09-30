@@ -76,11 +76,13 @@ export function buildResyncNote(scenario: ScenarioDef, state: ScenarioState) {
   ].join("\n");
 }
 
-const NUDGE: Record<string, string> = { en: "Everything okay over there?", ja: "お決まりですか？", fr: "Alors ?", es: "¿Sí?" };
+const NUDGE: Record<string, string> = { en: "Everything okay over there?", ja: "お決まりですか？", fr: "Alors ?", es: "¿Sí?", zh: "您好，想好了吗？" };
 
 function languageRule(scenario: ScenarioDef) {
   if (scenario.language === "en")
     return "Speak ONLY natural American English. If the customer uses another language, stay in English and kindly ask them to try in English. Never translate for them.";
+  if (scenario.language === "zh")
+    return "Speak ONLY Mandarin Chinese (standard mainland Putonghua), written in Simplified Chinese characters. Never English, never pinyin, never Traditional characters, and never translate for them. The customer may type pinyin instead of characters in Text Mode: treat it as Mandarin.";
   const lang = scenario.languageEnglish;
   return `Speak ONLY ${lang}. Never English, not even if the customer speaks English. Never translate for them.`;
 }
