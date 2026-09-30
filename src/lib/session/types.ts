@@ -136,17 +136,8 @@ export interface SessionRecord {
     typedTurns: number;
   };
   analysis?: AgentAnalysis;
-}
-
-export interface SessionSummary {
-  id: string;
-  scenarioId: string;
-  difficulty: Difficulty;
-  responseMode: ResponseMode;
-  startedAt: number;
-  status: SessionRecord["status"];
-  objectiveComplete: boolean;
-  turns: number;
+  /** Server clock, set on the first save and kept after: how long the session has been running. */
+  firstSavedAt?: number;
 }
 
 export function responseModeOf(session: Pick<SessionRecord, "responseMode">): ResponseMode {

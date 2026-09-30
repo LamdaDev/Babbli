@@ -1,3 +1,4 @@
+import { ProgressBar } from "@/components/ui/ProgressBar";
 import type { Score } from "@/lib/evaluation/scoring";
 
 const STATUS = {
@@ -12,8 +13,19 @@ export function statusFor(value: number | null) {
 }
 
 /** Stat tile + meter. The meter's fill carries severity; icon + label keep it readable without color. */
-export function ScoreTile({ label, score, note, method }: { label: string; score: Score; note?: string; method?: string }) {
+export function ScoreTile({ label, score, note, method, pending }: { label: string; score: Score; note?: string; method?: string; pending?: string }) {
   const s = statusFor(score.value);
+  // Waiting on data that is still being produced (e.g. ElevenLabs Scribe): no half-computed score.
+  if (pending) {
+    return (
+      <div className="flex flex-col rounded-2xl bg-paper p-4 shadow-sm ring-1 ring-ink/5" aria-busy="true">
+        <div className="text-sm font-bold text-ink-soft">{label}</div>
+        <div className="shimmer mt-1 text-2xl font-bold leading-10 text-ink-soft">Analysing…</div>
+        <ProgressBar label={`${label} score`} className="mt-2" />
+        <p className="mt-2 text-xs leading-snug text-ink-soft">{pending}</p>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col rounded-2xl bg-paper p-4 shadow-sm ring-1 ring-ink/5">
       <div className="text-sm font-bold text-ink-soft">{label}</div>

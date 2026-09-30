@@ -2,6 +2,8 @@
 
 import { Pin } from "@/components/profile/Pin";
 import { Flag } from "@/components/ui/Flag";
+import { InAppNotice } from "@/components/ui/InAppNotice";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -10,6 +12,7 @@ import { badgeDef } from "@/lib/profile/badges";
 import { addressForm } from "@/lib/profile/profile";
 import { inAddressForm } from "@/lib/scenarios/types";
 import { useController, useGame } from "./GameContext";
+import type { GameUI } from "./store";
 
 /**
  * Scenes start by themselves. Only when the page was opened without any prior
@@ -39,9 +42,28 @@ export function TapToEnter() {
   );
 }
 
+/** Voice Mode opened inside an app's built-in browser (LinkedIn…): a real browser or Text Mode first. */
+export function InAppGate() {
+  const controller = useController();
+  const inApp = useGame((s) => s.inApp);
+  const phase = useGame((s) => s.phase);
+  return (
+    <AnimatePresence>
+      {inApp && phase === "briefing" && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-center justify-center bg-night/60 p-4 backdrop-blur-sm">
+          <InAppNotice info={inApp} variant="card" textHref={controller.textModeHref} onVoiceAnyway={() => controller.enterAnyway()} />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export function EntryCurtain() {
+  const { scenario } = useController();
   const phase = useGame((s) => s.phase);
   const busyLabel = useGame((s) => s.busyLabel);
+  const loadProgress = useGame((s) => s.loadProgress);
+  const micPrompt = useGame((s) => s.micPrompt);
   const connecting = phase === "connecting";
   return (
     <>
@@ -70,15 +92,48 @@ export function EntryCurtain() {
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {connecting && (
+        {connecting && micPrompt && (
+          // Shown as the browser asks for the microphone: why it matters, before anyone clicks Block.
+          <motion.div
+            key="mic"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            role="alertdialog"
+            aria-labelledby="mic-title"
+            aria-describedby="mic-desc"
+            className="absolute left-1/2 top-1/2 z-50 w-[min(26rem,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-3xl bg-paper p-6 text-center text-ink shadow-2xl"
+          >
+            <div className="relative mx-auto grid h-16 w-16 place-items-center">
+              <span className="mic-ring absolute inset-0 rounded-full bg-brand/30" aria-hidden />
+              <span className="relative grid h-16 w-16 place-items-center rounded-full bg-brand text-3xl" aria-hidden>
+                🎙️
+              </span>
+            </div>
+            <h2 id="mic-title" className="mt-4 font-display text-2xl">
+              Please allow your microphone
+            </h2>
+            <p id="mic-desc" className="mt-1 text-sm leading-relaxed text-ink-soft">
+              Your browser is asking now. Allow it so {scenario.npc.name} can hear you and Babbli can give you feedback on your speaking: that&apos;s the
+              best way to enjoy Babbli. It only listens during your turn.
+            </p>
+            <p className="mt-3 text-xs text-ink-soft">Don&apos;t see the question? Look near the address bar.</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {connecting && !micPrompt && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute left-1/2 top-[40%] z-40 -translate-x-1/2 rounded-full bg-night/75 px-5 py-2 text-sm font-bold text-cream backdrop-blur"
+            role="status"
+            aria-live="polite"
+            className="absolute left-1/2 top-[40%] z-40 w-64 -translate-x-1/2 rounded-2xl bg-night/75 px-5 py-3 text-center text-sm font-bold text-cream backdrop-blur"
           >
             <span className="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-cream border-t-transparent align-[-1px]" />
             {busyLabel ?? "Stepping inside…"}
+            <ProgressBar value={loadProgress} label="Entering the scene" onDark className="mt-2.5" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -115,16 +170,20 @@ export function CompletionOverlay() {
   const controller = useController();
   const phase = useGame((s) => s.phase);
   const completion = useGame((s) => s.completion);
+  const endReason = useGame((s) => s.endReason);
   const busyLabel = useGame((s) => s.busyLabel);
   const sessionId = useGame((s) => s.sessionId);
+  const saveProgress = useGame((s) => s.saveProgress);
   const profile = useProfile();
   const { scenario } = controller;
   const badges = completion?.badges ?? [];
+  // The card shows as soon as the scene ends; until the session is saved, the way on waits for it.
+  const saving = phase === "ending";
   return (
     <AnimatePresence>
       {(phase === "ending" || phase === "done") && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-50 flex items-center justify-center bg-night/60 p-4 backdrop-blur-sm">
-          {phase === "ending" ? (
+          {saving && !completion ? (
             <div className="rounded-full bg-night/80 px-5 py-2 text-sm font-bold text-cream">{busyLabel ?? "Wrapping up…"}</div>
           ) : (
             <motion.div
@@ -142,7 +201,14 @@ export function CompletionOverlay() {
                   <div className="mt-1 font-display text-lg text-teal">Objective complete</div>
                 </>
               ) : (
-                <div className="mt-3 font-display text-2xl">Scene ended</div>
+                <>
+                  <div className="mt-3 font-display text-2xl">Scene ended</div>
+                  {endReason && (
+                    <p className="mt-1 text-sm font-bold text-ink-soft">
+                      {endReason === "hidden" ? "The tab was in the background for a minute, so the scene ended by itself." : "Nobody was there for a while, so the scene ended by itself."}
+                    </p>
+                  )}
+                </>
               )}
               {badges.length > 0 && (
                 <motion.div
@@ -162,18 +228,49 @@ export function CompletionOverlay() {
                   </div>
                 </motion.div>
               )}
-              <p className="mt-2 text-sm text-ink-soft">Your recordings, transcripts and hints are saved. See how you did on comprehension, speaking, fluency, vocabulary and independence.</p>
+              {saving ? (
+                <div className="mt-4 rounded-2xl bg-ink/5 px-4 py-3 text-left" role="status" aria-live="polite">
+                  <div className="flex items-center justify-between gap-3 text-sm font-bold">
+                    <span>{saveProgress?.label ?? "Saving your session"}…</span>
+                    <span className="tabular-nums text-ink-soft">{Math.round((saveProgress?.value ?? 0) * 100)}%</span>
+                  </div>
+                  <ProgressBar value={saveProgress?.value ?? 0} label="Saving your session" className="mt-2" />
+                  <p className="mt-2 text-xs text-ink-soft">Your feedback unlocks as soon as this is done, usually within a few seconds.</p>
+                </div>
+              ) : completion?.saveFailed ? (
+                <p className="mt-3 rounded-xl bg-gold/15 px-3 py-2 text-sm font-bold" role="alert">
+                  Some of this session couldn&apos;t be saved, so your feedback may be incomplete. Check your connection.
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-ink-soft">
+                  <span className="font-bold text-teal">✓ Saved.</span> See how you did on comprehension, speaking, fluency, vocabulary and independence.
+                </p>
+              )}
               <div className="mt-5 flex flex-col gap-2">
-                <Link href={`/session/${sessionId}`} className="rounded-2xl bg-brand px-5 py-3 font-display text-lg text-white transition-colors hover:bg-brand-dark">
-                  See your feedback →
-                </Link>
+                {saving ? (
+                  <button disabled className="cursor-wait rounded-2xl bg-brand/50 px-5 py-3 font-display text-lg text-white">
+                    Saving…
+                  </button>
+                ) : (
+                  <Link href={`/session/${sessionId}`} className="rounded-2xl bg-brand px-5 py-3 font-display text-lg text-white transition-colors hover:bg-brand-dark">
+                    See your feedback →
+                  </Link>
+                )}
                 <div className="flex gap-2">
-                  <button onClick={() => window.location.reload()} className="flex-1 rounded-2xl border-2 border-ink/15 py-2 text-sm font-bold">
+                  <button
+                    disabled={saving}
+                    onClick={() => window.location.reload()}
+                    className="flex-1 rounded-2xl border-2 border-ink/15 py-2 text-sm font-bold disabled:cursor-wait disabled:opacity-50"
+                  >
                     Play again
                   </button>
-                  <Link href="/" className="flex-1 rounded-2xl border-2 border-ink/15 py-2 text-sm font-bold">
-                    Home
-                  </Link>
+                  {saving ? (
+                    <span className="flex-1 cursor-wait rounded-2xl border-2 border-ink/15 py-2 text-sm font-bold opacity-50">Home</span>
+                  ) : (
+                    <Link href="/" className="flex-1 rounded-2xl border-2 border-ink/15 py-2 text-sm font-bold">
+                      Home
+                    </Link>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -184,46 +281,132 @@ export function CompletionOverlay() {
   );
 }
 
+/** "Still there?": shown after a while with nobody doing anything; the scene ends by itself when the countdown runs out. */
+export function StillThere() {
+  const controller = useController();
+  const idle = useGame((s) => s.idle);
+  const phase = useGame((s) => s.phase);
+  const open = !!idle && phase !== "ending" && phase !== "done";
+  return <AnimatePresence>{open && idle && <StillThereCard endsAt={idle.endsAt} onHere={controller.markActive} />}</AnimatePresence>;
+}
+
+const secondsUntil = (t: number) => Math.max(0, Math.ceil((t - Date.now()) / 1000));
+
+function StillThereCard({ endsAt, onHere }: { endsAt: number; onHere: () => void }) {
+  const [left, setLeft] = useState(() => secondsUntil(endsAt));
+  useEffect(() => {
+    const t = setInterval(() => setLeft(secondsUntil(endsAt)), 250);
+    return () => clearInterval(t);
+  }, [endsAt]);
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      className="absolute inset-0 z-[55] flex items-center justify-center bg-night/50 p-4 backdrop-blur-[2px]"
+    >
+      <motion.div
+        role="alertdialog"
+        aria-labelledby="idle-title"
+        aria-describedby="idle-desc"
+        initial={{ scale: 0.92, y: 16 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 10, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 260, damping: 22 }}
+        className="paper-grain w-full max-w-sm rounded-3xl bg-paper p-6 text-center text-ink shadow-[0_30px_80px_rgba(0,0,0,0.5)]"
+      >
+        <div className="text-4xl" aria-hidden>
+          👋
+        </div>
+        <h2 id="idle-title" className="mt-2 font-display text-2xl">
+          Still there?
+        </h2>
+        <p id="idle-desc" className="mt-1 text-sm leading-relaxed text-ink-soft">
+          The scene ends by itself in <span className="font-bold tabular-nums text-ink">{left} s</span>. Your progress so far is saved.
+        </p>
+        <button
+          autoFocus
+          onClick={onHere}
+          className="mt-5 w-full rounded-2xl bg-brand py-3 font-display text-lg text-white outline-none ring-brand/40 transition-colors hover:bg-brand-dark focus-visible:ring-4"
+        >
+          I&apos;m here
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export function ErrorOverlay() {
+  const controller = useController();
   const phase = useGame((s) => s.phase);
   const error = useGame((s) => s.error);
+  const kind = useGame((s) => s.errorKind) ?? "busy";
   const action = useGame((s) => s.errorAction);
-  const missingKey = error?.includes("ELEVENLABS_API_KEY");
   if (phase !== "error") return null;
+  const copy = ERROR_COPY[kind];
+  // No microphone: switching to Text Mode is the way forward. Otherwise, trying again is.
+  const actionFirst = kind === "mic";
+  const actionLink = action && (
+    // A full page load: the new mode needs a fresh session.
+    <a
+      href={action.href}
+      className={`flex-1 rounded-2xl py-2.5 text-center font-bold ${actionFirst ? "bg-brand text-white transition-colors hover:bg-brand-dark" : "border-2 border-ink/15"}`}
+    >
+      {action.label}
+    </a>
+  );
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-night/80 p-4">
-      <div className="w-full max-w-lg rounded-3xl bg-paper p-7 text-ink shadow-2xl">
-        <div className="text-4xl">😵‍💫</div>
-        <div className="mt-2 font-display text-2xl">Couldn&apos;t start the scene</div>
-        <p className="mt-2 break-words rounded-xl bg-ink/5 p-3 font-mono text-xs text-ink-soft">{error}</p>
-        {missingKey && (
-          <p className="mt-3 text-sm">
-            Add <code className="rounded bg-ink/10 px-1">ELEVENLABS_API_KEY=…</code> to <code className="rounded bg-ink/10 px-1">.env.local</code> and restart the dev server.
-          </p>
+      <div role="alertdialog" aria-labelledby="error-title" className="w-full max-w-lg rounded-3xl bg-paper p-7 text-ink shadow-2xl">
+        <div className="text-4xl" aria-hidden>
+          {copy.icon}
+        </div>
+        <h2 id="error-title" className="mt-2 font-display text-2xl">
+          {copy.title}
+        </h2>
+        {kind === "setup" ? (
+          <>
+            <p className="mt-2 break-words rounded-xl bg-ink/5 p-3 font-mono text-xs text-ink-soft">{error}</p>
+            <p className="mt-3 text-sm">
+              Add <code className="rounded bg-ink/10 px-1">ELEVENLABS_API_KEY=…</code> to <code className="rounded bg-ink/10 px-1">.env.local</code> and restart the dev server.
+            </p>
+          </>
+        ) : (
+          <p className="mt-1 text-sm leading-relaxed text-ink-soft">{kind === "mic" ? error : copy.body}</p>
         )}
         <div className="mt-5 flex gap-2">
-          {action && (
-            // A full page load: the new mode needs a fresh session.
-            <a href={action.href} className="flex-1 rounded-2xl bg-brand py-2.5 text-center font-bold text-white transition-colors hover:bg-brand-dark">
-              {action.label}
-            </a>
-          )}
+          {actionFirst && actionLink}
           <button
-            onClick={() => window.location.reload()}
-            className={`flex-1 rounded-2xl py-2.5 font-bold ${action ? "border-2 border-ink/15" : "bg-brand text-white transition-colors hover:bg-brand-dark"}`}
+            onClick={() => controller.retry()}
+            className={`flex-1 rounded-2xl py-2.5 font-bold ${actionFirst ? "border-2 border-ink/15" : "bg-brand text-white transition-colors hover:bg-brand-dark"}`}
           >
-            Try again
+            {copy.retry}
           </button>
+          {!actionFirst && actionLink}
           {!action && (
             <Link href="/" className="flex-1 rounded-2xl border-2 border-ink/15 py-2.5 text-center font-bold">
               Back home
             </Link>
           )}
         </div>
+        {kind !== "setup" && kind !== "mic" && error && (
+          <details className="mt-4 text-xs text-ink-soft">
+            <summary className="cursor-pointer select-none">Technical details</summary>
+            <p className="mt-1 break-words font-mono">{error}</p>
+          </details>
+        )}
       </div>
     </div>
   );
 }
+
+const ERROR_COPY: Record<NonNullable<GameUI["errorKind"]>, { icon: string; title: string; body: string; retry: string }> = {
+  busy: { icon: "☕", title: "Babbli is busy", body: "Lots of people are practicing right now. Try again in a minute.", retry: "Try again" },
+  lost: { icon: "📡", title: "The connection dropped", body: "Sorry about that! Start the scene again, or switch to Text Mode.", retry: "Start again" },
+  mic: { icon: "🎙️", title: "Microphone needed", body: "", retry: "Try again" },
+  setup: { icon: "😵‍💫", title: "Couldn't start the scene", body: "", retry: "Try again" },
+};
 
 export function Toast() {
   const toast = useGame((s) => s.toast);

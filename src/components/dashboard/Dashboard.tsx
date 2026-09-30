@@ -6,7 +6,7 @@ import { Flag } from "@/components/ui/Flag";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getStage } from "@/lib/engine/engine";
-import { api, turnAudioUrl, type TtsResult } from "@/lib/client/api";
+import { api, type TtsResult } from "@/lib/client/api";
 import { useProfile, useProgress } from "@/lib/client/profileStore";
 import { buildReport } from "@/lib/evaluation/scoring";
 import { referenceTiming, type ReferenceTiming } from "@/lib/evaluation/speech";
@@ -17,7 +17,9 @@ import { getScenario } from "@/lib/scenarios";
 import { DIFFICULTIES, type Difficulty } from "@/lib/scenarios/types";
 import { responseModeOf, type AgentAnalysis, type SessionRecord } from "@/lib/session/types";
 import { AgentReview } from "./AgentReview";
+import { FeedbackProgress, type FeedbackTask } from "./FeedbackProgress";
 import { PlayButton } from "./PlayButton";
+import { ResultsLoading } from "./ResultsLoading";
 import { ScoreTile } from "./ScoreTile";
 import { SpeechAnalytics } from "./SpeechAnalytics";
 import { TurnCard } from "./TurnCard";
@@ -41,7 +43,9 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [refs, setRefs] = useState<Record<string, { timing: ReferenceTiming | null; tts: TtsResult } | null>>({});
   const [analysis, setAnalysis] = useState<AgentAnalysis | null>(null);
-  const [sttStatus, setSttStatus] = useState<{ done: number; total: number } | null>(null);
+  const [sttStatus, setSttStatus] = useState<{ done: number; total: number; failed: number; finished: boolean } | null>(null);
+  /** Waiting for the character's review: since when, and whether polling has given up for now. */
+  const [reviewWait, setReviewWait] = useState<{ since: number; gaveUp: boolean } | null>(null);
   const refsStarted = useRef(new Set<string>());
   const profile = useProfile();
   const progress = useProgress();
@@ -58,31 +62,40 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
 
   const scenario = session ? getScenario(session.scenarioId) : undefined;
 
-  // Backfill ElevenLabs Scribe analysis for recordings that finished after the scene ended.
+  // ElevenLabs Scribe analysis for recordings not transcribed yet: Live mode leaves it to this page,
+  // so scenes nobody looks at never pay for it. Saved afterwards, so it only runs once per session.
   useEffect(() => {
     if (!session || !scenario) return;
     const missing = session.turns.filter((t) => t.audio?.uploaded && !t.stt && t.inputMethod === "voice");
     if (!missing.length) return;
     let cancelled = false;
     (async () => {
-      setSttStatus({ done: 0, total: missing.length });
+      setSttStatus({ done: 0, total: missing.length, failed: 0, finished: false });
       const updated: SessionRecord = { ...session, turns: session.turns.map((t) => ({ ...t })) };
       let done = 0;
-      for (const t of missing) {
-        try {
-          const blob = await fetch(turnAudioUrl(session.id, t.id)).then((r) => r.blob());
-          const stt = await api.stt(blob, scenario.language, t.expected?.keywords ?? []);
-          const target = updated.turns.find((x) => x.id === t.id);
-          if (target) target.stt = stt;
-        } catch (e) {
-          console.warn("[babbli] backfill STT failed", e);
+      let failed = 0;
+      const queue = [...missing];
+      const worker = async () => {
+        while (queue.length && !cancelled) {
+          const t = queue.shift()!;
+          try {
+            // The server transcribes the stored recording, with the keyterms the scene used for it.
+            const stt = await api.sttTurn(session.id, t.id);
+            const target = updated.turns.find((x) => x.id === t.id);
+            if (target) target.stt = stt;
+            // Each reply fills in as soon as it's transcribed.
+            if (!cancelled) setSession({ ...updated, turns: [...updated.turns] });
+          } catch (e) {
+            failed++;
+            console.warn("[babbli] backfill STT failed", e);
+          }
+          done++;
+          if (!cancelled) setSttStatus({ done, total: missing.length, failed, finished: false });
         }
-        done++;
-        if (!cancelled) setSttStatus({ done, total: missing.length });
-      }
+      };
+      await Promise.all([worker(), worker(), worker()]);
       if (cancelled) return;
-      setSession(updated);
-      setSttStatus(null);
+      setSttStatus({ done, total: missing.length, failed, finished: true });
       void api.saveSession(updated).catch(() => undefined);
     })();
     return () => {
@@ -98,9 +111,11 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
     for (const p of phrases) {
       if (refsStarted.current.has(p)) continue;
       refsStarted.current.add(p);
+      // The phrase as shown (sessions saved before the model phrases lost their em dashes still have them).
+      const said = withoutEmDashes(p);
       api
-        .tts(p, `coach_${scenario.language}`, 1)
-        .then((tts) => setRefs((r) => ({ ...r, [p]: { tts, timing: referenceTiming(tts.alignment, p, scenario.language) } })))
+        .tts(said, `coach_${scenario.language}`, 1)
+        .then((tts) => setRefs((r) => ({ ...r, [p]: { tts, timing: referenceTiming(tts.alignment, said, scenario.language) } })))
         .catch(() => setRefs((r) => ({ ...r, [p]: null })));
     }
   }, [session, scenario]);
@@ -110,6 +125,7 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
     if (!session?.conversationId || analysis?.status === "done") return;
     let tries = 0;
     let timer: ReturnType<typeof setTimeout>;
+    const since = Date.now();
     const poll = async () => {
       tries++;
       try {
@@ -119,7 +135,11 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
       } catch {
         /* keep trying */
       }
-      if (tries < 30) timer = setTimeout(poll, 6000);
+      // About 3 minutes, then say so (opening the page again later picks the review up).
+      if (tries < 45) {
+        setReviewWait({ since, gaveUp: false });
+        timer = setTimeout(poll, 4000);
+      } else setReviewWait({ since, gaveUp: true });
     };
     void poll();
     return () => clearTimeout(timer);
@@ -147,7 +167,7 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
     );
   }
   if (!session || !scenario || !report) {
-    return <main className="grid min-h-dvh place-items-center bg-page text-ink-soft">Loading your session…</main>;
+    return <ResultsLoading />;
   }
 
   const diff = DIFFICULTIES.find((d) => d.id === session.difficulty)!;
@@ -167,6 +187,52 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
   const name = displayName(profile);
   const mins = Math.floor(report.completion.durationSec / 60);
   const secs = report.completion.durationSec % 60;
+
+  // What the page is still waiting for, each with its own progress (see FeedbackProgress).
+  const transcribing = !!sttStatus && !sttStatus.finished;
+  const phrases = Array.from(new Set(session.turns.map((t) => t.expected?.reference).filter((p): p is string => !!p)));
+  const refsReady = phrases.filter((p) => p in refs).length;
+  const reviewState = analysis?.status === "done" ? "done" : analysis?.status === "failed" ? "failed" : reviewWait?.gaveUp ? "slow" : "working";
+  const tasks: FeedbackTask[] = [];
+  if (sttStatus) {
+    tasks.push({
+      id: "stt",
+      label: "Transcribing your recordings",
+      by: "ElevenLabs Scribe",
+      state: transcribing ? "working" : sttStatus.failed ? "failed" : "done",
+      value: sttStatus.done / sttStatus.total,
+      count: `${sttStatus.done} of ${sttStatus.total}`,
+      note: transcribing
+        ? "Speaking clarity, fluency and each reply's details fill in as it goes."
+        : `${sttStatus.failed} couldn't be transcribed. Open this page again later to try again.`,
+    });
+  }
+  if (phrases.length) {
+    tasks.push({
+      id: "refs",
+      label: "Recording the native speaker",
+      by: "ElevenLabs Text to Speech",
+      state: refsReady < phrases.length ? "working" : "done",
+      value: refsReady / phrases.length,
+      count: `${refsReady} of ${phrases.length}`,
+      note: "A native reference for each reply, to compare with yours.",
+    });
+  }
+  if (session.conversationId) {
+    tasks.push({
+      id: "review",
+      label: `${scenario.npc.name} is writing your review`,
+      by: "ElevenLabs Agents",
+      state: reviewState,
+      since: reviewWait?.since,
+      note:
+        reviewState === "slow"
+          ? "Taking longer than usual. Open this page again in a minute or two to see it."
+          : reviewState === "failed"
+            ? "ElevenLabs couldn't analyse this conversation this time."
+            : "Usually ready within a minute.",
+    });
+  }
 
   return (
     <main className="min-h-dvh bg-page pb-20 text-ink">
@@ -216,29 +282,28 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
       </div>
 
       <div className="mx-auto max-w-6xl px-5">
-        {sttStatus && (
-          <div className="mt-6 rounded-xl bg-[#2a78d6]/10 px-4 py-2 text-sm font-bold text-[#1f5ea8]">
-            Analysing your recordings with ElevenLabs Scribe… {sttStatus.done}/{sttStatus.total}
-          </div>
-        )}
+        <FeedbackProgress tasks={tasks} />
 
         {mine && unlocked.length > 0 && (
-          <div className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl bg-gold/15 px-5 py-4 ring-1 ring-gold/40">
-            <div className="flex -space-x-2">
+          // Phones: pins, then the text, then the button, stacked. From sm up: one row.
+          <div className="mt-6 flex flex-col gap-3 rounded-2xl bg-gold/15 p-4 ring-1 ring-gold/40 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
+            <div className="flex shrink-0 -space-x-2">
               {unlocked.map((u) => (
                 <Pin key={u.id} id={u.id} size={44} />
               ))}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="font-display text-lg">
-                New in {name}&apos;s passport: {unlocked.map((u) => badgeDef(u.id).name).join(", ")}
-              </div>
-              <p className="text-sm text-ink-soft">
+              <div className="break-words font-display text-lg leading-snug">New in {name}&apos;s passport</div>
+              <div className="text-sm font-bold">{unlocked.map((u) => badgeDef(u.id).name).join(" · ")}</div>
+              <p className="mt-1 text-sm text-ink-soft">
                 {capitalize(pronounsOf(profile).subject)} can wear {unlocked.length === 1 ? "it" : "them"} on {name === "Traveler" ? "the" : `${name}'s`} avatar. Pins are just for
                 fun: they never change a score.
               </p>
             </div>
-            <Link href="/profile" className="rounded-full bg-paper px-4 py-2 text-sm font-bold ring-1 ring-ink/10 transition hover:ring-brand/40">
+            <Link
+              href="/profile"
+              className="shrink-0 rounded-full bg-paper px-4 py-2.5 text-center text-sm font-bold ring-1 ring-ink/10 transition hover:ring-brand/40 sm:py-2"
+            >
               See your pins →
             </Link>
           </div>
@@ -277,14 +342,27 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
             <>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 {report.scores.map((s) => (
-                  <ScoreTile key={s.id} label={s.label} score={s} method={s.method} />
+                  <ScoreTile
+                    key={s.id}
+                    label={s.label}
+                    score={s}
+                    method={s.method}
+                    pending={transcribing && (s.id === "clarity" || s.id === "fluency") ? "Waiting for ElevenLabs Scribe to finish transcribing your recordings." : undefined}
+                  />
                 ))}
               </div>
               {/* Voice Mode only: the report has no speech stats for text sessions. */}
-              {report.speech && (
-                <div className="mt-4">
-                  <SpeechAnalytics stats={report.speech} />
+              {!text && transcribing ? (
+                <div className="shimmer mt-4 rounded-2xl bg-paper p-5 text-sm text-ink-soft shadow-sm ring-1 ring-ink/5" role="status">
+                  <span className="font-bold text-ink">Speech analytics</span> (pace, pauses and rhythm against a native speaker) appear once ElevenLabs Scribe
+                  has transcribed your recordings: {sttStatus!.done} of {sttStatus!.total} done.
                 </div>
+              ) : (
+                report.speech && (
+                  <div className="mt-4">
+                    <SpeechAnalytics stats={report.speech} />
+                  </div>
+                )
               )}
               {report.notApplicable.length > 0 && (
                 <p className="mt-3 rounded-xl bg-ink/5 px-4 py-2.5 text-sm text-ink-soft">
@@ -319,7 +397,7 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
 
         <Section title={`${scenario.npc.name}'s review`} subtitle="Written by ElevenLabs Agents' post-call analysis of the real conversation.">
           <div className="rounded-2xl bg-paper p-5 shadow-sm ring-1 ring-ink/5">
-            <AgentReview analysis={analysis} npcName={scenario.npc.name} pending={!!session.conversationId} />
+            <AgentReview analysis={analysis} npcName={scenario.npc.name} pending={!!session.conversationId} wait={reviewWait} />
           </div>
         </Section>
 
@@ -345,9 +423,10 @@ export function Dashboard({ sessionId }: { sessionId: string }) {
                     sessionId={session.id}
                     reference={ref?.timing}
                     referenceState={!t.expected ? "none" : ref === undefined ? "loading" : ref === null || !ref.timing ? "unavailable" : "ready"}
+                    transcribing={transcribing && t.inputMethod === "voice" && !t.stt && !!t.audio?.uploaded}
                     referenceUrl={
                       t.expected
-                        ? async () => (profile.coachVoice === "standard" ? ref?.tts.url : undefined) ?? (await api.tts(t.expected!.reference, coach, 1)).url
+                        ? async () => (profile.coachVoice === "standard" ? ref?.tts.url : undefined) ?? (await api.tts(withoutEmDashes(t.expected!.reference), coach, 1)).url
                         : undefined
                     }
                   />

@@ -1,6 +1,7 @@
 "use client";
 
 import { createStore } from "zustand/vanilla";
+import type { InAppBrowser } from "@/lib/client/inAppBrowser";
 import type { BadgeId } from "@/lib/profile/badges";
 import type { IntentCard, NpcExpression, ResponseMode, SceneEventId } from "@/lib/scenarios/types";
 
@@ -30,6 +31,8 @@ export interface GameUI {
   error: string | null;
   /** Optional way out of the error (e.g. "Switch to Text Mode"). */
   errorAction: { label: string; href: string } | null;
+  /** busy: the conversation couldn't start (e.g. traffic); lost: it dropped mid-scene; mic: no microphone; setup: no API key. */
+  errorKind: "busy" | "lost" | "mic" | "setup" | null;
   busyLabel: string | null;
   toast: { id: number; text: string; tone: "info" | "warn" | "good" } | null;
 
@@ -69,11 +72,23 @@ export interface GameUI {
   slots: Record<string, string>;
   flags: Record<string, boolean>;
   transitionText: string | null;
-  /** badges: passport pins this scene unlocked (cosmetic). */
-  completion: { objectiveComplete: boolean; badges?: BadgeId[] } | null;
+  /** badges: passport pins this scene unlocked (cosmetic). saveFailed: the final save didn't go through. */
+  completion: { objectiveComplete: boolean; badges?: BadgeId[]; saveFailed?: boolean } | null;
+  /** Entering the scene: how far the connection has got (0 to 1), shown on the curtain. */
+  loadProgress: number | null;
+  /** Ending the scene: what's being saved and how far along (0 to 1), shown on the completion card. */
+  saveProgress: { label: string; value: number } | null;
+  /** "Still there?": nobody has done anything for a while; the scene ends by itself at endsAt. */
+  idle: { endsAt: number } | null;
+  /** Why the scene ended by itself (nobody there, or the tab left in the background). */
+  endReason: "idle" | "hidden" | null;
   sessionId: string;
   /** The page was opened without a prior click, so one tap is needed before audio + mic. */
   needsTap: boolean;
+  /** Voice Mode inside an app's built-in browser (LinkedIn…): offer a real browser or Text Mode before the mic. */
+  inApp: InAppBrowser | null;
+  /** The browser is asking for the microphone: say why it matters. */
+  micPrompt: boolean;
 }
 
 export type GameStore = ReturnType<typeof createGameStore>;

@@ -227,8 +227,21 @@ export interface SttResult {
   model: string;
 }
 
+/**
+ * Time limit for each Scribe try. A reply is transcribed in a second or two, but now and then a
+ * request stalls for minutes (seen: 170 s, then a 502), with someone waiting on it (push-to-talk,
+ * the results page). A stalled try is sent again, and the retry is usually quick.
+ */
+const STT_TRY_MS = [10_000, 15_000, 25_000];
+
+/** Worth sending again: a stall, a dropped connection, or ElevenLabs overloaded. */
+function stalled(e: unknown) {
+  if (e instanceof ElevenLabsError) return e.status === 429 || e.status >= 500;
+  return e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError" || e instanceof TypeError);
+}
+
 export async function transcribe(file: Blob, language: string, keyterms: string[] = []): Promise<SttResult> {
-  const attempt = async (model: string, withKeyterms: boolean) => {
+  const attempt = async (model: string, withKeyterms: boolean, timeoutMs: number) => {
     const form = new FormData();
     form.set("model_id", model);
     form.set("file", file, "turn.webm");
@@ -238,16 +251,26 @@ export async function transcribe(file: Blob, language: string, keyterms: string[
     // Separate speakers so background chatter can be dropped from the learner's transcript.
     form.set("diarize", "true");
     if (withKeyterms) for (const k of keyterms.slice(0, 50)) form.append("keyterms", k);
-    const res = await xi("/v1/speech-to-text", { method: "POST", body: form });
+    const res = await xi("/v1/speech-to-text", { method: "POST", body: form, signal: AbortSignal.timeout(timeoutMs) });
     const json = (await res.json()) as Omit<SttResult, "model">;
     return { ...json, model };
   };
-  try {
-    return await attempt(env.sttModel, keyterms.length > 0);
-  } catch (e) {
-    if (e instanceof ElevenLabsError && (e.status === 400 || e.status === 422)) {
-      return attempt(env.sttModel === "scribe_v1" ? "scribe_v2" : "scribe_v1", false);
+  let model = env.sttModel;
+  let withKeyterms = keyterms.length > 0;
+  let fellBack = false;
+  for (let i = 0; ; i++) {
+    try {
+      return await attempt(model, withKeyterms, STT_TRY_MS[Math.min(i, STT_TRY_MS.length - 1)]);
+    } catch (e) {
+      // The request itself was refused (e.g. keyterms on a model without them): the other model, once.
+      if (!fellBack && e instanceof ElevenLabsError && (e.status === 400 || e.status === 422)) {
+        fellBack = true;
+        model = model === "scribe_v1" ? "scribe_v2" : "scribe_v1";
+        withKeyterms = false;
+        continue;
+      }
+      if (!stalled(e) || i >= STT_TRY_MS.length - 1) throw e;
+      console.warn(`[babbli] Scribe try ${i + 1} ${e instanceof Error ? e.name : "failed"}; trying again`);
     }
-    throw e;
   }
 }
