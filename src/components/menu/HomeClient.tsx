@@ -4,7 +4,7 @@ import { Flag } from "@/components/ui/Flag";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ProfileChip, TravelerStrip } from "@/components/profile/TravelerStrip";
 import { InAppNotice } from "@/components/ui/InAppNotice";
 import { assetUrl } from "@/lib/client/api";
@@ -23,53 +23,78 @@ const LABEL = "text-xs font-black uppercase tracking-[0.3em] text-brand";
 const CARD = "bg-paper text-ink shadow-[0_12px_32px_rgba(19,35,63,0.10)] ring-1 ring-ink/10";
 const choice = (selected: boolean) => (selected ? "border-brand bg-brand/10" : "border-ink/10 bg-paper hover:border-brand/40");
 
+/** The menu music preference: on unless the learner turned it off (remembered in this browser). */
+const MUSIC_KEY = "babbli:music";
+const musicListeners = new Set<() => void>();
+function musicOn() {
+  try {
+    return localStorage.getItem(MUSIC_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+function subscribeMusic(listener: () => void) {
+  musicListeners.add(listener);
+  return () => void musicListeners.delete(listener);
+}
+function setMusicOn(on: boolean) {
+  try {
+    localStorage.setItem(MUSIC_KEY, on ? "on" : "off");
+  } catch {
+    /* storage unavailable: still applies for this visit */
+  }
+  musicListeners.forEach((l) => l());
+}
+
+/**
+ * The menu theme, on by default. Browsers only allow sound once the visitor has tapped or pressed a key
+ * on the site, so it starts right away when that's already happened (e.g. back home from a scene),
+ * otherwise on the first tap or key press.
+ */
 function useMenuMusic() {
-  const [on, setOn] = useState(false);
-  const started = useRef(false);
-  const muted = useRef(false);
-  useEffect(() => {
+  const on = useSyncExternalStore(subscribeMusic, musicOn, () => true);
+  const playing = useRef(false);
+  const play = useCallback(async () => {
+    if (playing.current) return;
+    playing.current = true;
     try {
-      muted.current = localStorage.getItem("babbli:music") === "off";
+      await audioEngine().unlock();
+      await audioEngine().startMusic(assetUrl("menu-music"), 0.3);
     } catch {
-      /* storage unavailable */
+      playing.current = false; // music not generated yet
     }
-    const start = async () => {
-      if (started.current || muted.current) return;
-      started.current = true;
-      try {
-        await audioEngine().unlock();
-        await audioEngine().startMusic(assetUrl("menu-music"), 0.3);
-        setOn(true);
-      } catch {
-        started.current = false;
-      }
-    };
+  }, []);
+  useEffect(() => {
+    if (!on) return;
+    const activation = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
+    if (activation?.hasBeenActive) {
+      void play();
+      return;
+    }
+    const start = () => void play();
     window.addEventListener("pointerdown", start, { once: true });
+    window.addEventListener("keydown", start, { once: true });
     return () => {
       window.removeEventListener("pointerdown", start);
-      audioEngine().stopMusic(0.8);
+      window.removeEventListener("keydown", start);
     };
-  }, []);
-  const toggle = async () => {
+  }, [on, play]);
+  // Leaving the home page (into a scene) fades it out.
+  useEffect(
+    () => () => {
+      audioEngine().stopMusic(0.8);
+      playing.current = false;
+    },
+    [],
+  );
+  const toggle = () => {
     if (on) {
       audioEngine().stopMusic(0.6);
-      setOn(false);
-      muted.current = true;
-      started.current = false;
-      try {
-        localStorage.setItem("babbli:music", "off");
-      } catch {}
+      playing.current = false;
+      setMusicOn(false);
     } else {
-      muted.current = false;
-      try {
-        localStorage.setItem("babbli:music", "on");
-        await audioEngine().unlock();
-        await audioEngine().startMusic(assetUrl("menu-music"), 0.3);
-        started.current = true;
-        setOn(true);
-      } catch {
-        /* music not generated yet */
-      }
+      setMusicOn(true);
+      void play();
     }
   };
   return { on, toggle };
