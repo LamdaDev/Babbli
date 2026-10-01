@@ -109,12 +109,14 @@ function Pendant({ x, len }: { x: number; len: number }) {
   );
 }
 
-/** A London plane tree canopy (Jing'an's streets are lined with them). */
-function PlaneTree({ x, y, s = 1 }: { x: number; y: number; s?: number }) {
+/** A London plane tree (Jing'an's streets are lined with them), its trunk planted in the sidewalk at `ground`. */
+function PlaneTree({ x, y, ground, s = 1 }: { x: number; y: number; ground: number; s?: number }) {
+  const base = r2((ground - y) / s);
   return (
     <g transform={`translate(${x} ${y}) scale(${s})`}>
-      <path d="M-8 60 L-6 250 L10 250 L8 60 Z" fill="#b9ae93" />
-      <path d="M-6 110 q6 8 12 0 M-4 170 q7 6 11 -2 M-6 215 q5 9 13 1" stroke="#8f866f" strokeWidth={4} fill="none" opacity={0.7} />
+      <ellipse cx={1} cy={base} rx={22} ry={4} fill="#b9b09f" />
+      <path d={`M-8 60 L-10 ${base} L12 ${base} L8 60 Z`} fill="#b9ae93" />
+      <path d={`M-6 110 q6 8 12 0 M-4 170 q7 6 11 -2 M-6 215 q5 9 13 1 M-7 ${r2(base - 70)} q6 8 13 0`} stroke="#8f866f" strokeWidth={4} fill="none" opacity={0.7} />
       <circle cx={-6} cy={96} r={7} fill="#e2dac5" opacity={0.8} />
       {[
         [-70, 40, 58, "#7aa35c"],
@@ -163,19 +165,19 @@ function Ahao({ shaking }: { shaking: boolean }) {
       <path d="M50 200 L48 102 Q46 80 26 72 Q40 112 34 200 Z" fill={INK} />
       <path d="M-30 200 L-30 114 Q0 106 30 114 L30 200 Z" fill={GREEN} />
       <path d="M-24 114 L-12 74 M24 114 L12 74" stroke={GREEN} strokeWidth={5} strokeLinecap="round" />
-      <rect x={-9} y={38} width={18} height={32} rx={7} fill="#d9a882" />
-      <circle cx={0} cy={16} r={28} fill="#eab98f" />
-      <path d="M-29 10 Q-28 -20 0 -22 Q28 -20 29 10 Q14 0 0 0 Q-14 0 -29 10 Z" fill={INK} />
-      <ellipse cx={-4} cy={6} rx={30} ry={6} fill={INK} />
-      <circle cx={-9} cy={18} r={2.6} fill="#2a1d18" />
-      <circle cx={9} cy={18} r={2.6} fill="#2a1d18" />
-      <path d="M-6 30 Q0 35 6 30" stroke="#8a4a3a" strokeWidth={2.5} fill="none" strokeLinecap="round" />
+      {/* no neck: the head sits right on the shoulders */}
+      <circle cx={0} cy={50} r={28} fill="#eab98f" />
+      <path d="M-29 44 Q-28 14 0 12 Q28 14 29 44 Q14 34 0 34 Q-14 34 -29 44 Z" fill={INK} />
+      <ellipse cx={-4} cy={40} rx={30} ry={6} fill={INK} />
+      <circle cx={-9} cy={52} r={2.6} fill="#2a1d18" />
+      <circle cx={9} cy={52} r={2.6} fill="#2a1d18" />
+      <path d="M-6 64 Q0 69 6 64" stroke="#8a4a3a" strokeWidth={2.5} fill="none" strokeLinecap="round" />
       <g className={shaking ? "shake" : undefined}>
-        <path d="M-40 150 Q-30 118 -8 110 M40 150 Q30 118 10 110" stroke="#2c2c2e" strokeWidth={16} strokeLinecap="round" fill="none" />
-        <circle cx={-8} cy={110} r={9} fill="#eab98f" />
-        <circle cx={10} cy={110} r={9} fill="#eab98f" />
-        <path d="M-10 64 L12 64 L8 114 L-6 114 Z" fill="url(#b-steel)" />
-        <rect x={-12} y={56} width={26} height={10} rx={4} fill="#9aa0a8" />
+        <path d="M-40 184 Q-30 152 -8 144 M40 184 Q30 152 10 144" stroke="#2c2c2e" strokeWidth={16} strokeLinecap="round" fill="none" />
+        <circle cx={-8} cy={144} r={9} fill="#eab98f" />
+        <circle cx={10} cy={144} r={9} fill="#eab98f" />
+        <path d="M-10 98 L12 98 L8 148 L-6 148 Z" fill="url(#b-steel)" />
+        <rect x={-12} y={90} width={26} height={10} rx={4} fill="#9aa0a8" />
       </g>
     </g>
   );
@@ -187,12 +189,12 @@ function Rider() {
     <g transform="translate(1524 380)">
       <path d="M-58 240 Q-56 96 0 88 Q56 96 58 240 Z" fill="#7d848c" />
       <path d="M0 92 L0 240" stroke="#5f656c" strokeWidth={3} />
-      <rect x={-10} y={58} width={20} height={34} rx={8} fill="#d6a47f" />
-      <circle cx={0} cy={40} r={30} fill="#e2b38c" />
-      <path d="M-36 38 Q-36 -8 0 -10 Q36 -8 36 38 L28 38 Q26 16 0 16 Q-26 16 -28 38 Z" fill="#a7adb3" />
-      <path d="M-30 18 Q0 4 30 18 L28 26 Q0 14 -28 26 Z" fill="#5f656c" />
-      <path d="M-28 38 Q-24 64 -8 68 M28 38 Q24 64 8 68" stroke="#5f656c" strokeWidth={2.5} fill="none" />
-      <path d="M-14 50 Q-10 53 -6 50 M6 50 Q10 53 14 50" stroke="#2a1d18" strokeWidth={2.5} fill="none" strokeLinecap="round" />
+      {/* no neck: the helmeted head sits right on the shoulders */}
+      <circle cx={0} cy={68} r={30} fill="#e2b38c" />
+      <path d="M-36 66 Q-36 20 0 18 Q36 20 36 66 L28 66 Q26 44 0 44 Q-26 44 -28 66 Z" fill="#a7adb3" />
+      <path d="M-30 46 Q0 32 30 46 L28 54 Q0 42 -28 54 Z" fill="#5f656c" />
+      <path d="M-28 66 Q-24 92 -8 96 M28 66 Q24 92 8 96" stroke="#5f656c" strokeWidth={2.5} fill="none" />
+      <path d="M-14 78 Q-10 81 -6 78 M6 78 Q10 81 14 78" stroke="#2a1d18" strokeWidth={2.5} fill="none" strokeLinecap="round" />
       <path d="M-44 180 Q-30 140 -4 132" stroke="#7d848c" strokeWidth={16} strokeLinecap="round" fill="none" />
       <rect x={-12} y={116} width={22} height={34} rx={4} fill={INK} transform="rotate(-12 -1 133)" />
       <circle cx={-8} cy={136} r={8} fill="#e2b38c" />
@@ -264,11 +266,12 @@ export function BobaBack({ variant, world, timeSkipped }: SceneArtProps) {
         <rect x={36} y={500} width={350} height={22} fill="#d9d1c3" />
         <rect x={36} y={520} width={350} height={46} fill="#a3a8ae" />
         <path d="M36 543 L386 543" stroke="#f2f2f0" strokeWidth={3} strokeDasharray="22 18" />
-        <Walker y={396} delay={0} duration={16} scale={0.85} color="#5b6470" />
-        <Walker y={400} delay={7} duration={13} scale={0.8} color="#7a6a5a" flip />
+        {/* walkers on the sidewalk, the trees at its curb, then the scooter on the road (nearest) */}
+        <Walker y={418} delay={0} duration={16} scale={0.85} color="#5b6470" />
+        <Walker y={420} delay={7} duration={13} scale={0.8} color="#7a6a5a" flip />
+        <PlaneTree x={110} y={150} ground={514} />
+        <PlaneTree x={330} y={170} ground={512} s={0.9} />
         <Scooter />
-        <PlaneTree x={110} y={150} />
-        <PlaneTree x={330} y={170} s={0.9} />
         <path d="M60 150 L120 150 L50 566 L36 566 Z" fill="#fff" opacity={0.18} />
       </g>
       <rect x={36} y={150} width={350} height={416} fill="none" stroke={INK} strokeWidth={10} />
