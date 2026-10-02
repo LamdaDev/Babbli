@@ -12,6 +12,19 @@ const INK = "#1d2433";
 const TAG = "#ffd84a";
 const DEAL_RED = "#e2463a";
 const won = (n: number) => `${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}원`;
+/** The 노래방 neon's stutter: off the ceiling tube's beat, so the two never flicker together. */
+const NEON_FLICKER = { animationDuration: "5.2s", animationDelay: "1.3s" };
+
+/**
+ * Rain on the glass: one band of streaks, drawn twice (the copy one band up and to the right). The group
+ * scrolls by exactly that offset (rain-fall in globals.css), so the loop is seamless. The band is wider than
+ * the window on the left, to keep the glass covered as the wind carries the drops left.
+ */
+const RAIN_BAND = { x: 1112, width: 572, y: 60, height: 460, drift: 84 };
+const RAIN = Array.from({ length: 70 }, (_, i) => {
+  const len = 18 + (i % 3) * 6;
+  return `M${r2(RAIN_BAND.x + ((i * 61.7) % RAIN_BAND.width))} ${r2(RAIN_BAND.y + ((i * 113.3) % RAIN_BAND.height))} l${r2(-len * 0.18)} ${len}`;
+});
 
 /** The 달빛24 mark: a crescent moon (scale 1 ≈ 32 px tall). */
 function Moon({ x, y, s = 1, color = MOON }: { x: number; y: number; s?: number; color?: string }) {
@@ -118,13 +131,14 @@ function Street({ timeSkipped }: { timeSkipped: boolean }) {
       ].map(([x, y]) => (
         <rect key={`${x}-${y}`} x={x} y={y} width={24} height={18} fill="#ffd98a" opacity={0.35} />
       ))}
-      <g className="flicker" style={{ animationDuration: "4.4s" }}>
-        <rect x={1214} y={120} width={104} height={36} rx={6} fill="#ff5fa2" opacity={0.25} filter="url(#glow)" />
+      {/* the 노래방 neon stutters now and then (its reflection on the road below goes with it) */}
+      <g className="flicker-slow" style={NEON_FLICKER}>
+        <rect x={1214} y={120} width={104} height={36} rx={6} fill="#ff5fa2" opacity={0.3} filter="url(#glow)" />
+        <rect x={1218} y={124} width={96} height={30} rx={5} fill="none" stroke="#ff5fa2" strokeWidth={3} />
+        <text x={1266} y={146} textAnchor="middle" fontSize={18} fontWeight={800} fill="#ff8cc0" style={KR}>
+          노래방
+        </text>
       </g>
-      <rect x={1218} y={124} width={96} height={30} rx={5} fill="none" stroke="#ff5fa2" strokeWidth={3} />
-      <text x={1266} y={146} textAnchor="middle" fontSize={18} fontWeight={800} fill="#ff8cc0" style={KR}>
-        노래방
-      </text>
       <rect x={1346} y={160} width={82} height={30} rx={5} fill="#3a3112" stroke="#ffd35a" strokeWidth={3} />
       <text x={1387} y={182} textAnchor="middle" fontSize={18} fontWeight={800} fill="#ffd35a" style={KR}>
         치킨
@@ -144,7 +158,18 @@ function Street({ timeSkipped }: { timeSkipped: boolean }) {
         [1387, "#ffd35a"],
         [1505, "#3ddc84"],
       ].map(([x, c]) => (
-        <rect key={x as number} x={(x as number) - 22} y={316} width={44} height={88} fill={c as string} opacity={0.22} filter="url(#soft-blur)" />
+        <rect
+          key={x as number}
+          className={x === 1266 ? "flicker-slow" : undefined}
+          style={x === 1266 ? NEON_FLICKER : undefined}
+          x={(x as number) - 22}
+          y={316}
+          width={44}
+          height={88}
+          fill={c as string}
+          opacity={0.22}
+          filter="url(#soft-blur)"
+        />
       ))}
       <path d="M1196 360 H1600" stroke="#e9eef5" strokeOpacity={0.5} strokeWidth={3} strokeDasharray="26 22" />
       <rect x={1196} y={406} width={404} height={110} fill="#2a3046" />
@@ -182,7 +207,7 @@ function Street({ timeSkipped }: { timeSkipped: boolean }) {
           <path key={x} d={`M${x} 424 Q${x + 8} 400 ${x + 16} 420`} fill="#f4f6f8" opacity={0.9} />
         ))}
         {[1468, 1498, 1558, 1588].map((x, i) => (
-          <circle key={x} className="drip" style={{ animationDelay: `${i * 0.3}s` }} cx={x} cy={428} r={2} fill="#a9c1e8" />
+          <circle key={x} className="drip-wind" style={{ animationDelay: `${i * 0.3}s` }} cx={x} cy={428} r={2} fill="#a9c1e8" />
         ))}
         <ellipse cx={1528} cy={470} rx={42} ry={8} fill="#2f9e9a" />
         <path d="M1498 472 L1492 512 M1558 472 L1564 512" stroke="#2f9e9a" strokeWidth={5} />
@@ -203,7 +228,7 @@ function Street({ timeSkipped }: { timeSkipped: boolean }) {
             <circle cx={-4} cy={-15} r={1.8} fill="#2a1f1c" />
             <circle cx={4} cy={-15} r={1.8} fill="#2a1f1c" />
           </g>
-          <path d="M12 20 Q30 16 26 0" stroke="#e8954a" strokeWidth={5} fill="none" strokeLinecap="round" className="sway" />
+          <path d="M12 20 Q30 16 26 0" stroke="#e8954a" strokeWidth={5} fill="none" strokeLinecap="round" className="tail-swish" />
         </g>
       ) : (
         <g transform="translate(1536 500)">
@@ -212,16 +237,18 @@ function Street({ timeSkipped }: { timeSkipped: boolean }) {
           <path d="M-22 -8 L-22 -17 L-16 -10 Z M-12 -9 L-10 -18 L-7 -10 Z" fill="#e8954a" />
           <path d="M-20 -2 q2 2 4 0 M-14 -2 q2 2 4 0" stroke="#2a1f1c" strokeWidth={1.4} fill="none" />
           <path d="M-6 8 Q6 14 18 6" stroke="#fff5ea" strokeWidth={4} fill="none" strokeLinecap="round" />
-          <path d="M18 4 Q30 -4 22 -10" stroke="#e8954a" strokeWidth={5} fill="none" strokeLinecap="round" className="sway" />
+          <path d="M18 4 Q30 -4 22 -10" stroke="#e8954a" strokeWidth={5} fill="none" strokeLinecap="round" className="tail-swish" />
         </g>
       )}
       {/* rain: lighter once the worst has passed */}
       <g className="rain" opacity={timeSkipped ? 0.22 : 0.38}>
-        {Array.from({ length: 64 }).map((_, i) => {
-          const x = r2(1196 + ((i * 61.7) % 420));
-          const y = r2(40 + ((i * 113.3) % 520));
-          return <path key={i} d={`M${x} ${y} l-5 ${18 + (i % 3) * 6}`} stroke="#a9c1e8" strokeWidth={1.6} strokeLinecap="round" />;
-        })}
+        {[0, 1].map((copy) => (
+          <g key={copy} transform={copy ? `translate(${RAIN_BAND.drift} ${-RAIN_BAND.height})` : undefined}>
+            {RAIN.map((d, i) => (
+              <path key={i} d={d} stroke="#a9c1e8" strokeWidth={1.6} strokeLinecap="round" />
+            ))}
+          </g>
+        ))}
       </g>
       {/* reflections and condensation on the glass */}
       <path d="M1236 70 L1286 70 L1220 516 L1196 516 L1196 300 Z" fill="#fff" opacity={0.06} />
@@ -261,7 +288,16 @@ function RamenCorner({ cooking, timeSkipped, heated }: { cooking: boolean; timeS
       <g>
         <rect x={1208} y={418} width={84} height={94} rx={8} fill="url(#m-steel)" />
         <rect x={1216} y={426} width={68} height={22} rx={3} fill="#1f2a26" />
-        <text x={1250} y={442} textAnchor="middle" fontSize={12} fontWeight={800} fill={timeSkipped ? "#7ff0b0" : "#ff7a6b"} style={KR}>
+        <text
+          x={1250}
+          y={442}
+          textAnchor="middle"
+          fontSize={12}
+          fontWeight={800}
+          fill={timeSkipped ? "#7ff0b0" : "#ff7a6b"}
+          style={KR}
+          className={cooking && !timeSkipped ? "pulse-num" : undefined}
+        >
           {timeSkipped ? "완료" : cooking ? "조리중" : "03:00"}
         </text>
         <circle cx={1272} cy={464} r={9} fill={DEAL_RED} />
@@ -291,6 +327,7 @@ function RamenCorner({ cooking, timeSkipped, heated }: { cooking: boolean; timeS
           <path d="M1452 500 L1500 500 L1494 512 L1458 512 Z" fill="#f6f1e6" stroke="#e1d8c4" />
           <ellipse cx={1476} cy={500} rx={24} ry={5} fill="#c9512f" opacity={0.5} />
           <path d="M1462 494 L1506 486 M1462 498 L1508 492" stroke="#b98d5a" strokeWidth={2.5} strokeLinecap="round" />
+          <Steam x={1480} y={494} scale={0.26} count={2} opacity={0.5} />
         </g>
       )}
       {/* the lost-and-found umbrella bucket by the door */}
@@ -472,7 +509,7 @@ export function MidnightBack({ variant, world, timeSkipped }: SceneArtProps) {
         <circle cx={1010} cy={382} r={6} fill="#4a5262" />
         <rect x={1028} y={370} width={22} height={8} rx={2} fill="#ffcf7a" opacity={0.85} />
         <path d="M1048 360 L1062 334" stroke="#9aa3ad" strokeWidth={2} />
-        <g className="sway" style={{ transformOrigin: "1040px 350px" }}>
+        <g className="note-bob">
           <path d="M1034 344 v-16 l8 -3 v16" stroke="#6b7385" strokeWidth={2} fill="none" />
           <circle cx={1032} cy={344} r={3} fill="#6b7385" />
           <circle cx={1040} cy={341} r={3} fill="#6b7385" />
