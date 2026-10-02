@@ -89,6 +89,7 @@ export const HAIR_STYLES: { id: HairStyle; label: string }[] = [
   { id: "bun", label: "Bun" },
   { id: "curly", label: "Curls" },
   { id: "ponytail", label: "Ponytail" },
+  { id: "comma", label: "Comma" },
 ];
 
 export const EXPRESSIONS: { id: Expression; label: string }[] = [
@@ -182,7 +183,7 @@ export function sanitizeProfile(raw: unknown): Profile {
       accessory: oneOf(a.accessory, ACCESSORIES.map((x) => x.id), d.avatar.accessory),
       pin: oneOf(a.pin, ["none", ...BADGES.map((b) => b.id)], "none"),
     },
-    language: (["en", "ja", "fr", "es", "zh"] as const).find((l) => l === p.language) ?? null,
+    language: (["en", "ja", "fr", "es", "zh", "ko"] as const).find((l) => l === p.language) ?? null,
     difficulty: oneOf(p.difficulty, ["beginner", "intermediate", "immersion"] as const, d.difficulty),
     responseMode: oneOf(p.responseMode, ["voice", "text"] as const, d.responseMode),
     coachVoice: oneOf(p.coachVoice, ["standard", "alternate"] as const, d.coachVoice),
@@ -251,6 +252,12 @@ const AGREEMENT: Partial<Record<LanguageCode, Record<AddressForm, string>>> = {
     masculine: 'Friendly shop-talk is fine: you may call them 帅哥 (e.g. "帅哥，喝点啥？"), or simply 您.',
     neutral: "Address them as 您, and avoid gendered shop-talk like 帅哥 or 美女.",
   },
+  // Korean shop staff address everyone the same way.
+  ko: {
+    feminine: "Address them as 손님 (never 아가씨 or 총각).",
+    masculine: "Address them as 손님 (never 아가씨 or 총각).",
+    neutral: "Address them as 손님 (never 아가씨 or 총각).",
+  },
 };
 
 /**
@@ -278,6 +285,7 @@ export const COACH_VOICES: Record<LanguageCode, Record<CoachVoice, string>> = {
   fr: { standard: "Calm Parisian man", alternate: "Bright Parisian woman" },
   es: { standard: "Calm woman from Madrid", alternate: "Warm man from Madrid" },
   zh: { standard: "Calm woman from Beijing", alternate: "Warm man from Beijing" },
+  ko: { standard: "Calm woman from Seoul", alternate: "Warm man from Seoul" },
 };
 
 export const COACH_SAMPLES: Record<LanguageCode, string> = {
@@ -286,4 +294,5 @@ export const COACH_SAMPLES: Record<LanguageCode, string> = {
   fr: "Bonjour ! On s'entraîne ensemble ? Un café crème, s'il vous plaît.",
   es: "¡Hola! Vamos a practicar. Tengo una reserva a nombre de Morgan.",
   zh: "你好！我们一起练习吧。我要一杯珍珠奶茶。",
+  ko: "안녕하세요! 같이 연습해요. 이거 계산해 주세요.",
 };

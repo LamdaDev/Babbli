@@ -557,7 +557,6 @@ export const boba: ScenarioDef = {
   objective: "Order a milk tea with the topping you like, pay, and leave with your drink.",
   goal: "Order a milk tea and pay",
   demoRole: "generalization",
-  isNew: true,
   blurb: "A bright, minimalist tea shop in Jing'an on a hot Saturday afternoon. Xiaoyu is at the register and the shakers never stop.",
   npc: {
     name: "Xiaoyu",

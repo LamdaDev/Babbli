@@ -4,7 +4,7 @@
  * decide what is true in the world and when the scenario advances.
  */
 
-export type LanguageCode = "en" | "ja" | "fr" | "es" | "zh";
+export type LanguageCode = "en" | "ja" | "fr" | "es" | "zh" | "ko";
 export type Difficulty = "beginner" | "intermediate" | "immersion";
 /** Voice Mode delivery: live = ElevenAgents listens to the mic directly; ptt = record → Scribe → text to agent. */
 export type InputMode = "live" | "ptt";
@@ -89,6 +89,8 @@ export type SceneEventId =
   | "issue_found"
   | "issue_resolved"
   | "item_shown"
+  | "item_added"
+  | "heated"
   | "gift_wrapped";
 
 export interface Outcome {
@@ -165,7 +167,7 @@ export interface StageDef {
   learnerOpens?: string;
 }
 
-export type HairStyle = "short" | "buzz" | "middle" | "bob" | "long" | "bun" | "curly" | "ponytail";
+export type HairStyle = "short" | "buzz" | "middle" | "bob" | "long" | "bun" | "curly" | "ponytail" | "comma";
 
 export interface CharacterLook {
   skin: string;
@@ -176,7 +178,7 @@ export interface CharacterLook {
   outfitShade: string;
   apron?: string;
   accent: string;
-  accessory: "headband" | "scarf" | "badge" | "lanyard" | "headset";
+  accessory: "headband" | "scarf" | "badge" | "lanyard" | "headset" | "vest";
   eyes: string;
   /** Narrower shoulders, waist and neck (and everything worn on them). Default: regular. */
   build?: "regular" | "slender";
@@ -185,6 +187,8 @@ export interface CharacterLook {
   /** Headset look: the shop monogram printed on the apron, and the name badge text (default: the NPC's name). */
   apronMark?: string;
   badgeText?: string;
+  /** A small hoop on the right ear (its color). Default: none. */
+  earring?: string;
 }
 
 export interface NpcDef {
@@ -242,10 +246,12 @@ export interface ScenarioDef {
   npc: NpcDef;
   /** Secondary voices heard in the scene (chef, barista, bellhop). */
   backgroundVoices: Record<string, { voiceKey: string; name: string }>;
-  art: "store" | "ramen" | "cafe" | "hotel" | "boba";
+  art: "store" | "ramen" | "cafe" | "hotel" | "boba" | "midnight";
   /** Optional illustrated background image — overrides the vector scene. */
   backgroundImage?: string;
   ambienceAsset: string;
+  /** Optional music heard in the scene (a radio in the shop), played quietly under the ambience. */
+  musicAsset?: string;
   sfx: Record<string, string>;
   briefing: { title: string; lines: string[] };
   /**

@@ -26,6 +26,8 @@ class AudioEngine {
   private currentVoice: (() => void) | null = null;
   private ambientBase = 0.22;
   private ducked = false;
+  private musicLevel = 0;
+  private musicDucks = false;
 
   get context() {
     return this.ctx;
@@ -121,10 +123,11 @@ class AudioEngine {
     g.linearRampToValueAtTime(target, now + seconds);
   }
 
-  /** Dialogue ducking: ambience drops to ~30% of its base while someone is speaking. */
+  /** Dialogue ducking: ambience (and a scene's radio) drops to ~30% of its base while someone is speaking. */
   duck(on: boolean) {
     this.ducked = on;
     this.rampAmbient(on ? this.ambientBase * 0.3 : this.ambientBase, on ? 0.35 : 0.9);
+    if (this.musicDucks) this.rampMusic(on ? this.musicLevel * 0.3 : this.musicLevel, on ? 0.35 : 0.9);
   }
 
   setAmbientBase(base: number) {
@@ -134,25 +137,49 @@ class AudioEngine {
 
   /* ---------- music ---------- */
 
-  async startMusic(url: string, level = 0.35) {
+  /**
+   * A looping music bed. `speaker` filters it like a small ceiling speaker in the room (a shop radio),
+   * and `ducks` lowers it with the ambience while someone is speaking.
+   */
+  async startMusic(url: string, level = 0.35, opts: { speaker?: boolean; ducks?: boolean } = {}) {
     const ctx = this.ensure();
     const buffer = await this.load(url);
     this.stopMusic(0);
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     src.loop = true;
-    src.connect(this.musicGain);
+    if (opts.speaker) {
+      const lowCut = ctx.createBiquadFilter();
+      lowCut.type = "highpass";
+      lowCut.frequency.value = 320;
+      const highCut = ctx.createBiquadFilter();
+      highCut.type = "lowpass";
+      highCut.frequency.value = 3400;
+      src.connect(lowCut).connect(highCut).connect(this.musicGain);
+    } else src.connect(this.musicGain);
     src.start();
     this.musicSource = src;
+    this.musicLevel = level;
+    this.musicDucks = !!opts.ducks;
     const g = this.musicGain.gain;
     g.cancelScheduledValues(ctx.currentTime);
     g.setValueAtTime(0, ctx.currentTime);
-    g.linearRampToValueAtTime(level, ctx.currentTime + 2);
+    g.linearRampToValueAtTime(this.musicDucks && this.ducked ? level * 0.3 : level, ctx.currentTime + 2);
+  }
+
+  private rampMusic(target: number, seconds: number) {
+    if (!this.ctx) return;
+    const g = this.musicGain.gain;
+    const now = this.ctx.currentTime;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(g.value, now);
+    g.linearRampToValueAtTime(target, now + seconds);
   }
 
   stopMusic(fade = 1) {
     const src = this.musicSource;
     if (!src || !this.ctx) return;
+    this.musicDucks = false;
     const g = this.musicGain.gain;
     g.cancelScheduledValues(this.ctx.currentTime);
     g.setValueAtTime(g.value, this.ctx.currentTime);

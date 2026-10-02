@@ -146,6 +146,44 @@ function HeadsetBody({ look, name }: { look: CharacterLook; name: string }) {
   );
 }
 
+/**
+ * The vest look from the neck down: a white hoodie (its gathered collar and drawstrings) under an open zip
+ * vest that leaves the hoodie's shoulders showing, with the shop's crescent-moon logo and a name badge.
+ */
+function VestBody({ look, name }: { look: CharacterLook; name: string }) {
+  const vest = look.apron ?? look.accent;
+  return (
+    <g>
+      {/* the hood, gathered around the neck */}
+      <path d="M140 306 Q154 284 180 284 Q210 300 240 284 Q266 284 280 306 Q266 330 210 334 Q154 330 140 306 Z" fill={look.outfit} />
+      <path d="M146 308 Q210 342 274 308" stroke={look.outfitShade} strokeWidth={4} fill="none" strokeLinecap="round" />
+      <path d="M196 326 L192 380 M224 326 L228 380" stroke={look.outfitShade} strokeWidth={4} strokeLinecap="round" />
+      <circle cx={192} cy={384} r={4} fill={look.outfitShade} />
+      <circle cx={228} cy={384} r={4} fill={look.outfitShade} />
+      {/* the vest's two front panels, open over the hoodie */}
+      <path d="M96 560 L102 404 Q110 340 152 318 L178 312 L184 560 Z" fill={vest} />
+      <path d="M324 560 L318 404 Q310 340 268 318 L242 312 L236 560 Z" fill={vest} />
+      <path d="M178 312 L184 560 M242 312 L236 560" stroke="#000" strokeOpacity={0.22} strokeWidth={3} />
+      <path d="M102 404 Q110 340 152 318 M318 404 Q310 340 268 318" stroke="#fff" strokeOpacity={0.14} strokeWidth={3} fill="none" />
+      {/* the crescent moon logo (and the text beside it, e.g. 24) */}
+      <g>
+        <path d="M274 368 A16 16 0 1 0 290 392 A12 12 0 1 1 274 368 Z" fill="#ffe9a8" />
+        {look.apronMark && (
+          <text x={290} y={389} fontSize={14} fontWeight={800} fill="#ffe9a8">
+            {look.apronMark}
+          </text>
+        )}
+      </g>
+      {/* name badge */}
+      <rect x={112} y={360} width={56} height={22} rx={5} fill="#fbfaf7" />
+      <rect x={112} y={360} width={7} height={22} rx={3} fill="#ffe9a8" />
+      <text x={143} y={376} textAnchor="middle" fontSize={13} fontWeight={800} fill="#1d2433" style={{ fontFamily: "var(--font-kr)" }}>
+        {look.badgeText ?? name}
+      </text>
+    </g>
+  );
+}
+
 /** A slim black headset over the hair: one ear cup and a mic boom by the mouth (busy tea shops use them). */
 function Headset() {
   return (
@@ -180,9 +218,30 @@ function MiddlePart({ color }: { color: string }) {
   );
 }
 
+/**
+ * Comma hair (쉼표머리), a K-pop favourite: a full, soft cap and long curtain bangs parted just right of
+ * centre, the left side swept across the forehead, both ends curling outward at the temples like commas.
+ */
+function CommaHair({ color }: { color: string }) {
+  return (
+    <g fill={color}>
+      <path d="M122 182 Q108 70 210 60 Q312 70 298 182 Q294 138 270 120 Q240 102 210 104 Q180 102 150 120 Q126 138 122 182 Z" />
+      <path d="M240 88 Q238 116 230 138 Q200 150 176 144 Q156 142 150 158 Q146 172 134 170 Q122 164 124 148 Q126 106 168 86 Q206 72 240 88 Z" />
+      <path d="M248 90 Q252 116 254 134 Q276 138 286 152 Q294 166 288 178 Q302 174 300 156 Q298 112 264 94 Q256 89 248 90 Z" />
+      <path d="M242 74 Q245 86 244 102" stroke="#000" strokeOpacity={0.2} strokeWidth={2.5} fill="none" strokeLinecap="round" />
+      <g fill="#fff" opacity={0.16}>
+        <ellipse cx={178} cy={100} rx={22} ry={5.5} transform="rotate(-20 178 100)" />
+        <ellipse cx={270} cy={108} rx={12} ry={4} transform="rotate(34 270 108)" />
+      </g>
+    </g>
+  );
+}
+
 /** Hair over the forehead. Shared with the learner avatar. */
 export function HairFront({ style, color }: { style: HairStyle; color: string }) {
   switch (style) {
+    case "comma":
+      return <CommaHair color={color} />;
     case "short":
       return <path d="M128 172 Q120 86 210 78 Q300 86 292 172 Q284 128 256 118 Q214 104 170 118 Q138 130 128 172 Z" fill={color} />;
     case "buzz":
@@ -399,6 +458,7 @@ export function Character({ look, pose, expression, name, getLevel, listeningLev
           </g>
         )}
         {look.accessory === "headset" && <HeadsetBody look={look} name={name} />}
+        {look.accessory === "vest" && <VestBody look={look} name={name} />}
       </Build>
 
       {/* gesture hand while speaking / thinking */}
@@ -417,6 +477,7 @@ export function Character({ look, pose, expression, name, getLevel, listeningLev
         <ellipse cx={210} cy={176} rx={80} ry={94} fill={look.skin} />
         <ellipse cx={168} cy={218} rx={17} ry={10} fill={blush} opacity={happy ? 0.55 : 0.3} />
         <ellipse cx={252} cy={218} rx={17} ry={10} fill={blush} opacity={happy ? 0.55 : 0.3} />
+        {look.earring && <circle cx={290} cy={213} r={5.5} fill="none" stroke={look.earring} strokeWidth={2.6} />}
 
         {/* hair front */}
         <HairFront style={look.hairStyle} color={look.hair} />

@@ -166,11 +166,12 @@ export function HomeClient() {
               className="mt-10"
             >
               <div className={`mb-4 ${LABEL}`}>Where are you going?</div>
-              {/* Five destinations: the newest one is a wide card, so rows fill evenly (3 + 2 on large screens, 2 + 2 + 1 on tablets). */}
+              {/* Six destinations fill even rows (3 + 3 on large screens, 2 + 2 + 2 on tablets). With five, the newest one is a
+                  wide card so the rows still fill (3 + 2 on large screens, 2 + 2 + 1 on tablets). */}
               <div className="grid gap-6 sm:auto-rows-fr sm:grid-cols-2 lg:grid-cols-3">
                 {LANGUAGES.map((l, i) => {
                   const s = scenariosForLanguage(l.code)[0];
-                  const wide = !!s.isNew;
+                  const wide = !!s.isNew && LANGUAGES.length % 3 === 2;
                   // A gentle fan, centred on however many cards there are (less for a wide card).
                   const tilt = (i - (LANGUAGES.length - 1) / 2) * (wide ? 0.5 : 1);
                   return (

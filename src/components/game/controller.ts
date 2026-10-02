@@ -41,6 +41,8 @@ const ACTIVITY_EVENTS = ["pointerdown", "pointermove", "keydown", "wheel", "touc
 /** Max speaking time per turn — nobody talks at a shop assistant for two minutes. */
 const TURN_LIMIT_MS: Record<Difficulty, number> = { beginner: 20000, intermediate: 30000, immersion: 30000 };
 const AMBIENT_BASE: Record<Difficulty, number> = { beginner: 0.18, intermediate: 0.22, immersion: 0.32 };
+/** A scene's radio (its music bed), quietly under the ambience. */
+const RADIO_LEVEL = 0.12;
 /** Scene events that play out after the NPC finishes the line that caused them. */
 const DEFERRED: SceneEventId[] = ["order_placed", "time_skip", "served"];
 
@@ -448,6 +450,10 @@ export class GameController {
     this.audio.startAmbient(assetUrl(this.scenario.ambienceAsset), AMBIENT_BASE[this.difficulty]).catch((e) =>
       console.warn("[babbli] ambience unavailable", e),
     );
+    if (this.scenario.musicAsset)
+      this.audio.startMusic(assetUrl(this.scenario.musicAsset), RADIO_LEVEL, { speaker: true, ducks: true }).catch((e) =>
+        console.warn("[babbli] radio unavailable", e),
+      );
 
     // Text Mode never touches the microphone. Voice Mode needs it — and never falls back to typing.
     if (!this.textMode) {
@@ -576,6 +582,7 @@ export class GameController {
     this.set({ error: message, errorKind: kind, errorAction: action ?? (offerText ? { label: "Try Text Mode", href: this.textModeHref } : null), busyLabel: null });
     this.setPhase("error");
     this.audio.stopAmbient(1);
+    if (this.scenario.musicAsset) this.audio.stopMusic(1);
   }
 
   /**
@@ -1326,6 +1333,7 @@ export class GameController {
     }
     this.audio.stopVoice();
     this.audio.stopAmbient(2.5);
+    if (this.scenario.musicAsset) this.audio.stopMusic(2.5);
     this.set({ npcSpeaking: false, recording: false, micMuted: true });
     if (status === "completed") void this.audio.playSfx(assetUrl("ui-complete"), 0.6);
     this.session.status = status;
@@ -1396,6 +1404,7 @@ export class GameController {
     this.recorder.release();
     this.audio.stopVoice();
     this.audio.stopAmbient(0.6);
+    if (this.scenario.musicAsset) this.audio.stopMusic(0.6);
     if (this.session.turns.length && this.session.status === "active") {
       this.session.status = "abandoned";
       this.session.endedAt = Date.now();

@@ -1,11 +1,12 @@
 import { boba } from "./boba";
 import { cafe } from "./cafe";
 import { hotel } from "./hotel";
+import { midnight } from "./midnight";
 import { ramen } from "./ramen";
 import { store } from "./store";
 import type { LanguageCode, ScenarioDef } from "./types";
 
-export const SCENARIOS: ScenarioDef[] = [store, ramen, cafe, hotel, boba];
+export const SCENARIOS: ScenarioDef[] = [store, ramen, cafe, hotel, boba, midnight];
 
 export function getScenario(id: string): ScenarioDef | undefined {
   return SCENARIOS.find((s) => s.id === id);
@@ -17,6 +18,7 @@ export const LANGUAGES: { code: LanguageCode; name: string; native: string; flag
   { code: "fr", name: "French", native: "Français", flag: "🇫🇷", city: "Paris" },
   { code: "es", name: "Spanish", native: "Español", flag: "🇪🇸", city: "Sevilla" },
   { code: "zh", name: "Mandarin", native: "中文", flag: "🇨🇳", city: "Shanghai" },
+  { code: "ko", name: "Korean", native: "한국어", flag: "🇰🇷", city: "Seoul" },
 ];
 
 export function scenariosForLanguage(code: LanguageCode) {

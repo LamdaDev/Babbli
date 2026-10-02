@@ -3,6 +3,13 @@ import type { LanguageCode } from "@/lib/scenarios/types";
 /** Written without spaces between words (Japanese, Chinese): compared and joined character by character. */
 export const unspaced = (lang: LanguageCode | string) => lang === "ja" || lang === "zh";
 
+/**
+ * Compared syllable by syllable, spaces ignored: the unspaced languages, plus Korean, whose spacing varies
+ * (계산해 주세요 / 계산해주세요) and whose particles attach to words (패치는, 패치를), so a whole-word match
+ * would miss them. Korean is still joined with spaces.
+ */
+const bySyllable = (lang: LanguageCode | string) => unspaced(lang) || lang === "ko";
+
 /** Katakana → hiragana so しょうゆ and ショウユ compare equal. */
 function kataToHira(s: string) {
   return s.replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
@@ -23,6 +30,8 @@ export function normalize(text: string, lang: LanguageCode | string) {
   t = t.replace(/[\p{P}\p{S}]/gu, " ");
   if (lang === "ja") return kataToHira(t).replace(/\s+/g, "");
   if (lang === "zh") return t.replace(/\p{Script=Han}/gu, (c) => TRAD_TO_SIMP.get(c) ?? c).replace(/\s+/g, "");
+  // NFKC keeps Hangul syllables whole (NFD below would split them into letters).
+  if (lang === "ko") return t.replace(/\s+/g, "");
   return t
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
@@ -49,11 +58,11 @@ export function similarity(a: string, b: string, lang: LanguageCode | string) {
   const na = normalize(a, lang);
   const nb = normalize(b, lang);
   if (!na || !nb) return 0;
-  const ta = unspaced(lang) ? [...na] : na.split(" ");
-  const tb = unspaced(lang) ? [...nb] : nb.split(" ");
+  const ta = bySyllable(lang) ? [...na] : na.split(" ");
+  const tb = bySyllable(lang) ? [...nb] : nb.split(" ");
   // Character-level for Latin scripts too, blended with word-level, to be kinder to small spelling slips.
   const wordSim = 1 - levenshtein(ta, tb) / Math.max(ta.length, tb.length);
-  if (unspaced(lang)) return Math.max(0, wordSim);
+  if (bySyllable(lang)) return Math.max(0, wordSim);
   const ca = [...na.replace(/ /g, "")];
   const cb = [...nb.replace(/ /g, "")];
   const charSim = 1 - levenshtein(ca, cb) / Math.max(ca.length, cb.length);
@@ -64,7 +73,7 @@ export function containsTerm(text: string, term: string, lang: LanguageCode | st
   const nt = normalize(text, lang);
   const nk = normalize(term, lang);
   if (!nk) return false;
-  if (unspaced(lang)) return nt.includes(nk);
+  if (bySyllable(lang)) return nt.includes(nk);
   return ` ${nt} `.includes(` ${nk} `) || (nk.includes(" ") && nt.includes(nk));
 }
 
@@ -132,6 +141,20 @@ const FILLER_DEFS: Record<string, FillerDef[]> = {
     { label: "就是", forms: ["就是"], contextual: true },
     { label: "然后", forms: ["然后"], contextual: true },
   ],
+  // 그 is also "that", 저 "I", 뭐 "what", 이제 "now", 아 "ah!": those count only when isolated.
+  ko: [
+    ...UNIVERSAL_FILLERS,
+    { label: "음", forms: ["음", "음음", "으음"] },
+    { label: "어", forms: ["어", "어어"] },
+    { label: "그", forms: ["그"], contextual: true },
+    { label: "저", forms: ["저"], contextual: true },
+    { label: "뭐", forms: ["뭐"], contextual: true },
+    { label: "아", forms: ["아"], contextual: true },
+    { label: "막", forms: ["막"], contextual: true },
+    { label: "약간", forms: ["약간"], contextual: true },
+    { label: "이제", forms: ["이제"], contextual: true },
+    { label: "그러니까", forms: ["그러니까"], contextual: true },
+  ],
 };
 
 /** A silence at least this long around a contextual word marks it as a hesitation (Babbli heuristic). */
@@ -167,7 +190,7 @@ export function detectFillers(words: { text: string; start: number; end: number 
       // Consume consecutive words until the joined text reaches the form's length.
       let joined = "";
       let j = i;
-      while (j < words.length && joined.length < form.length) joined += (unspaced(lang) || !joined ? "" : " ") + norm[j++];
+      while (j < words.length && joined.length < form.length) joined += (bySyllable(lang) || !joined ? "" : " ") + norm[j++];
       if (joined !== form) continue;
       if (def.contextual) {
         const last = j - 1;
@@ -218,13 +241,15 @@ function wordSyllables(word: string, lang: string) {
 /**
  * Estimated syllables in a text, from spelling (English, French, Spanish). Japanese counts characters
  * instead — close to morae for kana, only an approximation once kanji appear. Chinese counts characters
- * too (one syllable each), plus one per digit and per run of Latin letters (A128 → A-yāo-èr-bā). An
+ * too (one syllable each), plus one per digit and per run of Latin letters (A128 → A-yāo-èr-bā). Korean
+ * counts Hangul blocks (one syllable each), plus one per digit (phone numbers are read digit by digit). An
  * estimate: good for comparing the learner with a native reference counted the same way, not a phonetic
  * transcription.
  */
 export function syllableCount(text: string, lang: LanguageCode | string) {
   if (lang === "ja") return [...normalize(text, lang)].length;
   if (lang === "zh") return (normalize(text, lang).match(/\p{Script=Han}|\d|[a-z]+/gu) ?? []).length;
+  if (lang === "ko") return (normalize(text, lang).match(/[가-힣]|\d|[a-z]+/gu) ?? []).length;
   // Like normalize(), but keeping accents.
   const words = text
     .normalize("NFC")
@@ -244,12 +269,12 @@ export const rateUnit = (lang: LanguageCode | string) => (unspaced(lang) ? "char
  * Typical native speech rate in syllables (Japanese, Chinese: characters) per second — a Babbli default
  * used only when no native reference audio is available; the reference audio is preferred.
  */
-export const NATIVE_RATE: Record<string, number> = { en: 4.5, ja: 7.2, fr: 5.5, es: 6.2, zh: 5.1 };
+export const NATIVE_RATE: Record<string, number> = { en: 4.5, ja: 7.2, fr: 5.5, es: 6.2, zh: 5.1, ko: 5.2 };
 
 export function languageMatches(code: string | undefined, lang: LanguageCode | string) {
   if (!code) return null;
   const c = code.toLowerCase();
-  const map: Record<string, string[]> = { en: ["en", "eng"], ja: ["ja", "jpn"], fr: ["fr", "fra", "fre"], es: ["es", "spa"], zh: ["zh", "zho", "cmn", "chi"] };
+  const map: Record<string, string[]> = { en: ["en", "eng"], ja: ["ja", "jpn"], fr: ["fr", "fra", "fre"], es: ["es", "spa"], zh: ["zh", "zho", "cmn", "chi"], ko: ["ko", "kor"] };
   return (map[lang] ?? [lang]).some((x) => c === x || c.startsWith(x));
 }
 

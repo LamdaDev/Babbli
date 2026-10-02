@@ -5,8 +5,8 @@ import type { Difficulty, LanguageCode, ResponseMode } from "@/lib/scenarios/typ
  * a local list of finished scenes and never feed into scoring.
  */
 
-export type BadgeId = "first_stamp" | "store_pin" | "ramen_pin" | "cafe_pin" | "hotel_pin" | "boba_pin" | "no_help" | "globetrotter" | "deep_end";
-export type PinGlyph = "plane" | "bag" | "ramen" | "cup" | "key" | "boba" | "star" | "globe" | "wave";
+export type BadgeId = "first_stamp" | "store_pin" | "ramen_pin" | "cafe_pin" | "hotel_pin" | "boba_pin" | "midnight_pin" | "no_help" | "globetrotter" | "deep_end";
+export type PinGlyph = "plane" | "bag" | "ramen" | "cup" | "key" | "boba" | "moon" | "star" | "globe" | "wave";
 
 export interface BadgeDef {
   id: BadgeId;
@@ -25,6 +25,7 @@ export const BADGES: BadgeDef[] = [
   { id: "cafe_pin", name: "Café Regular", how: "Complete the Paris café", glyph: "cup", bg: "#6b4a33", fg: "#fbf1dc" },
   { id: "hotel_pin", name: "Sevilla Key", how: "Complete the Sevilla hotel check-in", glyph: "key", bg: "#f2b84b", fg: "#13233f" },
   { id: "boba_pin", name: "Shanghai Sipper", how: "Complete the Shanghai boba shop", glyph: "boba", bg: "#d9b48f", fg: "#3a2418" },
+  { id: "midnight_pin", name: "Night Owl", how: "Complete the Seoul midnight convenience store", glyph: "moon", bg: "#1b2347", fg: "#ffe9a8" },
   { id: "no_help", name: "No Help Needed", how: "Complete a scene without opening a hint", glyph: "star", bg: "#1b57cb", fg: "#ffe08a" },
   { id: "globetrotter", name: "Globetrotter", how: "Complete scenes in two different languages", glyph: "globe", bg: "#17a898", fg: "#ffffff" },
   { id: "deep_end", name: "Deep End", how: "Complete a scene on Immersion", glyph: "wave", bg: "#0e357e", fg: "#9fd3e0" },
@@ -47,7 +48,7 @@ export interface SceneStamp {
   at: number;
 }
 
-const SCENE_PINS: Record<string, BadgeId> = { store: "store_pin", ramen: "ramen_pin", cafe: "cafe_pin", hotel: "hotel_pin", boba: "boba_pin" };
+const SCENE_PINS: Record<string, BadgeId> = { store: "store_pin", ramen: "ramen_pin", cafe: "cafe_pin", hotel: "hotel_pin", boba: "boba_pin", midnight: "midnight_pin" };
 
 export function earnedBadges(stamps: SceneStamp[]): Set<BadgeId> {
   const done = stamps.filter((s) => s.completed);

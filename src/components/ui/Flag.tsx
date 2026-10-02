@@ -50,8 +50,40 @@ export function Flag({ code, className = "h-[0.9em] w-[1.35em]" }: { code: strin
         ))}
       </svg>
     );
+  if (code === "ko")
+    return (
+      <svg {...common}>
+        <rect width="30" height="20" fill="#fff" />
+        {/* the taegeuk: red above, blue below, divided along the diagonal from the top-left corner */}
+        <g transform="translate(15 10) rotate(33.69)">
+          <circle r="5" fill="#0047a0" />
+          <path d="M-5 0A5 5 0 0 1 5 0A2.5 2.5 0 0 0 0 0A2.5 2.5 0 0 1-5 0Z" fill="#cd2e3a" />
+        </g>
+        {/* the trigrams on the diagonals (a solid bar is true, from the centre out): ☰ top-left, ☵ top-right, ☷ bottom-right, ☲ bottom-left */}
+        {TRIGRAMS.map(([angle, bars]) => (
+          <g key={angle} transform={`translate(15 10) rotate(${angle})`} fill="#000">
+            {bars.map((solid, i) =>
+              solid ? (
+                <rect key={i} x={BAR_AT[i]} y={-2.5} width={0.85} height={5} />
+              ) : (
+                <path key={i} d={`M${BAR_AT[i]} -2.5h0.85v2.2h-0.85zM${BAR_AT[i]} 0.3h0.85v2.2h-0.85z`} />
+              ),
+            )}
+          </g>
+        ))}
+      </svg>
+    );
   return null;
 }
+
+/** The Korean flag's trigrams: the angle towards their corner, and which bars are solid (from the centre out). */
+const TRIGRAMS = [
+  [-146.31, [true, true, true]],
+  [-33.69, [false, true, false]],
+  [33.69, [false, false, false]],
+  [146.31, [true, false, true]],
+] as const;
+const BAR_AT = [8.3, 9.55, 10.8];
 
 /** A five-point star centred at x,y with its first point towards `angle` degrees (rounded so server and client match). */
 function star(x: number, y: number, r: number, angle: number) {
