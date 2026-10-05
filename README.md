@@ -1,17 +1,17 @@
 # Babbli
 
-Built at [HackTheHill III](https://hackthehill.com/) and **won four awards**.
+Built at [HackTheHill III](https://hackthehill.com/) and **won four of its 21 prizes** ([Devpost](https://devpost.com/software/babbli)).
 
 - 🥉 **Winner of General Challenge: Third Place**
 - 🎙️ **Best Project Built with ElevenLabs** (Best Use of ElevenLabs)
-- 📚 **Best Educational Project** — MathemaTech: Education for Everyone
+- 📚 **Best Educational Project** (MathemaTech: Education for Everyone)
 - 🎨 **Best UI/UX**
 
 ## What is Babbli?
 
 **Walk in. Figure out what to say.** 
 
-Babbli is a first-person language-practice simulator. You don't chat with an AI: you walk into a real-feeling place and have to *get something done* by talking to a character who only speaks the local language. Find a gift, order dinner, answer a follow-up question, pay, or fix a broken hotel booking.
+Babbli is a first-person language-practice simulator. You don't chat with an AI: you walk into a real-feeling place and have to *get something done* by talking to a character who only speaks the local language. Find a gift, order dinner or a bubble tea, grab a midnight snack in the rain, answer a follow-up question, pay, or fix a broken hotel booking.
 
 > We simulate the situations you're actually going to encounter, before you encounter them.
 
@@ -26,13 +26,21 @@ Babbli is a first-person language-practice simulator. You don't chat with an AI:
 
 <img width="1920" height="989" alt="thumbnail_newer" src="https://github.com/user-attachments/assets/5519caf1-fdff-4cdb-b7b1-a348fef8c276" />
 
+### New in v1.1
+
+- **Two new destinations, six languages in all:** a bubble tea shop in Shanghai (Mandarin) and a convenience store at midnight in Seoul (Korean).
+- **Mandarin and Korean throughout:** type pinyin or Korean romanization in Text Mode, and hear Korean prices and phone numbers read the way Koreans say them (구천이백 원, 공일공…).
+- **New twists:** a sold-out topping, a misheard order, a 1+1 deal, an ID check for beer, a card that needs a second try, and an umbrella lent from the lost-and-found.
+- **A late-night radio** composed with Eleven Music plays under the rain in Seoul.
+- **Two new passport pins:** Shanghai Sipper and Night Owl.
+
 
 ## How it works
 
-1. **Pick a destination, a difficulty and how you'll answer.** Speak with your voice (push-to-talk or a live conversation), or type your replies in Text Mode.
+1. **Pick a destination, a difficulty and how you'll answer.** Speak with your voice (push-to-talk or a live conversation), or type your replies in Text Mode (Mandarin also takes pinyin, and Korean takes romanization).
 2. **Step into the scene.** An illustrated room with its own ambient sound and a character who greets you in their language.
 3. **Choose what you want to say.** Three cards describe *what* to get across ("Ask where the scarves are"), never the exact sentence.
-4. **Say it your way.** The character understands you, reacts and keeps the story going. Things can go wrong on purpose: sold-out dishes, a waiter who mishears your order, a card machine that's down, a missing reservation, a cashier who hears 香草 (vanilla) when you said 仙草 (grass jelly).
+4. **Say it your way.** The character understands you, reacts and keeps the story going. Things can go wrong on purpose: sold-out dishes, a waiter who mishears your order, a card machine that's down, a missing reservation, a cashier who hears 香草 (vanilla) when you said 仙草 (grass jelly), a clerk who needs your ID before he can sell you a beer.
 5. **Get help if you need it:** a five-step hint ladder (from "what to say" up to hearing a native speaker say it), Repeat, Slow, subtitles, and a translation on Beginner. Every bit of help is noted.
 6. **See how you did.** Once you complete the scene, the results page shows your scores, what went well, what to work on, the character's written review, a replay of every reply next to a native speaker, and the scene's vocabulary with audio.
 
@@ -41,9 +49,9 @@ Babbli is a first-person language-practice simulator. You don't chat with an AI:
 - **Intermediate:** natural pace, subtitles always on, surprise questions.
 - **Immersion:** native speed, no subtitles or hints, and a noisier room.
 
-**Your Traveler Profile** (optional): choose a nickname, pronouns and an avatar, set your favourite destination and defaults, and pick a coach voice. Finishing scenes earns cosmetic passport pins. Everything is saved in your own browser, with no account needed. Characters in French and Spanish use your pronouns for grammar (for example *bienvenida* or *bienvenido*), and in Shanghai the tea shop staff may call you 帅哥 or 美女, the way they do in China. In Seoul, the night-shift clerk calls everyone 손님 (customer), as Korean shop staff do.
+**Your Traveler Profile** (optional): choose a nickname, pronouns and an avatar, set your favourite destination and defaults, and pick a coach voice. Finishing scenes earns cosmetic passport pins (10 to collect). Everything is saved in your own browser, with no account needed. Characters in French and Spanish use your pronouns for grammar (for example *bienvenida* or *bienvenido*), and in Shanghai the tea shop staff may call you 帅哥 or 美女, the way they do in China. In Seoul, the night-shift clerk calls everyone 손님 (customer), as Korean shop staff do.
 
-Keyboard shortcuts: `1–3` choose a card · `Space` talk or finish · `H` hint · `R` repeat · `S` slow · `C` subtitles · `T` translation.
+Keyboard shortcuts: `1–3` choose a card · `Space` talk or finish · `H` hint · `R` repeat · `S` slow · `C` subtitles · `T` translation · `Esc` close the hints.
 
 ## The idea behind it
 
@@ -83,12 +91,20 @@ npm run dev                       # open http://localhost:3000
 
 `npm run setup` is optional because everything is created automatically the first time it's needed. Running it before a demo means nobody has to wait.
 
+Both use ElevenLabs credits. Voices, characters and tools are found by name in your ElevenLabs account, so they're only created once. Sounds and native-speaker clips, though, are generated for each copy of the project and kept in `.babbli/`. When you set up a new copy, copy an existing `.babbli/` folder into it rather than starting empty, or the first run generates them all again.
+
 Other commands: `npm run simulate` (plays every scene offline to check nothing gets stuck), `npm run typecheck`, `npm run lint`, `npm run build` and `npm start`.
+
+## Deploying
+
+- Set `ELEVENLABS_API_KEY` in your host's environment variables, and `BABBLI_SITE_URL` for link previews (on Railway, the service's public domain is used if it's unset).
+- Babbli keeps sessions, recordings, generated audio and its record of ElevenLabs resources in `.babbli/`. Put it on a persistent volume, for example by mounting one at `/data` and setting `BABBLI_DATA_DIR=/data`. Otherwise every deploy starts empty and regenerates the sounds and clips, which costs credits.
+- Local development and the live site share one ElevenLabs account. Characters are found by name, so running the app locally also updates the live characters.
 
 ## Good to know
 
 - Scores are feedback, not a certification. "Speaking clarity" measures how easily speech recognition understood you, not a detailed pronunciation grade. Speaking pace follows published research (Kormos & Dénes, 2004); the other speech measures are Babbli's own feedback.
 - Scores only appear for completed scenes.
-- The public version has no login, so anyone with the link uses the same ElevenLabs credits.
+- The public version has no login, so anyone with the link uses the same ElevenLabs credits. A full scene costs roughly 700 to 2,000 credits in Voice Mode, depending on its length, and a little less in Text Mode.
 
 **Thank you for reading! We hope you enjoy Babbli!**
