@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode, type Ref } from "react";
 import type { CharacterLook, HairStyle, NpcExpression, NpcPose } from "@/lib/scenarios/types";
 
 /**
@@ -11,7 +11,8 @@ import type { CharacterLook, HairStyle, NpcExpression, NpcPose } from "@/lib/sce
  * All movement runs in one animation-frame loop. A pose change only moves spring targets, and the
  * idle bob, head sway and talking gesture are continuous waves whose size eases in and out — so the
  * pose can change at any moment (even several times a second) without anything jumping, restarting
- * or looping back. Hair drawn behind the head (bob, bun) turns with the head.
+ * or looping back. Hair drawn behind the head (bob, bun, ponytail) turns with the head, and a
+ * ponytail also swings a little on its own, a beat behind the head.
  */
 interface Props {
   look: CharacterLook;
@@ -50,14 +51,150 @@ const POSES: Record<NpcPose, PoseTargets> = {
 /** The head turns around the chin and the body around its base (viewBox-local points). */
 const HEAD_PIVOT = "210 255";
 const BODY_PIVOT = "210 560";
+/** A ponytail swings from its tie, high on the back of the head. */
+const TAIL_PIVOT = "230 86";
+/** A slender build: the torso and everything worn on it, 12% narrower around the body's centre line. */
+const SLENDER = "translate(25.2 0) scale(0.88 1)";
 const TAU = Math.PI * 2;
 
 /** Hair drawn behind the head and neck (turns with the head). Shared with the learner avatar. */
-export function HairBack({ style, color }: { style: HairStyle; color: string }) {
+export function HairBack({ style, color, tailRef }: { style: HairStyle; color: string; tailRef?: Ref<SVGGElement> }) {
   if (style === "bob") return <path d="M118 170 Q112 80 210 70 Q308 80 302 170 L308 262 Q300 282 270 276 L150 276 Q120 282 112 262 Z" fill={color} />;
   if (style === "long") return <path d="M116 176 Q106 76 210 66 Q314 76 304 176 L314 334 Q308 360 280 356 L140 356 Q112 360 106 334 Z" fill={color} />;
   if (style === "bun") return <circle cx={210} cy={74} r={36} fill={color} />;
+  if (style === "ponytail") return <Ponytail color={color} tailRef={tailRef} />;
   return null;
+}
+
+/**
+ * A high ponytail: tied at the crown, the tail rises over the top of the head, then falls behind it
+ * to one side and down past the shoulder (the torso covers its tip). It pivots at the tie.
+ */
+function Ponytail({ color, tailRef }: { color: string; tailRef?: Ref<SVGGElement> }) {
+  return (
+    <g ref={tailRef}>
+      <path d="M212 84 Q224 52 262 48 Q304 46 322 88 Q336 124 332 176 Q328 232 318 272 Q312 298 326 322 Q296 318 292 282 Q288 250 290 200 Q292 150 280 118 Q264 92 232 94 Z" fill={color} />
+      <path d="M298 72 Q320 98 320 146" stroke="#fff" strokeOpacity={0.12} strokeWidth={5} fill="none" strokeLinecap="round" />
+      <ellipse cx={230} cy={86} rx={13} ry={9} fill="#000" opacity={0.28} transform="rotate(-32 230 86)" />
+    </g>
+  );
+}
+
+/**
+ * Wispy see-through bangs (空气刘海): thin strands that touch at the hairline and fan apart towards
+ * the brows, parted just off-centre, so the forehead shows between them. [root x, tip x, tip y]
+ */
+const BANGS = [
+  [170, 162, 130],
+  [180, 173, 138],
+  [191, 186, 143],
+  [202, 199, 146],
+  [216, 220, 145],
+  [227, 233, 142],
+  [238, 245, 137],
+  [249, 257, 130],
+] as const;
+
+/** Hair pulled back sleek into a high ponytail, with air bangs and a face-framing strand on each side. */
+function PonytailFront({ color }: { color: string }) {
+  return (
+    <g fill={color}>
+      <path d="M127 182 Q118 92 210 82 Q302 92 293 182 Q288 136 262 120 Q236 110 210 110 Q184 110 158 120 Q132 136 127 182 Z" />
+      {BANGS.map(([x, tx, ty]) => (
+        <path key={x} d={`M${x - 4.5} 106 Q${x - 2} ${ty - 10} ${tx} ${ty} Q${x + 3} ${ty - 12} ${x + 4.5} 106 Z`} />
+      ))}
+      <path d="M130 146 Q122 188 138 226 Q133 186 143 150 Z" />
+      <path d="M290 146 Q298 188 282 226 Q287 186 277 150 Z" />
+      <g fill="#fff" opacity={0.16}>
+        <ellipse cx={168} cy={98} rx={15} ry={5} transform="rotate(-26 168 98)" />
+        <ellipse cx={252} cy={98} rx={15} ry={5} transform="rotate(26 252 98)" />
+      </g>
+    </g>
+  );
+}
+
+/** Draws its children with a slender build when asked (and exactly as before otherwise). */
+function Build({ slender, children }: { slender: boolean; children: ReactNode }) {
+  return slender ? <g transform={SLENDER}>{children}</g> : <>{children}</>;
+}
+
+/** The headset look from the neck down: a crew-neck tee under a bib apron with the shop's monogram and a name badge. */
+function HeadsetBody({ look, name }: { look: CharacterLook; name: string }) {
+  return (
+    <g>
+      <path d="M180 299 Q210 318 240 299" stroke={look.outfitShade} strokeWidth={7} fill="none" strokeLinecap="round" />
+      {look.apron && (
+        <>
+          <path d="M152 346 L180 302 M268 346 L240 302" stroke={look.apron} strokeWidth={9} strokeLinecap="round" />
+          <path d="M132 362 Q132 344 150 344 L270 344 Q288 344 288 362 L312 560 L108 560 Z" fill={look.apron} />
+          {look.apronMark && (
+            <g>
+              <circle cx={210} cy={398} r={22} fill="none" stroke={look.accent} strokeWidth={3} />
+              <text x={210} y={408} textAnchor="middle" fontSize={26} fontWeight={700} fill={look.accent} style={{ fontFamily: "var(--font-sc)" }}>
+                {look.apronMark}
+              </text>
+            </g>
+          )}
+        </>
+      )}
+      <rect x={138} y={356} width={46} height={20} rx={4} fill="#fbfaf7" />
+      <rect x={138} y={356} width={7} height={20} rx={3} fill={look.accent} />
+      <text x={165} y={371} textAnchor="middle" fontSize={12} fontWeight={800} fill="#1d1d1f" style={{ fontFamily: "var(--font-sc)" }}>
+        {look.badgeText ?? name}
+      </text>
+    </g>
+  );
+}
+
+/**
+ * The vest look from the neck down: a white hoodie (its gathered collar and drawstrings) under an open zip
+ * vest that leaves the hoodie's shoulders showing, with the shop's crescent-moon logo and a name badge.
+ */
+function VestBody({ look, name }: { look: CharacterLook; name: string }) {
+  const vest = look.apron ?? look.accent;
+  return (
+    <g>
+      {/* the hood, gathered around the neck */}
+      <path d="M140 306 Q154 284 180 284 Q210 300 240 284 Q266 284 280 306 Q266 330 210 334 Q154 330 140 306 Z" fill={look.outfit} />
+      <path d="M146 308 Q210 342 274 308" stroke={look.outfitShade} strokeWidth={4} fill="none" strokeLinecap="round" />
+      <path d="M196 326 L192 380 M224 326 L228 380" stroke={look.outfitShade} strokeWidth={4} strokeLinecap="round" />
+      <circle cx={192} cy={384} r={4} fill={look.outfitShade} />
+      <circle cx={228} cy={384} r={4} fill={look.outfitShade} />
+      {/* the vest's two front panels, open over the hoodie */}
+      <path d="M96 560 L102 404 Q110 340 152 318 L178 312 L184 560 Z" fill={vest} />
+      <path d="M324 560 L318 404 Q310 340 268 318 L242 312 L236 560 Z" fill={vest} />
+      <path d="M178 312 L184 560 M242 312 L236 560" stroke="#000" strokeOpacity={0.22} strokeWidth={3} />
+      <path d="M102 404 Q110 340 152 318 M318 404 Q310 340 268 318" stroke="#fff" strokeOpacity={0.14} strokeWidth={3} fill="none" />
+      {/* the crescent moon logo (and the text beside it, e.g. 24) */}
+      <g>
+        <path d="M274 368 A16 16 0 1 0 290 392 A12 12 0 1 1 274 368 Z" fill="#ffe9a8" />
+        {look.apronMark && (
+          <text x={290} y={389} fontSize={14} fontWeight={800} fill="#ffe9a8">
+            {look.apronMark}
+          </text>
+        )}
+      </g>
+      {/* name badge */}
+      <rect x={112} y={360} width={56} height={22} rx={5} fill="#fbfaf7" />
+      <rect x={112} y={360} width={7} height={22} rx={3} fill="#ffe9a8" />
+      <text x={143} y={376} textAnchor="middle" fontSize={13} fontWeight={800} fill="#1d2433" style={{ fontFamily: "var(--font-kr)" }}>
+        {look.badgeText ?? name}
+      </text>
+    </g>
+  );
+}
+
+/** A slim black headset over the hair: one ear cup and a mic boom by the mouth (busy tea shops use them). */
+function Headset() {
+  return (
+    <g>
+      <path d="M131 178 Q122 90 210 80 Q298 90 289 178" stroke="#1d1d1f" strokeWidth={5} fill="none" strokeLinecap="round" />
+      <rect x={116} y={166} width={24} height={38} rx={10} fill="#1d1d1f" />
+      <rect x={121} y={172} width={6} height={20} rx={3} fill="#fff" opacity={0.18} />
+      <path d="M130 200 Q133 240 170 246" stroke="#1d1d1f" strokeWidth={4} fill="none" strokeLinecap="round" />
+      <ellipse cx={175} cy={246} rx={7} ry={5} fill="#2c2c2e" />
+    </g>
+  );
 }
 
 /**
@@ -81,9 +218,30 @@ function MiddlePart({ color }: { color: string }) {
   );
 }
 
+/**
+ * Comma hair (쉼표머리), a K-pop favourite: a full, soft cap and long curtain bangs parted just right of
+ * centre, the left side swept across the forehead, both ends curling outward at the temples like commas.
+ */
+function CommaHair({ color }: { color: string }) {
+  return (
+    <g fill={color}>
+      <path d="M122 182 Q108 70 210 60 Q312 70 298 182 Q294 138 270 120 Q240 102 210 104 Q180 102 150 120 Q126 138 122 182 Z" />
+      <path d="M240 88 Q238 116 230 138 Q200 150 176 144 Q156 142 150 158 Q146 172 134 170 Q122 164 124 148 Q126 106 168 86 Q206 72 240 88 Z" />
+      <path d="M248 90 Q252 116 254 134 Q276 138 286 152 Q294 166 288 178 Q302 174 300 156 Q298 112 264 94 Q256 89 248 90 Z" />
+      <path d="M242 74 Q245 86 244 102" stroke="#000" strokeOpacity={0.2} strokeWidth={2.5} fill="none" strokeLinecap="round" />
+      <g fill="#fff" opacity={0.16}>
+        <ellipse cx={178} cy={100} rx={22} ry={5.5} transform="rotate(-20 178 100)" />
+        <ellipse cx={270} cy={108} rx={12} ry={4} transform="rotate(34 270 108)" />
+      </g>
+    </g>
+  );
+}
+
 /** Hair over the forehead. Shared with the learner avatar. */
 export function HairFront({ style, color }: { style: HairStyle; color: string }) {
   switch (style) {
+    case "comma":
+      return <CommaHair color={color} />;
     case "short":
       return <path d="M128 172 Q120 86 210 78 Q300 86 292 172 Q284 128 256 118 Q214 104 170 118 Q138 130 128 172 Z" fill={color} />;
     case "buzz":
@@ -95,6 +253,8 @@ export function HairFront({ style, color }: { style: HairStyle; color: string })
       return <path d="M126 196 Q118 92 210 84 Q302 92 294 196 Q290 150 270 138 Q240 150 208 132 Q176 152 148 142 Q130 156 126 196 Z" fill={color} />;
     case "bun":
       return <path d="M128 176 Q122 92 210 84 Q298 92 292 176 Q280 124 248 116 Q210 108 172 116 Q140 124 128 176 Z" fill={color} />;
+    case "ponytail":
+      return <PonytailFront color={color} />;
     case "curly":
       return (
         <g fill={color}>
@@ -148,6 +308,7 @@ export function Character({ look, pose, expression, name, getLevel, listeningLev
   const headBackRef = useRef<SVGGElement | null>(null);
   const headRef = useRef<SVGGElement | null>(null);
   const handRef = useRef<SVGGElement | null>(null);
+  const tailRef = useRef<SVGGElement | null>(null);
   const live = useRef({ pose, expression, hopAt: -Infinity });
 
   // The loop reads the latest pose; a happy reaction (not mid-sentence) adds a little hop.
@@ -164,6 +325,7 @@ export function Character({ look, pose, expression, name, getLevel, listeningLev
     const body = { y: new Spring(0, 60, 14), rotate: new Spring(0, 60, 14), bob: new Spring(3, 20, 9), bobHz: new Spring(0.25, 20, 9) };
     const head = { y: new Spring(0, 70, 13), rotate: new Spring(0, 70, 13), sway: new Spring(0, 20, 9), nod: new Spring(0, 90, 16) };
     const hand = { x: new Spring(0, 90, 18), y: new Spring(60, 90, 18), opacity: new Spring(0, 90, 19), lift: new Spring(0, 30, 11) };
+    const tail = new Spring(1, 20, 9);
     const phase = { bob: 0, sway: 0, gesture: 0 };
     let mouthLevel = 0;
     let last = performance.now();
@@ -192,6 +354,11 @@ export function Character({ look, pose, expression, name, getLevel, listeningLev
       const headTransform = `translate(0 ${headY.toFixed(2)}) rotate(${headRotate.toFixed(3)} ${HEAD_PIVOT})`;
       headRef.current?.setAttribute("transform", headTransform);
       headBackRef.current?.setAttribute("transform", headTransform);
+      // Ponytail: a gentle swing from the tie, wider while talking, lagging the head's sway.
+      if (tailRef.current) {
+        const swing = tail.step((pose === "speaking" ? 2.6 : 1) * motion, dt) * Math.sin(phase.sway - 0.9) + hop * 5;
+        tailRef.current.setAttribute("transform", `rotate(${swing.toFixed(3)} ${TAIL_PIVOT})`);
+      }
 
       // Gesturing hand: glides between the side (talking), the chin (thinking) and out of view.
       phase.gesture = (phase.gesture + (TAU / 1.3) * dt) % TAU;
@@ -218,89 +385,99 @@ export function Character({ look, pose, expression, name, getLevel, listeningLev
   const happy = expression === "positive";
   const confused = expression === "confused";
   const eyeLook = pose === "thinking" ? { x: 4, y: -5 } : { x: 0, y: 0 };
+  const slender = look.build === "slender";
+  const lips = look.makeup?.lips ?? "#6d201c";
+  const blush = look.makeup?.blush ?? "#ff8f86";
 
   return (
     <g ref={bodyRef}>
-      {/* back hair for bob / bun: behind the neck and torso, but turning with the head */}
+      {/* back hair for bob / bun / ponytail: behind the neck and torso, but turning with the head */}
       <g ref={headBackRef}>
-        <HairBack style={look.hairStyle} color={look.hair} />
+        <HairBack style={look.hairStyle} color={look.hair} tailRef={tailRef} />
       </g>
 
-      {/* torso */}
-      <path d="M52 560 L64 372 Q74 312 150 296 L270 296 Q346 312 356 372 L368 560 Z" fill={look.outfit} />
-      <path d="M270 296 Q346 312 356 372 L368 560 L300 560 Q318 420 270 296 Z" fill={look.outfitShade} opacity={0.8} />
-      <rect x={186} y={246} width={48} height={60} rx={14} fill={look.skinShade} />
+      <Build slender={slender}>
+        {/* torso */}
+        <path d="M52 560 L64 372 Q74 312 150 296 L270 296 Q346 312 356 372 L368 560 Z" fill={look.outfit} />
+        <path d="M270 296 Q346 312 356 372 L368 560 L300 560 Q318 420 270 296 Z" fill={look.outfitShade} opacity={0.8} />
+        <rect x={186} y={246} width={48} height={60} rx={14} fill={look.skinShade} />
 
-      {look.accessory === "headband" && (
-        <g>
-          <path d="M176 298 L210 362 L244 298 Z" fill={look.accent} />
-          <path d="M150 296 L210 380 L150 560" stroke={look.outfitShade} strokeWidth={10} fill="none" />
-          <path d="M270 296 L210 380" stroke={look.outfitShade} strokeWidth={10} fill="none" />
-          {look.apron && (
-            <>
-              <path d="M84 440 L336 440 L352 560 L68 560 Z" fill={look.apron} />
-              <rect x={84} y={436} width={252} height={10} rx={4} fill="#1c130e" opacity={0.55} />
-              <text x={210} y={510} textAnchor="middle" fontSize={34} fill="#e9dcc7" opacity={0.85} style={{ fontFamily: "var(--font-jp)" }}>
-                ほし
-              </text>
-            </>
-          )}
-        </g>
-      )}
-      {look.accessory === "scarf" && (
-        <g>
-          {look.apron && (
-            <>
-              <path d="M130 360 L290 360 L312 560 L108 560 Z" fill={look.apron} />
-              <path d="M150 360 L166 300 M270 360 L254 300" stroke={look.apron} strokeWidth={10} />
-              <rect x={164} y={410} width={92} height={50} rx={8} fill="none" stroke="#d9cfbf" strokeWidth={3} />
-            </>
-          )}
-          <path d="M178 296 Q210 330 242 296 L236 318 Q210 338 184 318 Z" fill={look.accent} />
-          <path d="M206 320 L190 360 L208 350 L214 364 L222 322 Z" fill={look.accent} />
-        </g>
-      )}
-      {look.accessory === "badge" && (
-        <g>
-          <path d="M178 298 L210 360 L242 298 L232 296 L210 334 L188 296 Z" fill="#f6f1ea" />
-          <path d="M150 296 L200 420 L176 430 L128 330 Z" fill={look.outfitShade} />
-          <path d="M270 296 L220 420 L244 430 L292 330 Z" fill={look.outfitShade} />
-          <rect x={98} y={392} width={74} height={24} rx={5} fill={look.accent} />
-          <text x={135} y={409} textAnchor="middle" fontSize={14} fontWeight={700} fill="#3a2a10">
-            {name}
-          </text>
-        </g>
-      )}
-      {look.accessory === "lanyard" && (
-        <g>
-          {/* collared shirt under a store cardigan, with a staff lanyard + ID card */}
-          <path d="M176 296 L210 352 L244 296 Z" fill="#eef2f1" />
-          <path d="M176 296 L196 334 L206 316 Z M244 296 L224 334 L214 316 Z" fill="#dfe6e4" />
-          <path d="M160 300 L204 440 M260 300 L216 440" stroke={look.outfitShade} strokeWidth={8} />
-          <path d="M184 302 L204 418 M236 302 L216 418" stroke={look.accent} strokeWidth={6} strokeLinecap="round" />
-          <rect x={184} y={412} width={52} height={66} rx={7} fill="#fbf8f2" stroke="#d9d2c4" strokeWidth={2} />
-          <rect x={184} y={412} width={52} height={14} rx={6} fill={look.accent} />
-          <circle cx={210} cy={444} r={10} fill={look.skinShade} />
-          <text x={210} y={471} textAnchor="middle" fontSize={11} fontWeight={800} fill="#2a1d14">
-            {name}
-          </text>
-        </g>
-      )}
+        {look.accessory === "headband" && (
+          <g>
+            <path d="M176 298 L210 362 L244 298 Z" fill={look.accent} />
+            <path d="M150 296 L210 380 L150 560" stroke={look.outfitShade} strokeWidth={10} fill="none" />
+            <path d="M270 296 L210 380" stroke={look.outfitShade} strokeWidth={10} fill="none" />
+            {look.apron && (
+              <>
+                <path d="M84 440 L336 440 L352 560 L68 560 Z" fill={look.apron} />
+                <rect x={84} y={436} width={252} height={10} rx={4} fill="#1c130e" opacity={0.55} />
+                <text x={210} y={510} textAnchor="middle" fontSize={34} fill="#e9dcc7" opacity={0.85} style={{ fontFamily: "var(--font-jp)" }}>
+                  ほし
+                </text>
+              </>
+            )}
+          </g>
+        )}
+        {look.accessory === "scarf" && (
+          <g>
+            {look.apron && (
+              <>
+                <path d="M130 360 L290 360 L312 560 L108 560 Z" fill={look.apron} />
+                <path d="M150 360 L166 300 M270 360 L254 300" stroke={look.apron} strokeWidth={10} />
+                <rect x={164} y={410} width={92} height={50} rx={8} fill="none" stroke="#d9cfbf" strokeWidth={3} />
+              </>
+            )}
+            <path d="M178 296 Q210 330 242 296 L236 318 Q210 338 184 318 Z" fill={look.accent} />
+            <path d="M206 320 L190 360 L208 350 L214 364 L222 322 Z" fill={look.accent} />
+          </g>
+        )}
+        {look.accessory === "badge" && (
+          <g>
+            <path d="M178 298 L210 360 L242 298 L232 296 L210 334 L188 296 Z" fill="#f6f1ea" />
+            <path d="M150 296 L200 420 L176 430 L128 330 Z" fill={look.outfitShade} />
+            <path d="M270 296 L220 420 L244 430 L292 330 Z" fill={look.outfitShade} />
+            <rect x={98} y={392} width={74} height={24} rx={5} fill={look.accent} />
+            <text x={135} y={409} textAnchor="middle" fontSize={14} fontWeight={700} fill="#3a2a10">
+              {name}
+            </text>
+          </g>
+        )}
+        {look.accessory === "lanyard" && (
+          <g>
+            {/* collared shirt under a store cardigan, with a staff lanyard + ID card */}
+            <path d="M176 296 L210 352 L244 296 Z" fill="#eef2f1" />
+            <path d="M176 296 L196 334 L206 316 Z M244 296 L224 334 L214 316 Z" fill="#dfe6e4" />
+            <path d="M160 300 L204 440 M260 300 L216 440" stroke={look.outfitShade} strokeWidth={8} />
+            <path d="M184 302 L204 418 M236 302 L216 418" stroke={look.accent} strokeWidth={6} strokeLinecap="round" />
+            <rect x={184} y={412} width={52} height={66} rx={7} fill="#fbf8f2" stroke="#d9d2c4" strokeWidth={2} />
+            <rect x={184} y={412} width={52} height={14} rx={6} fill={look.accent} />
+            <circle cx={210} cy={444} r={10} fill={look.skinShade} />
+            <text x={210} y={471} textAnchor="middle" fontSize={11} fontWeight={800} fill="#2a1d14">
+              {name}
+            </text>
+          </g>
+        )}
+        {look.accessory === "headset" && <HeadsetBody look={look} name={name} />}
+        {look.accessory === "vest" && <VestBody look={look} name={name} />}
+      </Build>
 
       {/* gesture hand while speaking / thinking */}
-      <g ref={handRef} transform="translate(0 60)" opacity={0}>
-        <path d="M300 560 Q312 470 330 452 L356 460 Q350 500 340 560 Z" fill={look.outfit} />
-        <ellipse cx={342} cy={446} rx={24} ry={20} fill={look.skin} />
-        <path d="M324 436 Q330 420 340 426 M338 430 Q344 414 354 422" stroke={look.skinShade} strokeWidth={5} strokeLinecap="round" fill="none" />
-      </g>
+      <Build slender={slender}>
+        <g ref={handRef} transform="translate(0 60)" opacity={0}>
+          <path d="M300 560 Q312 470 330 452 L356 460 Q350 500 340 560 Z" fill={look.outfit} />
+          <ellipse cx={342} cy={446} rx={24} ry={20} fill={look.skin} />
+          <path d="M324 436 Q330 420 340 426 M338 430 Q344 414 354 422" stroke={look.skinShade} strokeWidth={5} strokeLinecap="round" fill="none" />
+        </g>
+      </Build>
 
       {/* head */}
       <g ref={headRef}>
         <ellipse cx={134} cy={186} rx={16} ry={22} fill={look.skinShade} />
         <ellipse cx={286} cy={186} rx={16} ry={22} fill={look.skinShade} />
         <ellipse cx={210} cy={176} rx={80} ry={94} fill={look.skin} />
-        <ellipse cx={168} cy={218} rx={17} ry={10} fill="#ff8f86" opacity={happy ? 0.55 : 0.3} />
-        <ellipse cx={252} cy={218} rx={17} ry={10} fill="#ff8f86" opacity={happy ? 0.55 : 0.3} />
+        <ellipse cx={168} cy={218} rx={17} ry={10} fill={blush} opacity={happy ? 0.55 : 0.3} />
+        <ellipse cx={252} cy={218} rx={17} ry={10} fill={blush} opacity={happy ? 0.55 : 0.3} />
+        {look.earring && <circle cx={290} cy={213} r={5.5} fill="none" stroke={look.earring} strokeWidth={2.6} />}
 
         {/* hair front */}
         <HairFront style={look.hairStyle} color={look.hair} />
@@ -312,6 +489,7 @@ export function Character({ look, pose, expression, name, getLevel, listeningLev
           </g>
         )}
         {look.accessory === "badge" && <circle cx={284} cy={206} r={5} fill={look.accent} />}
+        {look.accessory === "headset" && <Headset />}
 
         {/* brows */}
         <g stroke={look.hair} strokeWidth={7} strokeLinecap="round" fill="none">
@@ -343,6 +521,7 @@ export function Character({ look, pose, expression, name, getLevel, listeningLev
           <g stroke={look.eyes} strokeWidth={6} strokeLinecap="round" fill="none">
             <path d="M166 190 Q178 176 190 190" />
             <path d="M230 190 Q242 176 254 190" />
+            {look.makeup?.lashes && <path d="M167 188 l-7 -4 M253 188 l7 -4" strokeWidth={3} />}
           </g>
         ) : (
           <g className="npc-blink" style={{ transformOrigin: "210px 186px" }}>
@@ -350,6 +529,14 @@ export function Character({ look, pose, expression, name, getLevel, listeningLev
             <ellipse cx={242 + eyeLook.x} cy={186 + eyeLook.y} rx={9.5} ry={12.5} fill={look.eyes} />
             <circle cx={181 + eyeLook.x} cy={181 + eyeLook.y} r={3.4} fill="#fff" />
             <circle cx={245 + eyeLook.x} cy={181 + eyeLook.y} r={3.4} fill="#fff" />
+            {look.makeup?.lashes && (
+              <path
+                d={`M${170 + eyeLook.x} ${180 + eyeLook.y} l-7 -5 M${169 + eyeLook.x} ${185 + eyeLook.y} l-7 -1 M${250 + eyeLook.x} ${180 + eyeLook.y} l7 -5 M${251 + eyeLook.x} ${185 + eyeLook.y} l7 -1`}
+                stroke={look.eyes}
+                strokeWidth={3}
+                strokeLinecap="round"
+              />
+            )}
           </g>
         )}
         <path d="M206 200 Q214 214 204 218" stroke={look.skinShade} strokeWidth={4} strokeLinecap="round" fill="none" />
@@ -357,11 +544,11 @@ export function Character({ look, pose, expression, name, getLevel, listeningLev
         {/* mouths: 0 closed … 3 wide open (amplitude-driven) */}
         <g ref={(el) => void (mouths.current[0] = el)}>
           {happy ? (
-            <path d="M186 234 Q210 266 234 234 Z" fill="#8c2f2a" stroke="#6d201c" strokeWidth={2} />
+            <path d="M186 234 Q210 266 234 234 Z" fill="#8c2f2a" stroke={lips} strokeWidth={2} />
           ) : confused ? (
-            <path d="M194 242 q6 -6 12 0 t12 0" stroke="#6d201c" strokeWidth={4} fill="none" strokeLinecap="round" />
+            <path d="M194 242 q6 -6 12 0 t12 0" stroke={lips} strokeWidth={4} fill="none" strokeLinecap="round" />
           ) : (
-            <path d="M192 238 Q210 250 228 238" stroke="#6d201c" strokeWidth={4.5} fill="none" strokeLinecap="round" />
+            <path d="M192 238 Q210 250 228 238" stroke={lips} strokeWidth={4.5} fill="none" strokeLinecap="round" />
           )}
         </g>
         <g ref={(el) => void (mouths.current[1] = el)} style={{ opacity: 0 }}>

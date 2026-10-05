@@ -21,10 +21,13 @@ export function RhythmChart({
   native,
   nativeState,
   learner,
+  lang,
 }: {
   native: Segment[] | null;
   nativeState: "none" | "loading" | "unavailable" | "ready";
   learner: Segment[];
+  /** The scene's language (segment text is in it). */
+  lang?: string;
 }) {
   const [hover, setHover] = useState<{ lane: string; seg: Segment; x: number } | null>(null);
   const maxT = Math.max(1, ...(native ?? []).map((s) => s.end), ...learner.map((s) => s.end));
@@ -99,7 +102,9 @@ export function RhythmChart({
           className="pointer-events-none absolute -top-2 z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg bg-ink px-2.5 py-1.5 text-xs text-cream shadow-lg"
           style={{ left: `${(hover.x / W) * 100}%` }}
         >
-          <div className="font-jp text-sm font-bold">{hover.seg.text}</div>
+          <div className="font-jp text-sm font-bold" lang={lang}>
+            {hover.seg.text}
+          </div>
           <div className="text-cream/75">
             {hover.lane} · {hover.seg.start.toFixed(2)}–{hover.seg.end.toFixed(2)}s
             {hover.seg.confidence != null && ` · recognised ${Math.round(hover.seg.confidence * 100)}%`}

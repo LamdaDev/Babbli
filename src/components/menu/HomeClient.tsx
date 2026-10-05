@@ -166,24 +166,34 @@ export function HomeClient() {
               className="mt-10"
             >
               <div className={`mb-4 ${LABEL}`}>Where are you going?</div>
-              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+              {/* Six destinations fill even rows (3 + 3 on large screens, 2 + 2 + 2 on tablets). With five, the newest one is a
+                  wide card so the rows still fill (3 + 2 on large screens, 2 + 2 + 1 on tablets). */}
+              <div className="grid gap-6 sm:auto-rows-fr sm:grid-cols-2 lg:grid-cols-3">
                 {LANGUAGES.map((l, i) => {
                   const s = scenariosForLanguage(l.code)[0];
+                  const wide = !!s.isNew && LANGUAGES.length % 3 === 2;
+                  // A gentle fan, centred on however many cards there are (less for a wide card).
+                  const tilt = (i - (LANGUAGES.length - 1) / 2) * (wide ? 0.5 : 1);
                   return (
                     <motion.button
                       key={l.code}
                       onClick={() => pickLanguage(l.code)}
-                      initial={{ opacity: 0, y: 30, rotate: (i - 1.5) * 2 }}
-                      animate={revealed ? { opacity: 1, y: 0, rotate: (i - 1.5) * 1.5, transition: { delay: 0.1 + i * 0.08 } } : undefined}
+                      initial={{ opacity: 0, y: 30, rotate: tilt * 2 }}
+                      animate={revealed ? { opacity: 1, y: 0, rotate: tilt * 1.5, transition: { delay: 0.1 + i * 0.08 } } : undefined}
                       whileHover={{ y: -8, rotate: 0, scale: 1.02 }}
-                      className={`group overflow-hidden rounded-3xl text-left outline-none focus-visible:ring-4 focus-visible:ring-brand/40 ${CARD}`}
+                      className={`group flex flex-col overflow-hidden rounded-3xl text-left outline-none focus-visible:ring-4 focus-visible:ring-brand/40 ${wide ? "sm:col-span-2" : ""} ${CARD}`}
                     >
-                      <div className="relative aspect-[16/10] overflow-hidden">
-                        <ScenePreview scenario={s} className="h-full w-full transition-transform duration-700 group-hover:scale-105" />
+                      {/* The wide card's scene fills whatever height its row has (set by the other cards), cropped to a banner. */}
+                      <div className={`relative overflow-hidden ${wide ? "aspect-[16/10] sm:aspect-auto sm:min-h-0 sm:flex-1" : "aspect-[16/10]"}`}>
+                        <ScenePreview
+                          scenario={s}
+                          className={`${wide ? "sm:absolute sm:inset-0" : ""} h-full w-full transition-transform duration-700 group-hover:scale-105`}
+                        />
                         <div className="absolute left-3 top-3 flex gap-1.5">
                           {s.demoRole === "hero" && (
                             <span className="rounded-full bg-brand px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow">Featured</span>
                           )}
+                          {s.isNew && <span className="rounded-full bg-teal px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow">New</span>}
                           {profile.language === l.code && (
                             <span className="rounded-full bg-gold px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-ink shadow">★ Your pick</span>
                           )}
@@ -194,7 +204,9 @@ export function HomeClient() {
                           <div className="whitespace-nowrap font-display text-2xl">
                             <Flag code={l.code} /> {l.name}
                           </div>
-                          <div className="whitespace-nowrap font-jp text-lg font-bold text-ink/40">{l.native}</div>
+                          <div className="whitespace-nowrap font-jp text-lg font-bold text-ink/40" lang={l.code}>
+                            {l.native}
+                          </div>
                         </div>
                         <div className="truncate whitespace-nowrap text-sm text-ink-soft">
                           {s.title} · {l.city}

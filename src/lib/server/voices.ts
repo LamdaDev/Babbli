@@ -1,3 +1,4 @@
+import type { LanguageCode } from "@/lib/scenarios/types";
 import { requireApiKey } from "./env";
 import { ElevenLabsError, xiJson } from "./elevenlabs";
 import { once, readRegistry, updateRegistry } from "./registry";
@@ -9,9 +10,10 @@ import { once, readRegistry, updateRegistry } from "./registry";
  */
 export interface VoiceDef {
   name: string;
-  language: "en" | "ja" | "fr" | "es";
+  language: LanguageCode;
   role: string;
   description: string;
+  /** Voice Design sample text: 100 to 1000 characters (it refuses anything shorter). */
   sample: string;
   fallback: string;
 }
@@ -96,6 +98,66 @@ export const VOICE_DEFS: Record<string, VoiceDef> = {
       "¡Buenas! Yo le subo las maletas, no se preocupe. El ascensor está a la derecha. Si necesita cualquier cosa, estoy aquí en la entrada. ¡Bienvenido a Sevilla, que lo pase genial!",
     fallback: "TX3LPaxmHKxFdv7VOQHJ",
   },
+  xiaoyu: {
+    name: "Babbli · Xiaoyu (boba shop cashier)",
+    language: "zh",
+    role: "NPC · Shanghai boba shop",
+    description:
+      "A bright, friendly young Chinese woman in her early twenties, the cashier at a trendy bubble tea shop in Shanghai. Native Mandarin speaker with a clear, standard mainland Putonghua accent (not Taiwanese, not Cantonese). Light, sweet and upbeat customer-service voice, quick and natural, warm but not childish.",
+    sample:
+      "欢迎光临！您好，想喝点什么？我们家的招牌奶茶很受欢迎哦。小料有珍珠、荔枝冻和仙草冻，珍珠特别Q弹。甜度和冰量要怎么调？七分糖少冰是吧，好嘞！一共十七块，扫这个码就可以了。这是您的小票，好了叫号，请稍等。慢走哦，欢迎下次光临！",
+    fallback: "EXAVITQu4vr4xnSDxMaL",
+  },
+  ahao: {
+    name: "Babbli · Ahao (boba bar)",
+    language: "zh",
+    role: "Background · drink callouts",
+    description:
+      "A cheerful young Chinese man in his twenties making drinks at the bar of a busy bubble tea shop, calling out orders over the noise. Loud, quick and energetic, native standard mainland Mandarin.",
+    sample:
+      "好嘞！珍珠奶茶一杯，七分糖少冰！荔枝冻奶茶一杯，去冰！仙草冻奶茶热的，马上好！原味奶茶一杯，半糖正常冰！A幺二八号封好了，放取餐台了啊！下一杯，常温！今天人好多啊，大家稍等一下，很快就好！来来来，摇起来，冰块多放一点！",
+    fallback: "TX3LPaxmHKxFdv7VOQHJ",
+  },
+  caller_zh: {
+    name: "Babbli · Pickup call system (Mandarin)",
+    language: "zh",
+    role: "Background · number calls",
+    description:
+      "An automated order-calling system in a Chinese tea shop: a clear, even, slightly synthetic young female voice in standard mainland Mandarin, calm and neutral, like a public announcement.",
+    sample:
+      "请A幺二八号顾客到取餐台取餐。请A幺二九号顾客到取餐台取餐。您的饮品已制作完成，请尽快取用。外卖订单请到右侧取餐区领取。温馨提示，热饮请小心烫口。请保管好您的小票。感谢您的耐心等待，祝您生活愉快，欢迎下次光临。",
+    fallback: "21m00Tcm4TlvDq8ikWAM",
+  },
+  doyun: {
+    name: "Babbli · Doyun (convenience store clerk)",
+    language: "ko",
+    role: "NPC · Seoul midnight convenience store",
+    description:
+      "A young Korean man in his early twenties with a soft, soothing, warm voice: gentle, slightly breathy and calm, like a K-pop idol chatting with fans on a late-night livestream. Native speaker with a standard Seoul accent. Kind and unhurried, with a smile in his voice. Polite, natural customer-service Korean.",
+    sample:
+      "어서 오세요, 비 많이 오죠? 천천히 보세요. 아, 이 삼각김밥 원 플러스 원이에요. 하나 더 가져오세요. 데워 드릴까요? 이십 초면 돼요. 봉투 필요하세요? 포인트 적립하시겠어요? 다 해서 구천이백 원입니다. 카드 꽂아 주세요. 영수증은 버려 드릴게요. 비 오니까 조심히 들어가세요!",
+    fallback: "TX3LPaxmHKxFdv7VOQHJ",
+  },
+  machine_ko: {
+    name: "Babbli · Ramen machine voice (Korean)",
+    language: "ko",
+    role: "Background · ramen machine",
+    description:
+      "The automated voice of a noodle-cooking machine in a Korean convenience store: a clear, bright, slightly synthetic young female voice in standard Seoul Korean, even and cheerful like an appliance announcement.",
+    sample:
+      "조리를 시작합니다. 삼 분 후에 완성됩니다. 전용 용기를 기계 위에 올려 주세요. 물이 나옵니다. 뜨거우니 손을 조심하세요. 조리가 완료되었습니다. 맛있게 드세요. 용기를 다시 확인해 주세요.",
+    fallback: "21m00Tcm4TlvDq8ikWAM",
+  },
+  radio_ko: {
+    name: "Babbli · Late-night radio DJ (Korean)",
+    language: "ko",
+    role: "Background · store radio",
+    description:
+      "A late-night Korean radio DJ, a woman in her thirties: low, warm, intimate and soothing, speaking slowly as if close to the microphone, standard Seoul accent.",
+    sample:
+      "안녕하세요, 비 오는 밤의 라디오입니다. 오늘 하루도 정말 수고 많으셨어요. 창밖에 빗소리 들리시나요? 따뜻한 거 하나 드시고, 푹 쉬세요. 다음 곡 들으시면서 오늘 밤을 천천히 마무리해 보세요.",
+    fallback: "EXAVITQu4vr4xnSDxMaL",
+  },
   coach_en: {
     name: "Babbli · Coach (English)",
     language: "en",
@@ -135,6 +197,26 @@ export const VOICE_DEFS: Record<string, VoiceDef> = {
     sample:
       "Hola. Voy a leer algunas expresiones útiles, despacio y con claridad. Escuche con atención y repita después de mí. Tengo una reserva a nombre de Alex Morgan. Muchas gracias.",
     fallback: "FGY2WhTYpPnrIDTdsKH5",
+  },
+  coach_zh: {
+    name: "Babbli · Coach (Mandarin)",
+    language: "zh",
+    role: "Hints & native reference audio",
+    description:
+      "A calm, clear native Mandarin woman in her 30s with standard, broadcast-clear Putonghua and a neutral mainland accent, speaking slowly and precisely like a language teacher recording reference audio, with very clear tones.",
+    sample:
+      "你好。接下来，我会慢慢地、清楚地读一些常用的句子。请仔细听，然后跟我说。每句话我会读两遍，注意听声调的变化。你好，我要一杯奶茶。加珍珠。七分糖，少冰。可以扫码吗？谢谢，再见！说错了也没关系，我们一起慢慢练习吧，加油！",
+    fallback: "XrExE9yKIg1WjnnlVkGX",
+  },
+  coach_ko: {
+    name: "Babbli · Coach (Korean)",
+    language: "ko",
+    role: "Hints & native reference audio",
+    description:
+      "A calm, clear native Korean woman in her 30s with a standard Seoul accent, speaking slowly and precisely like a language teacher recording reference audio, with careful, natural pronunciation.",
+    sample:
+      "안녕하세요. 지금부터 편의점에서 자주 쓰는 표현을 천천히, 또박또박 읽어 드릴게요. 잘 듣고 따라 해 보세요. 여드름 패치 어디 있어요? 이거 계산해 주세요. 네, 데워 주세요. 영수증은 버려 주세요. 수고하세요! 틀려도 괜찮아요, 같이 연습해 봐요.",
+    fallback: "XrExE9yKIg1WjnnlVkGX",
   },
   // Alternate coaches, picked in the Traveler Profile. Only playback uses them: the standard coach
   // stays the native timing reference for scores. Designed the first time someone chooses one.
@@ -177,6 +259,26 @@ export const VOICE_DEFS: Record<string, VoiceDef> = {
     sample:
       "Hola. Vamos a practicar juntos algunas expresiones útiles, despacio. Primero escuche y luego repita conmigo. Tengo una reserva a nombre de Morgan. ¿A qué hora es el desayuno?",
     fallback: "TX3LPaxmHKxFdv7VOQHJ",
+  },
+  coach_zh_alt: {
+    name: "Babbli · Coach 2 (Mandarin)",
+    language: "zh",
+    role: "Hints & native reference audio (alternate)",
+    description:
+      "A warm, clear native Mandarin man in his 30s with standard, broadcast-clear Putonghua and a neutral mainland accent, speaking slowly and precisely like a friendly language teacher recording reference audio, with very clear tones.",
+    sample:
+      "你好！我们一起来练习几个常用的句子吧。先仔细听我说，然后跟着我说一遍，注意每个字的声调。你好，我要一杯珍珠奶茶。半糖，去冰。我扫你吧。在这儿喝。谢谢，拜拜！慢慢来，别着急，多练几次就好了。说得越多，就说得越自然。",
+    fallback: "JBFqnCBsd6RMkjVDRZzb",
+  },
+  coach_ko_alt: {
+    name: "Babbli · Coach 2 (Korean)",
+    language: "ko",
+    role: "Hints & native reference audio (alternate)",
+    description:
+      "A warm, clear native Korean man in his 30s with a standard Seoul accent, speaking slowly and precisely like a friendly language teacher recording reference audio, with careful, natural pronunciation.",
+    sample:
+      "안녕하세요! 오늘은 편의점에서 쓰는 표현을 같이 연습해 볼게요. 먼저 잘 듣고, 저를 따라서 말해 보세요. 하나 더 가져올게요. 봉투는 괜찮아요. 공일공 사팔이칠 일오구삼이에요. 카드로 할게요. 또 올게요! 천천히, 자신 있게 말해 보세요.",
+    fallback: "JBFqnCBsd6RMkjVDRZzb",
   },
 };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { CommitStrategy, RealtimeEvents, Scribe, type RealtimeConnection } from "@elevenlabs/client";
-import { cleanTranscript } from "@/lib/evaluation/text";
+import { cleanTranscript, unspaced } from "@/lib/evaluation/text";
 import { api } from "./api";
 
 /**
@@ -18,7 +18,7 @@ export class LiveCaptions {
   private join(a: string, b: string, language: string) {
     if (!a) return b.trim();
     if (!b.trim()) return a;
-    return language === "ja" ? `${a}${b.trim()}` : `${a} ${b.trim()}`;
+    return unspaced(language) ? `${a}${b.trim()}` : `${a} ${b.trim()}`;
   }
 
   async start(language: string, keyterms: string[]) {

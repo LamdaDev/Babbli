@@ -4,7 +4,7 @@
  * decide what is true in the world and when the scenario advances.
  */
 
-export type LanguageCode = "en" | "ja" | "fr" | "es";
+export type LanguageCode = "en" | "ja" | "fr" | "es" | "zh" | "ko";
 export type Difficulty = "beginner" | "intermediate" | "immersion";
 /** Voice Mode delivery: live = ElevenAgents listens to the mic directly; ptt = record → Scribe → text to agent. */
 export type InputMode = "live" | "ptt";
@@ -89,6 +89,8 @@ export type SceneEventId =
   | "issue_found"
   | "issue_resolved"
   | "item_shown"
+  | "item_added"
+  | "heated"
   | "gift_wrapped";
 
 export interface Outcome {
@@ -165,7 +167,7 @@ export interface StageDef {
   learnerOpens?: string;
 }
 
-export type HairStyle = "short" | "buzz" | "middle" | "bob" | "long" | "bun" | "curly";
+export type HairStyle = "short" | "buzz" | "middle" | "bob" | "long" | "bun" | "curly" | "ponytail" | "comma";
 
 export interface CharacterLook {
   skin: string;
@@ -176,8 +178,17 @@ export interface CharacterLook {
   outfitShade: string;
   apron?: string;
   accent: string;
-  accessory: "headband" | "scarf" | "badge" | "lanyard";
+  accessory: "headband" | "scarf" | "badge" | "lanyard" | "headset" | "vest";
   eyes: string;
+  /** Narrower shoulders, waist and neck (and everything worn on them). Default: regular. */
+  build?: "regular" | "slender";
+  /** Light makeup, off by default: lashes at the outer corners, lip and cheek colors. */
+  makeup?: { lashes?: boolean; lips?: string; blush?: string };
+  /** Headset look: the shop monogram printed on the apron, and the name badge text (default: the NPC's name). */
+  apronMark?: string;
+  badgeText?: string;
+  /** A small hoop on the right ear (its color). Default: none. */
+  earring?: string;
 }
 
 export interface NpcDef {
@@ -190,15 +201,20 @@ export interface NpcDef {
 }
 
 /**
- * How characters address the learner (from their profile pronouns): feminine for she/her,
- * neutral for they/them or custom pronouns. Unset pronouns and he/him keep the default text.
+ * How characters address the learner (from their profile pronouns): feminine for she/her, masculine
+ * for he/him, neutral for they/them or custom pronouns. Unset pronouns keep the default text, and so
+ * does any form a line doesn't define.
  */
 export type AddressForm = "feminine" | "masculine" | "neutral";
-/** Variants of a line for languages where addressing someone is gendered (e.g. bienvenido/bienvenida). */
-export type AddressForms = Partial<Record<"feminine" | "neutral", string>>;
+/**
+ * Variants of a line for languages where addressing someone is gendered (e.g. bienvenido/bienvenida,
+ * or Mandarin shop-talk: 帅哥 / 美女 for a young man / woman, where the neutral default is 您).
+ */
+export type AddressForms = Partial<Record<AddressForm, string>>;
 
 export function inAddressForm(text: string, forms: AddressForms | undefined, form: AddressForm | null): string {
   if (form === "feminine") return forms?.feminine ?? text;
+  if (form === "masculine") return forms?.masculine ?? text;
   if (form === "neutral") return forms?.neutral ?? text;
   return text;
 }
@@ -224,14 +240,18 @@ export interface ScenarioDef {
   /** Short objective for the in-scene HUD (fits on one line). */
   goal: string;
   demoRole: "hero" | "generalization";
+  /** The newest destination: shown with a "New" chip on the home screen. */
+  isNew?: boolean;
   blurb: string;
   npc: NpcDef;
   /** Secondary voices heard in the scene (chef, barista, bellhop). */
   backgroundVoices: Record<string, { voiceKey: string; name: string }>;
-  art: "store" | "ramen" | "cafe" | "hotel";
+  art: "store" | "ramen" | "cafe" | "hotel" | "boba" | "midnight";
   /** Optional illustrated background image — overrides the vector scene. */
   backgroundImage?: string;
   ambienceAsset: string;
+  /** Optional music heard in the scene (a radio in the shop), played quietly under the ambience. */
+  musicAsset?: string;
   sfx: Record<string, string>;
   briefing: { title: string; lines: string[] };
   /**

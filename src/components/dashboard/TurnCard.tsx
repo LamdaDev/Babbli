@@ -2,7 +2,7 @@
 
 import { turnAudioUrl } from "@/lib/client/api";
 import type { ReferenceTiming, TurnSpeechMetrics } from "@/lib/evaluation/speech";
-import { withoutEmDashes } from "@/lib/evaluation/text";
+import { unspaced, withoutEmDashes } from "@/lib/evaluation/text";
 import { GENERIC_INTENTS, type ResponseMode, type ScenarioDef } from "@/lib/scenarios/types";
 import type { LearnerTurn } from "@/lib/session/types";
 import { PlayButton } from "./PlayButton";
@@ -51,7 +51,7 @@ export function TurnCard({
   const lang = scenario.language;
   const o = turn.outcome ? OUTCOME[turn.outcome.kind] : null;
   const words = turn.stt?.words ?? [];
-  const joiner = lang === "ja" ? "" : " ";
+  const joiner = unspaced(lang) ? "" : " ";
   const hintsUsed = turn.hints.length ? Math.max(...turn.hints) : 0;
   const text = mode === "text";
 
@@ -77,7 +77,7 @@ export function TurnCard({
         <div className="mt-3 border-l-4 border-ink/15 pl-3">
           <div className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">{scenario.npc.name} said</div>
           <div className="font-jp text-lg" lang={lang}>
-            {withoutEmDashes(turn.npcPrompt)}
+            {withoutEmDashes(turn.npcPrompt, lang)}
           </div>
           <div className="text-sm italic text-ink-soft">{withoutEmDashes(turn.npcPromptMeaning)}</div>
         </div>
@@ -169,11 +169,11 @@ export function TurnCard({
             {!text && turn.audio?.uploaded && <PlayButton src={turnAudioUrl(sessionId, turn.id)} label="Your recording" tone="learner" />}
             {turn.expected && (
               <span className="font-jp text-sm text-ink-soft" lang={lang}>
-                “{withoutEmDashes(turn.expected.reference)}”
+                “{withoutEmDashes(turn.expected.reference, lang)}”
               </span>
             )}
           </div>
-          {!text && metrics.hasSpeech && <RhythmChart native={reference?.segments ?? null} nativeState={referenceState} learner={metrics.segments} />}
+          {!text && metrics.hasSpeech && <RhythmChart native={reference?.segments ?? null} nativeState={referenceState} learner={metrics.segments} lang={lang} />}
         </div>
       )}
 
@@ -183,13 +183,13 @@ export function TurnCard({
           <tbody className="[&_td]:border-t [&_td]:border-ink/10 [&_td]:py-1 [&_td]:pr-3 [&_td]:align-top">
             <tr><td className="font-bold">Turn ID</td><td>{turn.id}</td></tr>
             <tr><td className="font-bold">Start → end</td><td>{new Date(turn.startedAt).toLocaleTimeString()} → {turn.endedAt ? new Date(turn.endedAt).toLocaleTimeString() : "n/a"}</td></tr>
-            <tr><td className="font-bold">NPC prompt</td><td className="font-jp">{withoutEmDashes(turn.npcPrompt) || "n/a"}</td></tr>
+            <tr><td className="font-bold">NPC prompt</td><td className="font-jp" lang={lang}>{withoutEmDashes(turn.npcPrompt, lang) || "n/a"}</td></tr>
             <tr><td className="font-bold">Expected intent</td><td>{turn.expected ? `${turn.expected.intent} (${turn.expected.label})` : "free response"}</td></tr>
             <tr><td className="font-bold">Detected intent</td><td>{turn.report?.intent ?? "n/a"} · answered question: {String(turn.report?.answered_question ?? "n/a")} · language: {turn.report?.language ?? "n/a"}</td></tr>
             <tr><td className="font-bold">Task progress</td><td>{turn.outcome ? `${turn.outcome.kind} → ${turn.outcome.nextStageId} (success: ${turn.outcome.success})` : "n/a"}</td></tr>
-            <tr><td className="font-bold">Agent transcript</td><td className="font-jp">{turn.transcriptAgent ?? "n/a"}</td></tr>
-            <tr><td className="font-bold">Scribe transcript</td><td className="font-jp">{turn.stt ? `${turn.stt.transcript} (${turn.stt.model}, ${turn.stt.languageCode} ${Math.round(turn.stt.languageProbability * 100)}%)` : "n/a"}</td></tr>
-            <tr><td className="font-bold">Word timestamps</td><td className="font-jp">{words.length ? words.map((w) => `${w.text} ${w.start.toFixed(2)}–${w.end.toFixed(2)}s${w.confidence != null ? ` (${Math.round(w.confidence * 100)}%)` : ""}`).join(" · ") : "n/a"}</td></tr>
+            <tr><td className="font-bold">Agent transcript</td><td className="font-jp" lang={lang}>{turn.transcriptAgent ?? "n/a"}</td></tr>
+            <tr><td className="font-bold">Scribe transcript</td><td className="font-jp" lang={lang}>{turn.stt ? `${turn.stt.transcript} (${turn.stt.model}, ${turn.stt.languageCode} ${Math.round(turn.stt.languageProbability * 100)}%)` : "n/a"}</td></tr>
+            <tr><td className="font-bold">Word timestamps</td><td className="font-jp" lang={lang}>{words.length ? words.map((w) => `${w.text} ${w.start.toFixed(2)}–${w.end.toFixed(2)}s${w.confidence != null ? ` (${Math.round(w.confidence * 100)}%)` : ""}`).join(" · ") : "n/a"}</td></tr>
             <tr><td className="font-bold">Hints used</td><td>{turn.hints.length ? turn.hints.join(", ") : "none"}</td></tr>
             <tr><td className="font-bold">Repeats / slow</td><td>{turn.repeats} / {turn.slows}</td></tr>
             <tr><td className="font-bold">Raw audio</td><td>{turn.audio ? `${turn.audio.mimeType}, ${(turn.audio.durationMs / 1000).toFixed(1)}s${turn.audio.uploaded ? "" : " (not uploaded)"}` : "n/a"}</td></tr>

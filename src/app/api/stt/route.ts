@@ -1,4 +1,4 @@
-import { cleanTranscript } from "@/lib/evaluation/text";
+import { cleanTranscript, unspaced } from "@/lib/evaluation/text";
 import { getScenario } from "@/lib/scenarios";
 import { transcribe, type SttWord } from "@/lib/server/audio";
 import { errorResponse } from "@/lib/server/http";
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
   try {
     const r = await transcribe(file, language, keyterms);
     const kept = learnerWords(r.words);
-    const joined = kept.map((w) => w.text).join(language === "ja" ? "" : " ");
+    const joined = kept.map((w) => w.text).join(unspaced(language) ? "" : " ");
     const capture: SpeechCapture = {
       // Spoken words only: no "(coughs)"-style event tags, no other speakers.
       transcript: cleanTranscript(joined),
